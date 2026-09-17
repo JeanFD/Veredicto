@@ -58,8 +58,8 @@ async def processar_voto(voto: Voto, urna_id: str):
     with db:
         db.execute(
             "INSERT OR IGNORE INTO votos "
-            "(id, sessao_id, opcao, votado_em, urna_id) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "(id, sessao_id, urna_id, opcao_chave, votado_em, recebido_em) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (str(voto.id), voto.sessao_id, urna_id, voto.opcao, voto.votado_em.isoformat(), agora()),
         )
 
