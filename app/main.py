@@ -1,19 +1,30 @@
-import secrets
-import sqlite3
-
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+import datetime import datetime
+import secrets
+import sqlite3
+import uuid
 
 from app.db import db, agora
-from app.seguranca import exigir_admin, hash_token
+from app.seguranca import exigir_admin, hash_token, exigir_urna
 
 app = FastAPI(title="Veredicto", version="0.1.0")
+
+
 
 class NovaUrna(BaseModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,30}$")
     nome: str = Field(min_length=1, max_length=60)
     reserva: bool = False
+
+class Voto(BaseModel):
+    id: uuid.UUID
+    sessao_id: int
+    opcao: str
+    votado_em: datetime
+
+
 
 def buscar_sessao_ativa():
     s = db.execute("SELECT * FROM sessoes WHERE ativa = 1").fetchone()
@@ -28,6 +39,31 @@ def buscar_sessao_ativa():
         "estado": s["estado"],
         "opcoes": [dict(o) for o in opcoes]
     }
+
+def total_votos(sid: int) -> int:
+    return db.execute("SELECT COUNT(*) FROM votos WHERE sessao_id = ?", (sid,)).fetchone()[0]
+
+async def processar_voto(voto: Voto, urna_id: str):
+    if db.execute("SELECT 1 FROM votos WHERE id = ?", (str(voto.id),)).fetchone():
+        return
+
+    sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (voto.sessao_id,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, "Sessão inexistente")
+    if sessao["estado"] != "ABERTA":
+        raise HTTPException(409, "Sessão não está aberta")
+    if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?", (voto.sessao_id, voto.opcao)).fetchone():
+        raise HTTPException(400, "Opção inválida")
+
+    with db:
+        db.execute(
+            "INSERT OR IGNORE INTO votos "
+            "(id, sessao_id, opcao, votado_em, urna_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (str(voto.id), voto.sessao_id, urna_id, voto.opcao, voto.votado_em.isoformat(), agora()),
+        )
+
+
 
 @app.get("/api/sessao/ativa")
 async def sessao_ativa():
@@ -67,5 +103,12 @@ async def desativar_urna(uid: str):
     if not cur.rowcount:
         raise HTTPException(status_code=404, detail="Urna inexistente")
     return {"ok": True}
+
+@app.post("/api/votos")
+async def registrar_voto(voto: Voto, urna_id: str = Depends(exigir_urna)):
+    await processar_voto(voto, urna_id)
+    return {"ok": True}
+
+
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
