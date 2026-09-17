@@ -1,0 +1,9 @@
+[
+  {
+    "tema": "Sessão de teste",
+    "opcoes": [
+      { "chave": "acusacao", "rotulo": "Acusação", "cor": "#dc2626" },
+      { "chave": "defesa",   "rotulo": "Defesa",   "cor": "#2563eb" }
+    ]
+  }
+]

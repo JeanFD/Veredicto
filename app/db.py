@@ -9,7 +9,7 @@ db.row_factory = sqlite3.Row
 if DB_PATH != ":memory:":
     db.execute("PRAGMA journal_mode=WAL")
 
-    db.executescript("""
+db.executescript("""
         CREATE TABLE IF NOT EXISTS sessoes (
         id INTEGER PRIMARY KEY,
         tema TEXT NOT NULL,
@@ -42,24 +42,24 @@ if DB_PATH != ":memory:":
         votado_em TEXT NOT NULL,
         recebido_em TEXT NOT NULL
     );
-    """)
+""")
 
-    def agora() -> str:
-        return datetime.now(timezone.utc).isoformat()
+def agora() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
-    def carregar_sessoes():
-        if db.execute("SELECT COUNT(*) FROM sessoes").fetchone()[0] == 0:
-            return
-        with open(SESSOES_PATH, enconding="utf-8") as f:
-            sessoes = json.load(f)
-        with db:
-            for s in sessoes:
-                cur = db.execute("INSERT INTO sessoes (tema) VALUES (?)", (s["tema"],))
-                for ordem, op in enumerate(s["opcoes"]):
-                    db.execute(
-                        "INSERT INTO opcoes (sessao_id, chave, rotulo, cor, ordem) "
-                        "VALUES (?, ?, ?, ?, ?)",
-                        (cur.lastrowid, op["chave"], op["rotulo"], op["cor"], ordem),
-                    )
+def carregar_sessoes():
+    if db.execute("SELECT COUNT(*) FROM sessoes").fetchone()[0] != 0:
+        return
+    with open(SESSOES_PATH, encoding="utf-8") as f:
+        sessoes = json.load(f)
+    with db:
+        for s in sessoes:
+            cur = db.execute("INSERT INTO sessoes (tema) VALUES (?)", (s["tema"],))
+            for ordem, op in enumerate(s["opcoes"]):
+                db.execute(
+                    "INSERT INTO opcoes (sessao_id, chave, rotulo, cor, ordem) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (cur.lastrowid, op["chave"], op["rotulo"], op["cor"], ordem),
+                )
 
-    carregar_sessoes()
+carregar_sessoes()

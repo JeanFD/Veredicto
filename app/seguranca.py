@@ -10,7 +10,7 @@ from app.db import db
 basic = HTTPBasic(auto_error=False)
 
 def hash_token(token: str) -> str:
-    return hashlib.sha256(token.enconde()).hexdigest()
+    return hashlib.sha256(token.encode()).hexdigest()
 
 def senha_correta(senha: str) -> bool:
     return secrets.compare_digest(senha.encode(), ADMIN_SENHA.encode())
