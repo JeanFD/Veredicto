@@ -1,12 +1,14 @@
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
-from datetime import datetime
 import secrets
 import sqlite3
 import uuid
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from datetime import datetime
 
 from app.db import db, agora
+from app.ws import gerente
 from app.seguranca import exigir_admin, hash_token, exigir_urna
 
 app = FastAPI(title="Veredicto", version="0.1.0")
@@ -56,12 +58,22 @@ async def processar_voto(voto: Voto, urna_id: str):
         raise HTTPException(400, "Opção inválida")
 
     with db:
-        db.execute(
+        cur = db.execute(
             "INSERT OR IGNORE INTO votos "
             "(id, sessao_id, urna_id, opcao_chave, votado_em, recebido_em) "
             "VALUES (?, ?, ?, ?, ?, ?)",
-            (str(voto.id), voto.sessao_id, urna_id, voto.opcao, voto.votado_em.isoformat(), agora()),
+            (str(voto.id), voto.sessao_id, urna_id, voto.opcao,
+             voto.votado_em.isoformat(), agora()),
         )
+    if cur.rowcount:
+        await gerente.broadcast(
+            {"tipo": "total", "sessao_id": voto.sessao_id, "total": total_votos(voto.sessao_id)},
+            "telao", "mesario",
+        )
+
+def estado_publico(tipo: str = "estado") -> dict:
+    s=buscar_sessao_ativa()
+    return{"tipo": tipo, "sessao": s, "total_votos": total_votos(s["id"]) if s else 0}
 
 
 
@@ -81,6 +93,7 @@ async def ativar_sessao(sid: int):
     with db:
         db.execute("UPDATE sessoes SET ativa = 0")
         db.execute("UPDATE sessoes SET ativa = 1 WHERE id = ?", (sid,))
+    await gerente.broadcast(estado_publico(), "telao", "mesario")
     return {"sessao": buscar_sessao_ativa()}
 
 @app.post("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
@@ -109,6 +122,16 @@ async def registrar_voto(voto: Voto, urna_id: str = Depends(exigir_urna)):
     await processar_voto(voto, urna_id)
     return {"ok": True}
 
+@app.websocket("/ws/telao")
+async def ws_telao(ws: WebSocket):
+    await ws.accept()
+    gerente.adicionar(ws, "telao")
+    await ws.send_json(estado_publico("snapshot"))
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        gerente.remover(ws)
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
