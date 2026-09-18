@@ -8,13 +8,13 @@ from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from datetime import datetime
-from contextlib import asyncccontextmanager
+from contextlib import asynccontextmanager
 
 from app.db import db, agora
 from app.ws import gerente
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta
 
-@asyncccontextmanager
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     async def vigiar_urnas():
         while True:
