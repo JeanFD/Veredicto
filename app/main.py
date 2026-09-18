@@ -258,7 +258,7 @@ async def ws_mesario(ws: WebSocket):
 @app.post("/api/urnas/heartbeat")
 async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
     ultimo_sinal[urna_id] = {"em": time.monotonic(), "pendentes": hb.pendentes}
-    return {"sessao": buscar_sessao_ativa}
+    return {"sessao": buscar_sessao_ativa()}
 
 @app.get("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
 async def listar_urnas():
