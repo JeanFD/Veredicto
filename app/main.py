@@ -2,23 +2,41 @@ import secrets
 import sqlite3
 import uuid
 import asyncio
+import time
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from datetime import datetime
+from contextlib import asyncccontextmanager
 
 from app.db import db, agora
 from app.ws import gerente
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta
 
-app = FastAPI(title="Veredicto", version="0.1.0")
+@asyncccontextmanager
+async def lifespan(app: FastAPI):
+    async def vigiar_urnas():
+        while True:
+            await gerente.broadcast({"tipo": "urnas", "urnas": status_urnas()}, "mesario")
+            await asyncio.sleep(5)
+
+    tarefa = asyncio.create_task(vigiar_urnas())
+    yield
+    tarefa.cancel()
+
+app = FastAPI(title="Veredicto", lifespan=lifespan, version="0.1.0")
 
 TRANSICOES = {
     "AGUARDANDO": "ABERTA",
     "ABERTA": "ENCERRADA",
     "ENCERRADA": "REVELADA",
 }
+
+ultimo_sinal: dict[str, dict] = {}
+
+class Heartbeat(BaseModel):
+    pendentes: int = Field(ge=0)
 
 class NovaUrna(BaseModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,30}$")
@@ -93,6 +111,31 @@ def contar_por_opcao(sid: int) -> list[dict]:
         ORDER BY o.ordem
     """, (sid,)).fetchall()
     return [dict(l) for l in linhas]
+
+def status_urnas() -> list[dict]:
+    s = buscar_sessao_ativa()
+    agora_mono = time.monotonic()
+    resultado = []
+    for u in db.execute("SELECT id, nome, ativa, reserva FROM urnas ORDER BY id"):
+        sinal = ultimo_sinal.get(u["id"])
+        votos = 0
+        if s:
+            votos = db.execute(
+                "SELECT COUNT(*) FROM votos WHERE urna_id = ? AND sessao_id = ?",
+                (u["id"], s["id"]),
+            ).fetchone()[0]
+        resultado.append({
+            "id": u["id"],
+            "nome": u["nome"],
+            "ativa": bool(u["ativa"]),
+            "reserva": bool(u["reserva"]),
+            "nunca_conectou": sinal is None,
+            "online": sinal is not None and agora_mono - sinal["em"] < 15,
+            "segundos_sem_sinal": int(agora_mono - sinal["em"]) if sinal else None,
+            "pendentes": sinal["pendentes"] if sinal else None,
+            "votos_sessao": votos,
+        })
+    return resultado
 
 
 
@@ -193,6 +236,15 @@ async def ws_mesario(ws: WebSocket):
             await ws.receive_text()
     except WebSocketDisconnect:
         gerente.remover(ws)
+
+@app.post("/api/urnas/heartbeat")
+async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
+    ultimo_sinal[urna_id] = {"em": time.monotonic(), "pendentes": hb.pendentes}
+    return {"sessao": buscar_sessao_ativa}
+
+@app.get("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
+async def listar_urnas():
+    return status_urnas()
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
