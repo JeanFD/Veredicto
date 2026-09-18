@@ -67,13 +67,13 @@ async def processar_voto(voto: Voto, urna_id: str):
         )
     if cur.rowcount:
         await gerente.broadcast(
-            {"tipo": "total", "sessao_id": voto.sessao_id, "total_votos": total_votos(voto.sessao_id)},
+            {"tipo": "total", "sessao_id": voto.sessao_id, "total": total_votos(voto.sessao_id)},
             "telao", "mesario",
         )
 
 def estado_publico(tipo: str = "estado") -> dict:
     s=buscar_sessao_ativa()
-    return{"tipo": tipo, "sessao": s, "total_votos": total_votos(s["id"]) if s else 0}
+    return{"tipo": tipo, "sessao": s, "total": total_votos(s["id"]) if s else 0}
 
 
 
