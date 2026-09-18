@@ -67,7 +67,7 @@ async def processar_voto(voto: Voto, urna_id: str):
         )
     if cur.rowcount:
         await gerente.broadcast(
-            {"tipo": "total", "sessao_id": voto.sessao_id, "total": total_votos(voto.sessao_id)},
+            {"tipo": "total", "sessao_id": voto.sessao_id, "total_votos": total_votos(voto.sessao_id)},
             "telao", "mesario",
         )
 

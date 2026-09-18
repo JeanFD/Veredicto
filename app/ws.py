@@ -11,7 +11,7 @@ class Gerente:
         for conexoes in self.salas.values():
             conexoes.discard(ws)
 
-    async def broeadcast(self, msg: dict, *salas: str):
+    async def broadcast(self, msg: dict, *salas: str):
         for sala in salas:
             for ws in list(self.salas[sala]):
                 try:
