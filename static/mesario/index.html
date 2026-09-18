@@ -34,6 +34,15 @@
 
     <h2>Urnas</h2>
     <div id="urnas" class="grade"></div>
+    <h3>Cadastrar urna</h3>
+    <form id="nova-urna">
+      <input id="nova-id" placeholder="id (ex: urna3)" required pattern="[a-z0-9-]{1,30}">
+      <input id="nova-nome" placeholder="nome (ex: Entrada)" required>
+      <label><input id="nova-reserva" type="checkbox"> reserva</label>
+      <button>Cadastrar</button>
+    </form>
+    <div id="link-urna"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   </section>
 
   <script src="mesario.js"></script>

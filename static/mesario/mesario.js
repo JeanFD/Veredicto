@@ -129,3 +129,61 @@ $("entrar").onclick = async () => {
 };
 
 if (senha) iniciar();
+
+
+// ---------- Urnas ----------
+window.mostrarUrnas = (urnas) => {
+  const area = $("urnas");
+  area.innerHTML = "";
+  for (const u of urnas) {
+    const classe = !u.ativa ? "inativa" : u.nunca_conectou ? "nunca" : u.online ? "online" : "offline";
+    const situacao = !u.ativa ? "desativada"
+      : u.nunca_conectou ? "nunca conectou"
+      : u.online ? `${u.pendentes} pendentes`
+      : `offline há ${u.segundos_sem_sinal}s`;
+
+    const cartao = document.createElement("div");
+    cartao.className = `urna ${classe}`;
+    for (const texto of [`${u.id}${u.reserva ? " (reserva)" : ""}`, u.nome, `${u.votos_sessao} votos`, situacao]) {
+      const linha = document.createElement("div");
+      linha.textContent = texto;
+      cartao.appendChild(linha);
+    }
+    if (u.ativa) {
+      cartao.appendChild(criarBotao("Desativar", () => {
+        if (confirm(`Desativar ${u.id}? Ela não poderá mais enviar votos.`)) {
+          acao(`/api/admin/urnas/${u.id}/desativar`);
+        }
+      }));
+    }
+    area.appendChild(cartao);
+  }
+};
+
+$("nova-urna").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const { id, token } = await api("POST", "/api/admin/urnas", {
+      id: $("nova-id").value,
+      nome: $("nova-nome").value,
+      reserva: $("nova-reserva").checked,
+    });
+    const link = `${location.origin}/urna/#id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`;
+
+    const area = $("link-urna");
+    area.innerHTML = "";
+    const aviso = document.createElement("p");
+    aviso.textContent = `Abra na urna ${id}. Este link não será mostrado de novo.`;
+    const campo = document.createElement("input");
+    campo.value = link;
+    campo.readOnly = true;
+    campo.style.width = "100%";
+    const qr = document.createElement("div");
+    area.append(aviso, campo, qr);
+    new QRCode(qr, { text: link, width: 220, height: 220 });
+
+    e.target.reset();
+  } catch (err) {
+    alert(err.message);
+  }
+};
