@@ -37,8 +37,8 @@ function botao(texto, cor, aoClicar, classe) {
   $("opcoes").appendChild(b);
 }
 
-
-if (ocupada) return;
+function renderizar() {
+  if (ocupada) return;
   limpar();
   if (!sessao || sessao.estado !== "ABERTA") {
     $("tema").textContent = "Votação fechada";
@@ -48,6 +48,7 @@ if (ocupada) return;
   for (const op of sessao.opcoes) {
     botao(op.rotulo, op.cor, () => confirmar(op));
   }
+}
 
 
 function confirmar(op) {
