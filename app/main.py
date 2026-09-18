@@ -224,6 +224,16 @@ async def avancar_sessao(sid: int, forcar: bool = False):
         problemas = problemas_para_revelar()
         if problemas:
             raise HTTPException(409, {"mensagem": "Há pendências", "problemas": problemas})
+        
+    with db:
+        if novo == "ENCERRADA":
+            db.execute("UPDATE sessoes SET estado = ?, encerrada_em = ? WHERE id = ?",
+                       (novo, agora(), sid))
+        else:
+            db.execute("UPDATE sessoes SET estado = ? WHERE id = ?", (novo, sid))
+
+    await gerente.broadcast(estado_publico(), "telao", "mesario")
+    return {"estado": novo}
 
 @app.websocket("/ws/mesario")
 async def ws_mesario(ws: WebSocket):
