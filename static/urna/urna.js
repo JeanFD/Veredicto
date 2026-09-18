@@ -85,7 +85,15 @@ function atualizarSessao(nova) {
 
 async function buscarSessao() {
   try {
-    const r = await fetch("/api/sessao/ativa");
+    const r = await fetch("/api/urnas/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Urna-Token": TOKEN },
+      body: JSON.stringify({ pendentes: ler("fila", []).length }),
+    });
+    if (r.status === 401) {
+      $("rede").textContent = "urna não autorizada";
+      return;
+    }
     atualizarSessao((await r.json()).sessao);
     $("rede").textContent = "online";
   } catch {

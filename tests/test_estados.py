@@ -22,7 +22,7 @@ def test_resultado_so_apos_revelar(cliente, urna):
     with cliente.websocket_connect("/ws/telao") as ws:
         assert "resultado" not in ws.receive_json()
 
-    avancar(cliente)                                   # REVELADA
+    avancar(cliente, forcar="true")                                   # REVELADA
     with cliente.websocket_connect("/ws/telao") as ws:
         resultado = {o["chave"]: o["votos"] for o in ws.receive_json()["resultado"]}
     assert resultado == {"acusacao": 0, "defesa": 1}

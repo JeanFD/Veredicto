@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.db import db
-from app.main import app
+from app.main import app, ultimo_sinal
 from tests.auxiliares import ADMIN
 
 @pytest.fixture
@@ -19,6 +19,7 @@ def cliente():
         db.execute("DELETE FROM votos")
         db.execute("DELETE FROM urnas")
         db.execute("UPDATE sessoes SET estado = 'AGUARDANDO', ativa = 0, encerrada_em = NULL")
+        ultimo_sinal.clear()
     with TestClient(app) as c:
         yield c
 
