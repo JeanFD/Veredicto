@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Veredito · Telão</title>
+  <style>
+    body { margin: 0; height: 100vh; background: #0f172a; color: #f8fafc;
+           font-family: system-ui, sans-serif; display: flex; flex-direction: column;
+           align-items: center; justify-content: center; gap: 2rem; text-align: center; }
+    h1 { font-size: 3rem; max-width: 80%; margin: 0; }
+    #total { font-size: 12rem; font-weight: 700; line-height: 1; }
+    #resultado { width: 80%; display: grid; gap: 1.5rem; }
+    .barra { display: grid; grid-template-columns: 12rem 1fr 6rem; align-items: center;
+             gap: 1rem; font-size: 2.5rem; }
+    .preenchimento { height: 4rem; border-radius: 0.5rem; transition: width 1s; }
+  </style>
+</head>
+<body>
+  <h1 id="tema">Aguardando</h1>
+  <section id="contagem">
+    <div id="total">0</div>
+    <p>votos registrados</p>
+  </section>
+  <section id="resultado" hidden></section>
+  <script src="telao.js"></script>
+</body>
+</html>

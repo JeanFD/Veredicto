@@ -37,7 +37,6 @@ function botao(texto, cor, aoClicar, classe) {
   $("opcoes").appendChild(b);
 }
 
-
 function renderizar() {
   if (ocupada) return;
   limpar();
