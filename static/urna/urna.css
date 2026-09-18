@@ -1,0 +1,22 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0; height: 100vh; font-family: system-ui, sans-serif;
+  background: #0f172a; color: #f8fafc;
+  display: flex; flex-direction: column; user-select: none;
+}
+main {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2rem; padding: 2rem;
+}
+h1 { font-size: clamp(1.5rem, 4vw, 3rem); text-align: center; margin: 0; }
+#opcoes {
+  display: grid; gap: 1.5rem; width: 100%; max-width: 900px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+button {
+  font-size: clamp(1.5rem, 5vw, 3rem); padding: 2.5rem 1rem;
+  border: none; border-radius: 1rem; color: white; cursor: pointer;
+}
+button:active { transform: scale(0.97); }
+.secundario { background: #475569; }
+footer { display: flex; justify-content: space-between; padding: 0.5rem 1rem; opacity: 0.5; }

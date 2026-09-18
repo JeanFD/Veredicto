@@ -1,14 +1,14 @@
 [
     {
         "tema": "Soberania digital, ameaças de espionagem e infraestrutura de redes",
-        "opções": [
+        "opcoes": [
             { "chave": "acusacao", "rotulo":"Acusação", "cor": "#dc2626"},
             { "chave": "defesa", "rotulo":"Defesa", "cor": "#2563eb"}
         ]
     },
     {
         "tema": "Responsabilidade das redes sociais e manipulação algorítmica",
-        "opções": [
+        "opcoes": [
             { "chave": "acusacao", "rotulo":"Acusação", "cor": "#dc2626"},
             { "chave": "defesa", "rotulo":"Defesa", "cor": "#2563eb"}
         ]
