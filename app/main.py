@@ -137,6 +137,19 @@ def status_urnas() -> list[dict]:
         })
     return resultado
 
+def problemas_para_revelar() -> list[str]:
+    problemas = []
+    for u in status_urnas():
+        if not u["ativa"] or (u["reserva"] and u["nunca_conectou"]):
+            continue
+        if u["nunca_conectou"]:
+            problemas.append(f'{u["id"]}: nunca conectou')
+        elif not u["online"]:
+            problemas.append(f'{u["id"]}: offline há {u["segundos_sem_sinal"]}s, pendências desconhecidas')
+        elif u["pendentes"]:
+            problemas.append(f'{u["id"]}: {u["pendentes"]} votos pendentes')
+    return problemas
+
 
 
 
@@ -197,7 +210,7 @@ async def ws_telao(ws: WebSocket):
         gerente.remover(ws)
 
 @app.post("/api/admin/sessoes/{sid}/avancar", dependencies=[Depends(exigir_admin)])
-async def avancar_sessao(sid: int):
+async def avancar_sessao(sid: int, forcar: bool = False):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
         raise HTTPException(404, "Sessão inexistente")
@@ -207,15 +220,10 @@ async def avancar_sessao(sid: int):
     if not novo:
         raise HTTPException(409, "Sessão já revelada")
 
-    with db:
-        if novo == "ENCERRADA":
-            db.execute("UPDATE sessoes SET estado = ?, encerrada_em = ? WHERE id = ?",
-                       (novo, agora(), sid))
-        else:
-            db.execute("UPDATE sessoes SET estado = ? WHERE id = ?", (novo, sid))
-
-    await gerente.broadcast(estado_publico(), "telao", "mesario")
-    return {"estado": novo}
+    if novo == "REVELADA" and not forcar:
+        problemas = problemas_para_revelar()
+        if problemas:
+            raise HTTPException(409, {"mensagem": "Há pendências", "problemas": problemas})
 
 @app.websocket("/ws/mesario")
 async def ws_mesario(ws: WebSocket):
