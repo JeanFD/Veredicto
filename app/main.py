@@ -1,6 +1,7 @@
 import secrets
 import sqlite3
 import uuid
+import asyncio
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
@@ -9,11 +10,15 @@ from datetime import datetime
 
 from app.db import db, agora
 from app.ws import gerente
-from app.seguranca import exigir_admin, hash_token, exigir_urna
+from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta
 
 app = FastAPI(title="Veredicto", version="0.1.0")
 
-
+TRANSICOES = {
+    "AGUARDANDO": "ABERTA",
+    "ABERTA": "ENCERRADA",
+    "ENCERRADA": "REVELADA",
+}
 
 class NovaUrna(BaseModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,30}$")
@@ -73,7 +78,22 @@ async def processar_voto(voto: Voto, urna_id: str):
 
 def estado_publico(tipo: str = "estado") -> dict:
     s=buscar_sessao_ativa()
-    return{"tipo": tipo, "sessao": s, "total": total_votos(s["id"]) if s else 0}
+    msg = {"tipo": tipo, "sessao": s, "total": total_votos(s["id"]) if s else 0}
+    if s and s["estado"] == "REVELADA":
+        msg["resultado"] = contar_por_opcao(s["id"])
+    return msg
+
+def contar_por_opcao(sid: int) -> list[dict]:
+    linhas = db.execute("""
+        SELECT o.chave, o.rotulo, o.cor, COUNT(v.id) AS votos
+        FROM opcoes o
+        LEFT JOIN votos v ON v.sessao_id = o.sessao_id AND v.opcao_chave = o.chave
+        WHERE o.sessao_id = ?
+        GROUP BY o.id
+        ORDER BY o.ordem
+    """, (sid,)).fetchall()
+    return [dict(l) for l in linhas]
+
 
 
 
@@ -126,6 +146,47 @@ async def registrar_voto(voto: Voto, urna_id: str = Depends(exigir_urna)):
 async def ws_telao(ws: WebSocket):
     await ws.accept()
     gerente.adicionar(ws, "telao")
+    await ws.send_json(estado_publico("snapshot"))
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        gerente.remover(ws)
+
+@app.post("/api/admin/sessoes/{sid}/avancar", dependencies=[Depends(exigir_admin)])
+async def avancar_sessao(sid: int):
+    sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, "Sessão inexistente")
+    if not sessao["ativa"]:
+        raise HTTPException(409, "Ative a sessão antes")
+    novo = TRANSICOES.get(sessao["estado"])
+    if not novo:
+        raise HTTPException(409, "Sessão já revelada")
+
+    with db:
+        if novo == "ENCERRADA":
+            db.execute("UPDATE sessoes SET estado = ?, encerrada_em = ? WHERE id = ?",
+                       (novo, agora(), sid))
+        else:
+            db.execute("UPDATE sessoes SET estado = ? WHERE id = ?", (novo, sid))
+
+    await gerente.broadcast(estado_publico(), "telao", "mesario")
+    return {"estado": novo}
+
+@app.websocket("/ws/mesario")
+async def ws_mesario(ws: WebSocket):
+    await ws.accept()
+    try:
+        auth = await asyncio.wait_for(ws.receive_json(), timeout = 5)
+    except Exception:
+        await ws.close(code=4401)
+        return
+    if not senha_correta(str(auth.get("senha",""))):
+        await ws.close(code=4401)
+        return
+
+    gerente.adicionar(ws, "mesario")
     await ws.send_json(estado_publico("snapshot"))
     try:
         while True:
