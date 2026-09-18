@@ -174,7 +174,7 @@ async def avancar_sessao(sid: int):
     await gerente.broadcast(estado_publico(), "telao", "mesario")
     return {"estado": novo}
 
-@app.websocket("ws/mesario")
+@app.websocket("/ws/mesario")
 async def ws_mesario(ws: WebSocket):
     await ws.accept()
     try:
