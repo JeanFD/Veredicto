@@ -15,11 +15,15 @@ from tests.auxiliares import ADMIN
 
 @pytest.fixture
 def cliente():
+    from app.main import ultimo_sinal
+    from app.seguranca import falhas
+    ultimo_sinal.clear()
+    falhas.clear()
+
     with db:
         db.execute("DELETE FROM votos")
         db.execute("DELETE FROM urnas")
         db.execute("UPDATE sessoes SET estado = 'AGUARDANDO', ativa = 0, encerrada_em = NULL")
-        ultimo_sinal.clear()
     with TestClient(app) as c:
         yield c
 
