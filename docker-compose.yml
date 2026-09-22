@@ -14,16 +14,16 @@ services:
       - "host.docker.internal:host-gateway"
     networks: [web]
 
-veredicto:
-  build: .
-  container_name: veredicto
-  restart: unless-stopped
-  env_file: .env
-  volumes:
-    - ./data:/data
-  networks: [web]
-  mem_limit: 512m
-  cpus: 1.0
+  veredicto:
+    build: .
+    container_name: veredicto
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data
+    networks: [web]
+    mem_limit: 512m
+    cpus: 1.0
 
 networks:
   web:
@@ -32,4 +32,3 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
-  
