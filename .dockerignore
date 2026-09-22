@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.git/
+tests/
+data/
+*.db
+*.db-*
+.env
+README.md

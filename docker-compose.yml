@@ -1,0 +1,35 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks: [web]
+
+veredicto:
+  build: .
+  container_name: veredicto
+  restart: unless-stopped
+  env_file: .env
+  volumes:
+    - ./data:/data
+  networks: [web]
+  mem_limit: 512m
+  cpus: 1.0
+
+networks:
+  web:
+    name: web
+
+volumes:
+  caddy_data:
+  caddy_config:
+  
