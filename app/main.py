@@ -12,7 +12,8 @@ from contextlib import asynccontextmanager
 
 from app.db import db, agora
 from app.ws import gerente
-from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta
+from app.config import EM_PRODUCAO
+from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,7 +26,14 @@ async def lifespan(app: FastAPI):
     yield
     tarefa.cancel()
 
-app = FastAPI(title="Veredicto", lifespan=lifespan, version="0.1.0")
+app = FastAPI(
+    title="Veredicto",
+    lifespan=lifespan,
+    version="0.1.0",
+    docs_url=None if EM_PRODUCAO else "/docs",
+    redoc_url=None,
+    openapi_url=None if EM_PRODUCAO else "/openapi.json",
+)
 
 TRANSICOES = {
     "AGUARDANDO": "ABERTA",
@@ -237,13 +245,18 @@ async def avancar_sessao(sid: int, forcar: bool = False):
 
 @app.websocket("/ws/mesario")
 async def ws_mesario(ws: WebSocket):
+    ip = ws.client.host
     await ws.accept()
+    if bloqueado(ip):
+        await ws.close(code=4429)
+        return
     try:
-        auth = await asyncio.wait_for(ws.receive_json(), timeout = 5)
+        auth = await asyncio.wait_for(ws.receive_json(), timeout=5)
     except Exception:
         await ws.close(code=4401)
         return
-    if not senha_correta(str(auth.get("senha",""))):
+    if not senha_correta(str(auth.get("senha", ""))):
+        registrar_falha(ip)
         await ws.close(code=4401)
         return
 
