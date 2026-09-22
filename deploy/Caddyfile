@@ -8,18 +8,18 @@
     }
 }
 
-veredito-SEU-SUB.duckdns.org {
+veredicto.duckdns.org {
     import seguranca
     encode gzip
     reverse_proxy veredicto:8000
 }
 
-jogo-SEU-SUB.duckdns.org {
+despertar-das-raizes.duckdns.org {
     encode gzip
     reverse_proxy host.docker.internal:8080
 }
 
-metrics-SEU-SUB.duckdns.org {
+vibemetrics.duckdns.org {
     encode gzip
     reverse_proxy vibemetrics:5000
 }
