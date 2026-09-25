@@ -327,8 +327,8 @@ async def exportar_votos(sid: int):
     registrar_evento("votos_exportados", f"sessao={sid}")
     return Response(
         buffer.getvalue(),
-        media_type="text/csv"
-       headers={"Content-Disposition": f'attachment; filename="sessao-{sid}-votos.csv"'},
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="sessao-{sid}-votos.csv"'},
     )
 
 @app.post("/api/admin/importar", dependencies=[Depends(exigir_admin)])
