@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 from app.db import db, agora, registrar_evento
@@ -40,6 +40,8 @@ TRANSICOES = {
     "ABERTA": "ENCERRADA",
     "ENCERRADA": "REVELADA",
 }
+
+TOLERANCIA_ATRASO = timedelta(minutes=10)
 
 ultimo_sinal: dict[str, dict] = {}
 
@@ -83,8 +85,8 @@ async def processar_voto(voto: Voto, urna_id: str):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (voto.sessao_id,)).fetchone()
     if not sessao:
         raise HTTPException(404, "Sessão inexistente")
-    if sessao["estado"] != "ABERTA":
-        raise HTTPException(409, "Sessão não está aberta")
+    if not aceita_voto(sessao, voto.votado_em):
+        raise HTTPException(409, "Sessão não aceita este voto")
     if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?", (voto.sessao_id, voto.opcao)).fetchone():
         raise HTTPException(400, "Opção inválida")
 
@@ -157,6 +159,15 @@ def problemas_para_revelar() -> list[str]:
         elif u["pendentes"]:
             problemas.append(f'{u["id"]}: {u["pendentes"]} votos pendentes')
     return problemas
+
+def aceita_voto(sessao, votado_em: datetime) -> bool:
+    if sessao["estado"] == "ABERTA":
+        return True
+    if sessao["estado"] == "ENCERRADA" and sessao["encerrada_em"]:
+        encerrada = datetime.fromisoformat(sessao["encerrada_em"])
+        dentro_do_prazo = datetime.fromisoformat(agora()) - encerrada <= TOLERANCIA_ATRASO
+        return votado_em <= encerrada and dentro_do_prazo
+    return False
 
 
 
