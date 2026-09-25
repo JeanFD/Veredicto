@@ -42,6 +42,12 @@ db.executescript("""
         votado_em TEXT NOT NULL,
         recebido_em TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS eventos (
+        id INTEGER PRIMARY KEY,
+        tipo TEXT NOT NULL,
+        detalhe TEXT NOT NULL DEFAULT '',
+        em TEXT NOT NULL
+    );
 """)
 
 def agora() -> str:
@@ -61,5 +67,10 @@ def carregar_sessoes():
                     "VALUES (?, ?, ?, ?, ?)",
                     (cur.lastrowid, op["chave"], op["rotulo"], op["cor"], ordem),
                 )
+
+def registrar_evento(tipo: str, detalhe: str = ""):
+    with db:
+        db.execute("INSERT INTO eventos (tipo, detalhe, em) VALUES (?, ?, ?)",
+                   (tipo, detalhe, agora()))
 
 carregar_sessoes()
