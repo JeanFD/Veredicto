@@ -9,8 +9,8 @@ COPY app/ ./app/
 COPY static/ ./static/
 COPY sessoes.json .
 
-RUN useradd --create-home veredito && mkdir -p /data && chown veredito /data
-USER veredito
+RUN useradd --create-home veredicto && mkdir -p /data && chown veredicto /data
+USER veredicto
 
 EXPOSE 8000
 

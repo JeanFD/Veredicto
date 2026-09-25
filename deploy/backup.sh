@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ORIGEM=/opt/veredito/data/veredito.db
+ORIGEM=/opt/veredicto/data/veredicto.db
 DESTINO=/home/jean/backups
 mkdir -p "$DESTINO"
-sqlite3 "$ORIGEM" ".backup '$DESTINO/veredito-$(date +%Y%m%d-%H%M).db'"
-find "$DESTINO" -name 'veredito-*.db' -mtime +7 -delete
+sqlite3 "$ORIGEM" ".backup '$DESTINO/veredicto-$(date +%Y%m%d-%H%M).db'"
+find "$DESTINO" -name 'veredicto-*.db' -mtime +7 -delete
