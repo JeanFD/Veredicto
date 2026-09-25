@@ -21,7 +21,7 @@ jobs:
           username: ${{secrets.VPS_USER}}
           key: ${{secrets.VPS_SSH_KEY}}
           script: |
-            set -event
+            set -e
             cd /opt/veredicto
             git pull --ff-only
             docker compose up -d --build veredicto
