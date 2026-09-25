@@ -3,9 +3,14 @@ import sqlite3
 import uuid
 import asyncio
 import time
+import csv
+import io
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
+
 from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
@@ -58,6 +63,10 @@ class Voto(BaseModel):
     sessao_id: int
     opcao: str
     votado_em: datetime
+
+class Importacao(BaseModel):
+    urna_id: str
+    votos: list[Voto]
 
 
 
@@ -297,6 +306,44 @@ async def listar_urnas():
 @app.get("/api/admin/eventos", dependencies=[Depends(exigir_admin)])
 async def listar_eventos():
     return [dict(e) for e in db.execute("SELECT * FROM eventos ORDER BY id")]
+
+@app.get("/api/admin/sessoes/{sid}/votos.csv", dependencies=[Depends(exigir_admin)])
+async def exportar_votos(sid: int):
+    sessao = db.execute("SELECT estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, "Sessão inexistente")
+    if sessao["estado"] != "REVELADA":
+        raise HTTPException(409, "Exportação liberada só após revelar")
+
+    buffer = io.StringIO()
+    escritor = csv.writer(buffer)
+    escritor.writerow(["id", "urna_id", "opcao", "votado_em", "recebido_em"])
+    for v in db.execute(
+        "SELECT id, urna_id, opcao_chave, votado_em, recebido_em"
+        "FROM votos WHERE sessao_id = ? ORDER BY recebido_em", (sid,)
+    ):
+        escritor.writerow(list(v))
+
+    registrar_evento("votos_exportados", f"sessao={sid}")
+    return Response(
+        buffer.getvalue(),
+        media_type="text/csv"
+       headers={"Content-Disposition": f'attachment; filename="sessao-{sid}-votos.csv"'},
+    )
+
+@app.post("/api/admin/importar", dependencies=[Depends(exigir_admin)])
+async def importar_votos(dados: Importacao):
+    if not db.execute("SELECT 1 FROM urnas WHERE id = ?", (dados.urna_id,)).fetchone():
+        raise HTTPException(404, "Urna inexistente")
+    aceitos, recusados = 0, []
+    for voto in dados.votos:
+        try:
+            await processar_voto(voto, dados.urna_id)
+            aceitos+=1
+        except HTTPException as e:
+            recusados.append({"id": str(voto.id), "motivo": e.detail})
+    registrar_evento("importacao", f"urna={dados.urna_id} aceitos={aceitos} recusados={len(recusados)}")
+    return {"aceitos": aceitos, "recusados": recusados}
 
 
 
