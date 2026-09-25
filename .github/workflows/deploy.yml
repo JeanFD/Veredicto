@@ -3,7 +3,7 @@ name: Deploy
 on:
   workflow_run:
     workflows: ["Testes"]
-    type: [completed]
+    types: [completed]
     branches: [main]
 
 concurrency:
