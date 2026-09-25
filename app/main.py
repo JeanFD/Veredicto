@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from app.db import db, agora
+from app.db import db, agora, registrar_evento
 from app.ws import gerente
 from app.config import EM_PRODUCAO
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
@@ -178,6 +178,7 @@ async def ativar_sessao(sid: int):
         db.execute("UPDATE sessoes SET ativa = 0")
         db.execute("UPDATE sessoes SET ativa = 1 WHERE id = ?", (sid,))
     await gerente.broadcast(estado_publico(), "telao", "mesario")
+    registrar_evento("sessao_ativada", f"sessao={sid}")
     return {"sessao": buscar_sessao_ativa()}
 
 @app.post("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
@@ -191,6 +192,7 @@ async def cadastrar_urna(u: NovaUrna):
             )
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="ID de urna já existe")
+    registrar_evento("urna_cadastrada", u.id)
     return {"id": u.id, "token": token}
 
 @app.post("/api/admin/urnas/{uid}/desativar", dependencies=[Depends(exigir_admin)])
@@ -199,6 +201,7 @@ async def desativar_urna(uid: str):
         cur = db.execute("UPDATE urnas SET ativa = 0 WHERE id = ?", (uid,))
     if not cur.rowcount:
         raise HTTPException(status_code=404, detail="Urna inexistente")
+    registrar_evento("urna_desativada", uid)
     return {"ok": True}
 
 @app.post("/api/votos")
@@ -228,10 +231,12 @@ async def avancar_sessao(sid: int, forcar: bool = False):
     if not novo:
         raise HTTPException(409, "Sessão já revelada")
 
-    if novo == "REVELADA" and not forcar:
+    if novo == "REVELADA":
         problemas = problemas_para_revelar()
-        if problemas:
+        if problemas and not forcar:
             raise HTTPException(409, {"mensagem": "Há pendências", "problemas": problemas})
+        if problemas:
+            registrar_evento("revelacao_forcada", "; ".join(problemas))
         
     with db:
         if novo == "ENCERRADA":
@@ -241,6 +246,7 @@ async def avancar_sessao(sid: int, forcar: bool = False):
             db.execute("UPDATE sessoes SET estado = ? WHERE id = ?", (novo, sid))
 
     await gerente.broadcast(estado_publico(), "telao", "mesario")
+    registrar_evento("sessao_avancada", f"sessao={sid} estado={novo}")
     return {"estado": novo}
 
 @app.websocket("/ws/mesario")
@@ -276,6 +282,11 @@ async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
 @app.get("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
 async def listar_urnas():
     return status_urnas()
+
+@app.get("/api/admin/eventos", dependencies=[Depends(exigir_admin)])
+async def listar_eventos():
+    return [dict(e) for e in db.execute("SELECT * FROM eventos ORDER BY id")]
+
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

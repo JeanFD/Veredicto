@@ -14,6 +14,7 @@ def test_rotas_admin_exigem_senha(cliente):
         ("post", "/api/admin/sessoes/1/ativar"),
         ("post", "/api/admin/sessoes/1/avancar"),
         ("post", "/api/admin/urnas/qualquer/desativar"),
+        ("get", "/api/admin/eventos")
     ]
     for metodo, rota in rotas:
         assert getattr(cliente, metodo)(rota).status_code == 401, rota
