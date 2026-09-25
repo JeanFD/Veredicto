@@ -3,14 +3,19 @@ import sqlite3
 import uuid
 import asyncio
 import time
+import csv
+import io
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
+
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
-from app.db import db, agora
+from app.db import db, agora, registrar_evento
 from app.ws import gerente
 from app.config import EM_PRODUCAO
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
@@ -41,6 +46,8 @@ TRANSICOES = {
     "ENCERRADA": "REVELADA",
 }
 
+TOLERANCIA_ATRASO = timedelta(minutes=10)
+
 ultimo_sinal: dict[str, dict] = {}
 
 class Heartbeat(BaseModel):
@@ -56,6 +63,10 @@ class Voto(BaseModel):
     sessao_id: int
     opcao: str
     votado_em: datetime
+
+class Importacao(BaseModel):
+    urna_id: str
+    votos: list[Voto]
 
 
 
@@ -83,8 +94,8 @@ async def processar_voto(voto: Voto, urna_id: str):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (voto.sessao_id,)).fetchone()
     if not sessao:
         raise HTTPException(404, "Sessão inexistente")
-    if sessao["estado"] != "ABERTA":
-        raise HTTPException(409, "Sessão não está aberta")
+    if not aceita_voto(sessao, voto.votado_em):
+        raise HTTPException(409, "Sessão não aceita este voto")
     if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?", (voto.sessao_id, voto.opcao)).fetchone():
         raise HTTPException(400, "Opção inválida")
 
@@ -158,6 +169,15 @@ def problemas_para_revelar() -> list[str]:
             problemas.append(f'{u["id"]}: {u["pendentes"]} votos pendentes')
     return problemas
 
+def aceita_voto(sessao, votado_em: datetime) -> bool:
+    if sessao["estado"] == "ABERTA":
+        return True
+    if sessao["estado"] == "ENCERRADA" and sessao["encerrada_em"]:
+        encerrada = datetime.fromisoformat(sessao["encerrada_em"])
+        dentro_do_prazo = datetime.fromisoformat(agora()) - encerrada <= TOLERANCIA_ATRASO
+        return votado_em <= encerrada and dentro_do_prazo
+    return False
+
 
 
 
@@ -178,6 +198,7 @@ async def ativar_sessao(sid: int):
         db.execute("UPDATE sessoes SET ativa = 0")
         db.execute("UPDATE sessoes SET ativa = 1 WHERE id = ?", (sid,))
     await gerente.broadcast(estado_publico(), "telao", "mesario")
+    registrar_evento("sessao_ativada", f"sessao={sid}")
     return {"sessao": buscar_sessao_ativa()}
 
 @app.post("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
@@ -191,6 +212,7 @@ async def cadastrar_urna(u: NovaUrna):
             )
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="ID de urna já existe")
+    registrar_evento("urna_cadastrada", u.id)
     return {"id": u.id, "token": token}
 
 @app.post("/api/admin/urnas/{uid}/desativar", dependencies=[Depends(exigir_admin)])
@@ -199,6 +221,7 @@ async def desativar_urna(uid: str):
         cur = db.execute("UPDATE urnas SET ativa = 0 WHERE id = ?", (uid,))
     if not cur.rowcount:
         raise HTTPException(status_code=404, detail="Urna inexistente")
+    registrar_evento("urna_desativada", uid)
     return {"ok": True}
 
 @app.post("/api/votos")
@@ -228,10 +251,12 @@ async def avancar_sessao(sid: int, forcar: bool = False):
     if not novo:
         raise HTTPException(409, "Sessão já revelada")
 
-    if novo == "REVELADA" and not forcar:
+    if novo == "REVELADA":
         problemas = problemas_para_revelar()
-        if problemas:
+        if problemas and not forcar:
             raise HTTPException(409, {"mensagem": "Há pendências", "problemas": problemas})
+        if problemas:
+            registrar_evento("revelacao_forcada", "; ".join(problemas))
         
     with db:
         if novo == "ENCERRADA":
@@ -241,6 +266,7 @@ async def avancar_sessao(sid: int, forcar: bool = False):
             db.execute("UPDATE sessoes SET estado = ? WHERE id = ?", (novo, sid))
 
     await gerente.broadcast(estado_publico(), "telao", "mesario")
+    registrar_evento("sessao_avancada", f"sessao={sid} estado={novo}")
     return {"estado": novo}
 
 @app.websocket("/ws/mesario")
@@ -276,6 +302,49 @@ async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
 @app.get("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
 async def listar_urnas():
     return status_urnas()
+
+@app.get("/api/admin/eventos", dependencies=[Depends(exigir_admin)])
+async def listar_eventos():
+    return [dict(e) for e in db.execute("SELECT * FROM eventos ORDER BY id")]
+
+@app.get("/api/admin/sessoes/{sid}/votos.csv", dependencies=[Depends(exigir_admin)])
+async def exportar_votos(sid: int):
+    sessao = db.execute("SELECT estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, "Sessão inexistente")
+    if sessao["estado"] != "REVELADA":
+        raise HTTPException(409, "Exportação liberada só após revelar")
+
+    buffer = io.StringIO()
+    escritor = csv.writer(buffer)
+    escritor.writerow(["id", "urna_id", "opcao", "votado_em", "recebido_em"])
+    for v in db.execute(
+        "SELECT id, urna_id, opcao_chave, votado_em, recebido_em"
+        "FROM votos WHERE sessao_id = ? ORDER BY recebido_em", (sid,)
+    ):
+        escritor.writerow(list(v))
+
+    registrar_evento("votos_exportados", f"sessao={sid}")
+    return Response(
+        buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="sessao-{sid}-votos.csv"'},
+    )
+
+@app.post("/api/admin/importar", dependencies=[Depends(exigir_admin)])
+async def importar_votos(dados: Importacao):
+    if not db.execute("SELECT 1 FROM urnas WHERE id = ?", (dados.urna_id,)).fetchone():
+        raise HTTPException(404, "Urna inexistente")
+    aceitos, recusados = 0, []
+    for voto in dados.votos:
+        try:
+            await processar_voto(voto, dados.urna_id)
+            aceitos+=1
+        except HTTPException as e:
+            recusados.append({"id": str(voto.id), "motivo": e.detail})
+    registrar_evento("importacao", f"urna={dados.urna_id} aceitos={aceitos} recusados={len(recusados)}")
+    return {"aceitos": aceitos, "recusados": recusados}
+
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
