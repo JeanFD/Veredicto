@@ -52,6 +52,7 @@ ultimo_sinal: dict[str, dict] = {}
 
 class Heartbeat(BaseModel):
     pendentes: int = Field(ge=0)
+    recusados: int = Field(default=0, ge=0)
 
 class NovaUrna(BaseModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,30}$")
@@ -157,6 +158,7 @@ def status_urnas() -> list[dict]:
             "online": sinal is not None and agora_mono - sinal["em"] < 15,
             "segundos_sem_sinal": int(agora_mono - sinal["em"]) if sinal else None,
             "pendentes": sinal["pendentes"] if sinal else None,
+            "recusados": sinal["recusados"] if sinal else 0,
             "votos_sessao": votos,
         })
     return resultado
@@ -301,7 +303,7 @@ async def ws_mesario(ws: WebSocket):
 
 @app.post("/api/urnas/heartbeat")
 async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
-    ultimo_sinal[urna_id] = {"em": time.monotonic(), "pendentes": hb.pendentes}
+    ultimo_sinal[urna_id] = {"em": time.monotonic(), "pendentes": hb.pendentes, "recusados": hb.recusados}
     return {"sessao": buscar_sessao_ativa()}
 
 @app.get("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
