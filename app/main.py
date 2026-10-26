@@ -87,17 +87,22 @@ def buscar_sessao_ativa():
 def total_votos(sid: int) -> int:
     return db.execute("SELECT COUNT(*) FROM votos WHERE sessao_id = ?", (sid,)).fetchone()[0]
 
+def recusa(status: int, motivo: str, mensagem: str) -> HTTPException:
+    return HTTPException(status, {"motivo": motivo, "mensagem": mensagem})
+
 async def processar_voto(voto: Voto, urna_id: str):
     if db.execute("SELECT 1 FROM votos WHERE id = ?", (str(voto.id),)).fetchone():
         return
 
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (voto.sessao_id,)).fetchone()
     if not sessao:
-        raise HTTPException(404, "Sessão inexistente")
+        raise recusa(404, "sessao_inexistente", "Sessão inexistente")
     if not aceita_voto(sessao, voto.votado_em):
-        raise HTTPException(409, "Sessão não aceita este voto")
+        if sessao["estado"] in ("ENCERRADA", "REVELADA"):
+            raise recusa(409, "sessao_encerrada", "Sessão encerrada")
+        raise recusa(409, "sessao_nao_aberta", "Sessão ainda não foi aberta")
     if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?", (voto.sessao_id, voto.opcao)).fetchone():
-        raise HTTPException(400, "Opção inválida")
+        raise recusa(400, "opcao_invalida", "Opção inválida")
 
     with db:
         cur = db.execute(
@@ -341,7 +346,7 @@ async def importar_votos(dados: Importacao):
             await processar_voto(voto, dados.urna_id)
             aceitos+=1
         except HTTPException as e:
-            recusados.append({"id": str(voto.id), "motivo": e.detail})
+            recusados.append({"id": str(voto.id), "motivo": e.detail["motivo"]})
     registrar_evento("importacao", f"urna={dados.urna_id} aceitos={aceitos} recusados={len(recusados)}")
     return {"aceitos": aceitos, "recusados": recusados}
 
