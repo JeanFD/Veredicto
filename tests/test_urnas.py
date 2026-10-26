@@ -41,3 +41,7 @@ def test_total_bate_com_varias_urnas(cliente, n_urnas):
 
     urnas = cliente.get("/api/admin/urnas", auth=ADMIN).json()
     assert sum(u["votos_sessao"] for u in urnas) == n_urnas * 5
+def test_status_mostra_votos_recusados_da_urna(cliente, urna):
+    cliente.post("/api/urnas/heartbeat", json={"pendentes": 0, "recusados": 2}, headers=urna)
+    [u] = cliente.get("/api/admin/urnas", auth=ADMIN).json()
+    assert u["recusados"] == 2
