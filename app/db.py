@@ -3,76 +3,15 @@ import sqlite3
 from datetime import datetime, timezone
 
 from app.config import DB_PATH, SESSOES_PATH
+from app.migrar import migrar
 
 db = sqlite3.connect(DB_PATH, check_same_thread=False)
 db.row_factory = sqlite3.Row
 if DB_PATH != ":memory:":
     db.execute("PRAGMA journal_mode=WAL")
 
-db.executescript("""
-        CREATE TABLE IF NOT EXISTS sessoes (
-        id INTEGER PRIMARY KEY,
-        tema TEXT NOT NULL,
-        estado TEXT NOT NULL DEFAULT 'AGUARDANDO',
-        ativa INTEGER NOT NULL DEFAULT 0,
-        encerrada_em TEXT,
-        arquivada INTEGER NOT NULL DEFAULT 0,
-        grupo_id INTEGER,
-        pergunta INTEGER NOT NULL DEFAULT 1
-    );
-    CREATE TABLE IF NOT EXISTS opcoes (
-        id INTEGER PRIMARY KEY,
-        sessao_id INTEGER NOT NULL REFERENCES sessoes(id),
-        chave TEXT NOT NULL,
-        rotulo TEXT NOT NULL,
-        cor TEXT NOT NULL,
-        ordem INTEGER NOT NULL,
-        UNIQUE (sessao_id, chave)
-    );
-    CREATE TABLE IF NOT EXISTS urnas (
-        id TEXT PRIMARY KEY,
-        nome TEXT NOT NULL,
-        token_hash TEXT NOT NULL UNIQUE,
-        ativa INTEGER NOT NULL DEFAULT 1,
-        reserva INTEGER NOT NULL DEFAULT 0,
-        criada_em TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS votos (
-        id TEXT PRIMARY KEY,
-        sessao_id INTEGER NOT NULL REFERENCES sessoes(id),
-        urna_id TEXT NOT NULL REFERENCES urnas(id),
-        opcao_chave TEXT NOT NULL,
-        votado_em TEXT NOT NULL,
-        recebido_em TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS eventos (
-        id INTEGER PRIMARY KEY,
-        tipo TEXT NOT NULL,
-        detalhe TEXT NOT NULL DEFAULT '',
-        em TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS cedulas (
-        token_hash TEXT PRIMARY KEY,
-        sessao_id INTEGER NOT NULL REFERENCES sessoes(id),
-        criada_em TEXT NOT NULL,
-        voto_id TEXT,
-        seguinte_emitida INTEGER NOT NULL DEFAULT 0
-    );
-""")
-
-def adicionar_coluna(tabela: str, coluna: str, definicao: str):
-    # bancos criados antes da coluna existir não passam pelo CREATE TABLE acima
-    colunas = {c["name"] for c in db.execute(f"PRAGMA table_info({tabela})")}
-    if coluna not in colunas:
-        with db:
-            db.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}")
-
-adicionar_coluna("sessoes", "arquivada", "INTEGER NOT NULL DEFAULT 0")
-# questionário: perguntas encadeadas são sessões com o mesmo grupo_id (o id da
-# primeira), cada uma com estado próprio; sessão avulsa tem grupo_id nulo
-adicionar_coluna("sessoes", "grupo_id", "INTEGER")
-adicionar_coluna("sessoes", "pergunta", "INTEGER NOT NULL DEFAULT 1")
-adicionar_coluna("cedulas", "seguinte_emitida", "INTEGER NOT NULL DEFAULT 0")
+# o esquema vem das migrações em app/migracoes; ver app/migrar.py
+migrar(db)
 
 def agora() -> str:
     return datetime.now(timezone.utc).isoformat()
