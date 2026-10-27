@@ -58,6 +58,9 @@ async function carregarSessoes() {
     } else if (PROXIMO[s.estado]) {
       linha.appendChild(criarBotao(PROXIMO[s.estado], () => avancar(s.id, s.estado)));
     }
+    if (!s.arquivada && s.estado !== "REVELADA") {
+      linha.appendChild(criarBotao("Zerar", () => zerar(s)));
+    }
     area.appendChild(linha);
   }
   const arquivadas = sessoes.filter((s) => s.arquivada).length;
@@ -134,6 +137,21 @@ reiniciarFormularioSessao();
 async function acao(caminho) {
   try {
     await api("POST", caminho);
+    await carregarSessoes();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function zerar(s) {
+  const confirmacao = prompt(
+    `Zerar apaga TODOS os votos de "${s.tema}" e volta a sessão para AGUARDANDO.\n\n` +
+    "Para confirmar, digite o tema da sessão:"
+  );
+  if (confirmacao === null) return;
+  try {
+    const { apagados } = await api("POST", `/api/admin/sessoes/${s.id}/zerar`, { confirmacao });
+    alert(`${apagados} votos apagados.`);
     await carregarSessoes();
   } catch (e) {
     alert(e.message);

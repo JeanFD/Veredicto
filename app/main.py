@@ -71,6 +71,9 @@ class Importacao(BaseModel):
     urna_id: str
     votos: list[Voto]
 
+class Zerar(BaseModel):
+    confirmacao: str
+
 class NovaOpcao(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     chave: str | None = Field(default=None, pattern=r"^[a-z0-9_]{1,30}$")
@@ -224,6 +227,22 @@ async def arquivar_sessao(sid: int):
         db.execute("UPDATE sessoes SET arquivada = 1 WHERE id = ?", (sid,))
     registrar_evento("sessao_arquivada", f"sessao={sid}")
     return {"ok": True}
+
+@app.post("/api/admin/sessoes/{sid}/zerar")
+async def zerar_sessao(sid: int, dados: Zerar, responsavel: str = Depends(exigir_admin)):
+    sessao = db.execute("SELECT tema, estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, "Sessão inexistente")
+    if sessao["estado"] == "REVELADA":
+        raise HTTPException(409, "Sessão já revelada: o resultado não pode ser apagado")
+    if dados.confirmacao.strip().casefold() != sessao["tema"].casefold():
+        raise HTTPException(400, "Confirmação não confere com o tema da sessão")
+    with db:
+        apagados = db.execute("DELETE FROM votos WHERE sessao_id = ?", (sid,)).rowcount
+        db.execute("UPDATE sessoes SET estado = 'AGUARDANDO', encerrada_em = NULL WHERE id = ?", (sid,))
+    registrar_evento("sessao_zerada", f"sessao={sid} votos={apagados} por={responsavel}")
+    await gerente.broadcast(estado_publico(), "telao", "mesario")
+    return {"apagados": apagados}
 
 @app.post("/api/admin/sessoes/{sid}/desarquivar", dependencies=[Depends(exigir_admin)])
 async def desarquivar_sessao(sid: int):

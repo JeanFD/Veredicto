@@ -34,13 +34,15 @@ def registrar_falha(ip: str):
     falhas[ip].append(time.monotonic())
 
 
-async def exigir_admin(request: Request, cred: HTTPBasicCredentials | None = Depends(basic)):
+async def exigir_admin(request: Request, cred: HTTPBasicCredentials | None = Depends(basic)) -> str:
     ip = request.client.host
     if bloqueado(ip):
         raise HTTPException(429, "Muitas tentativas. Aguarde alguns minutos.")
     if cred is None or not senha_correta(cred.password):
         registrar_falha(ip)
         raise HTTPException(401, "Não autorizado")
+    # a senha é compartilhada: o IP é o que distingue quem agiu na auditoria
+    return f"{cred.username}@{ip}"
 
 
 async def exigir_urna(x_urna_token: str = Header(...)) -> str:
