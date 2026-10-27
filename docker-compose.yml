@@ -25,6 +25,17 @@ services:
     mem_limit: 512m
     cpus: 1.0
 
+  # opcional: só sobe com --profile escala (ver deploy/ESCALA.md)
+  redis:
+    image: redis:7.4-alpine
+    container_name: veredicto-redis
+    restart: unless-stopped
+    profiles: [escala]
+    # só pub/sub e estado efêmero: sem persistência em disco, memória limitada
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "32mb"]
+    networks: [web]
+    mem_limit: 64m
+
 networks:
   web:
     name: web
