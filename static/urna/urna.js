@@ -223,6 +223,10 @@ $("exportar").onclick = () => {
 };
 
 // ---------- Início ----------
+// abre mesmo recarregada sem rede: ver a estratégia de atualização em sw.js
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/urna/sw.js", { scope: "/urna/" }).catch(() => {});
+}
 renderizar();
 buscarSessao();
 setInterval(buscarSessao, 5000);
