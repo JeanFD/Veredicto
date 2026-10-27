@@ -55,8 +55,9 @@ def base_url(servidor):
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args):
-    # sem animações: o telão mostra números finais na hora e não faz o 3·2·1
-    return {**browser_context_args, "reduced_motion": "reduce"}
+    # sem animações: o telão mostra números finais na hora e não faz o 3·2·1;
+    # navegador em português, o idioma em que os testes leem as telas
+    return {**browser_context_args, "reduced_motion": "reduce", "locale": "pt-BR"}
 
 class Admin:
     """Atalhos do mesário pela API, para preparar o cenário de cada teste."""
