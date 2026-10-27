@@ -17,6 +17,8 @@
     .nunca { border-color: #a3a3a3; } .inativa { opacity: 0.4; }
     .recusados { color: #dc2626; font-weight: bold; }
     input { padding: 0.5rem; }
+    #presets, .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
+    .opcao input[type=color] { padding: 0; width: 3rem; }
   </style>
 </head>
 <body>
@@ -32,6 +34,15 @@
     <h2>Sessões</h2>
     <div id="sessoes"></div>
     <p>Sessão ativa: <strong id="ativa">nenhuma</strong> · Total: <strong id="total">0</strong></p>
+
+    <h3>Criar sessão</h3>
+    <div id="presets"></div>
+    <form id="nova-sessao">
+      <input id="sessao-tema" placeholder="tema" required maxlength="200" style="width: 100%">
+      <div id="sessao-opcoes"></div>
+      <button type="button" id="mais-opcao">+ opção</button>
+      <button>Criar sessão</button>
+    </form>
 
     <h2>Urnas</h2>
     <div id="urnas" class="grade"></div>

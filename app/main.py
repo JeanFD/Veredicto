@@ -5,17 +5,19 @@ import asyncio
 import time
 import csv
 import io
+import re
+import unicodedata
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
-from app.db import db, agora, registrar_evento
+from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets
 from app.ws import gerente
 from app.config import EM_PRODUCAO
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
@@ -68,6 +70,17 @@ class Voto(BaseModel):
 class Importacao(BaseModel):
     urna_id: str
     votos: list[Voto]
+
+class NovaOpcao(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    chave: str | None = Field(default=None, pattern=r"^[a-z0-9_]{1,30}$")
+    rotulo: str = Field(min_length=1, max_length=40)
+    cor: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+
+class NovaSessao(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    tema: str = Field(min_length=1, max_length=200)
+    opcoes: list[NovaOpcao] = Field(min_length=2, max_length=10)
 
 
 
@@ -196,6 +209,29 @@ async def sessao_ativa():
 async def listar_sessoes():
     linhas = db.execute("SELECT id, tema, estado, ativa FROM sessoes ORDER BY id")
     return [dict(l) for l in linhas]
+
+def gerar_chave(rotulo: str) -> str:
+    sem_acento = unicodedata.normalize("NFKD", rotulo).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "_", sem_acento.lower()).strip("_")[:30] or "opcao"
+
+@app.post("/api/admin/sessoes", status_code=201, dependencies=[Depends(exigir_admin)])
+async def criar_sessao(nova: NovaSessao):
+    opcoes = [
+        {"chave": op.chave or gerar_chave(op.rotulo), "rotulo": op.rotulo, "cor": op.cor}
+        for op in nova.opcoes
+    ]
+    if len({op["chave"] for op in opcoes}) != len(opcoes):
+        raise HTTPException(400, "Opções repetidas")
+    if any(s["tema"].casefold() == nova.tema.casefold() for s in db.execute("SELECT tema FROM sessoes")):
+        raise HTTPException(409, "Já existe uma sessão com este tema")
+    with db:
+        sid = inserir_sessao(nova.tema, opcoes)
+    registrar_evento("sessao_criada", f"sessao={sid}")
+    return {"id": sid}
+
+@app.get("/api/admin/presets", dependencies=[Depends(exigir_admin)])
+async def listar_presets():
+    return ler_presets()
 
 @app.post("/api/admin/sessoes/{sid}/ativar", dependencies=[Depends(exigir_admin)])
 async def ativar_sessao(sid: int):
