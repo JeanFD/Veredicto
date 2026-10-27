@@ -22,6 +22,7 @@ def cliente():
 
     with db:
         db.execute("DELETE FROM votos")
+        db.execute("DELETE FROM cedulas")
         db.execute("DELETE FROM urnas")
         db.execute("DELETE FROM opcoes WHERE sessao_id > 1")
         db.execute("DELETE FROM sessoes WHERE id > 1")
