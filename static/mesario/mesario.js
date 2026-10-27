@@ -25,6 +25,7 @@ async function api(metodo, caminho, corpo) {
 
 function criarBotao(texto, aoClicar) {
   const b = document.createElement("button");
+  b.type = "button";
   b.textContent = texto;
   b.onclick = aoClicar;
   return b;
@@ -54,7 +55,72 @@ async function carregarSessoes() {
     }
     area.appendChild(linha);
   }
+  mostrarPresets(sessoes);
 }
+
+// ---------- Criar sessão ----------
+let presets = [];
+
+function mostrarPresets(sessoes) {
+  const existentes = new Set(sessoes.map((s) => s.tema.toLowerCase()));
+  const area = $("presets");
+  area.innerHTML = "";
+  for (const p of presets.filter((p) => !existentes.has(p.tema.toLowerCase()))) {
+    area.appendChild(criarBotao(`Criar: ${p.tema}`, () => criarSessao(p)));
+  }
+}
+
+async function criarSessao(dados) {
+  try {
+    await api("POST", "/api/admin/sessoes", dados);
+    await carregarSessoes();
+    return true;
+  } catch (e) {
+    alert(e.message);
+    return false;
+  }
+}
+
+function adicionarOpcao(rotulo = "", cor = "#64748b") {
+  const linha = document.createElement("div");
+  linha.className = "opcao";
+  const campo = document.createElement("input");
+  campo.placeholder = "rótulo";
+  campo.required = true;
+  campo.maxLength = 40;
+  campo.value = rotulo;
+  const seletor = document.createElement("input");
+  seletor.type = "color";
+  seletor.value = cor;
+  linha.append(campo, seletor, criarBotao("remover", () => {
+    if ($("sessao-opcoes").children.length > 2) linha.remove();
+  }));
+  $("sessao-opcoes").appendChild(linha);
+}
+
+function reiniciarFormularioSessao() {
+  $("nova-sessao").reset();
+  $("sessao-opcoes").innerHTML = "";
+  adicionarOpcao("Acusação", "#dc2626");
+  adicionarOpcao("Defesa", "#2563eb");
+}
+
+$("mais-opcao").onclick = () => adicionarOpcao();
+
+$("nova-sessao").onsubmit = async (e) => {
+  e.preventDefault();
+  const opcoes = [...$("sessao-opcoes").children].map((linha) => {
+    const [rotulo, cor] = linha.querySelectorAll("input");
+    return { rotulo: rotulo.value.trim(), cor: cor.value };
+  });
+  if (opcoes.some((o) => !o.rotulo)) return alert("Preencha todas as opções");
+  if (new Set(opcoes.map((o) => o.rotulo.toLowerCase())).size !== opcoes.length) {
+    return alert("Há opções repetidas");
+  }
+  if (await criarSessao({ tema: $("sessao-tema").value.trim(), opcoes })) reiniciarFormularioSessao();
+};
+
+reiniciarFormularioSessao();
 
 async function acao(caminho) {
   try {
@@ -113,7 +179,9 @@ function sair() {
 function iniciar() {
   $("login").hidden = true;
   $("painel").hidden = false;
-  carregarSessoes();
+  api("GET", "/api/admin/presets")
+    .then((p) => { presets = p; }, () => {})
+    .finally(carregarSessoes);
   conectarWs();
 }
 
