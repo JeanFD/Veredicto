@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from app.config import DB_PATH, SESSOES_PATH
 from app.migrar import migrar
+from app.observabilidade import campos_do_detalhe, log
 
 db = sqlite3.connect(DB_PATH, check_same_thread=False)
 db.row_factory = sqlite3.Row
@@ -44,5 +45,6 @@ def registrar_evento(tipo: str, detalhe: str = ""):
     with db:
         db.execute("INSERT INTO eventos (tipo, detalhe, em) VALUES (?, ?, ?)",
                    (tipo, detalhe, agora()))
+    log(tipo, **campos_do_detalhe(detalhe))
 
 carregar_sessoes()

@@ -8,7 +8,7 @@ import io
 import re
 import unicodedata
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets
 from app.ws import gerente
 from app.config import EM_PRODUCAO
+from app.observabilidade import formato_prometheus, log, metricas
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
 from app.seguranca import (
     JANELA_CODIGO, chave_telao, codigo_celular, codigo_valido, exigir_telao, janela_atual,
@@ -44,6 +45,17 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None if EM_PRODUCAO else "/openapi.json",
 )
+
+# latência medida só onde o eleitor espera: o envio do voto
+ROTAS_DE_VOTO = {"/api/votos", "/api/celular/votar"}
+
+@app.middleware("http")
+async def medir_latencia(request: Request, proximo):
+    inicio = time.perf_counter()
+    resposta = await proximo(request)
+    if request.method == "POST" and request.url.path in ROTAS_DE_VOTO:
+        metricas.latencia((time.perf_counter() - inicio) * 1000)
+    return resposta
 
 TRANSICOES = {
     "AGUARDANDO": "ABERTA",
@@ -147,9 +159,22 @@ def total_votos(sid: int) -> int:
 def recusa(status: int, motivo: str, mensagem: str) -> HTTPException:
     return HTTPException(status, {"motivo": motivo, "mensagem": mensagem})
 
+def registrar_recusa(e: HTTPException, sessao: int | None, urna: str):
+    motivo = e.detail["motivo"] if isinstance(e.detail, dict) else str(e.status_code)
+    metricas.voto_recusado(motivo)
+    log("voto_recusado", sessao=sessao, urna=urna, motivo=motivo)
+
 async def processar_voto(voto: Voto, urna_id: str, sem_prazo: bool = False) -> bool:
     """Grava o voto; devolve False quando ele já existia (reenvio)."""
+    try:
+        return await gravar_voto(voto, urna_id, sem_prazo)
+    except HTTPException as e:
+        registrar_recusa(e, voto.sessao_id, urna_id)
+        raise
+
+async def gravar_voto(voto: Voto, urna_id: str, sem_prazo: bool) -> bool:
     if db.execute("SELECT 1 FROM votos WHERE id = ?", (str(voto.id),)).fetchone():
+        log("voto_reenviado", sessao=voto.sessao_id, urna=urna_id, voto=str(voto.id))
         return False
 
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (voto.sessao_id,)).fetchone()
@@ -171,6 +196,9 @@ async def processar_voto(voto: Voto, urna_id: str, sem_prazo: bool = False) -> b
              voto.votado_em.isoformat(), agora()),
         )
     if cur.rowcount:
+        # a opção votada fica de fora do log de propósito: sigilo do voto
+        metricas.voto_aceito("importacao" if sem_prazo else "urna")
+        log("voto_recebido", sessao=voto.sessao_id, urna=urna_id, voto=str(voto.id))
         await gerente.broadcast(
             {"tipo": "total", "sessao_id": voto.sessao_id, "total": total_votos(voto.sessao_id)},
             "telao", "mesario",
@@ -382,7 +410,7 @@ async def cadastrar_urna(u: NovaUrna):
             )
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="ID de urna já existe")
-    registrar_evento("urna_cadastrada", u.id)
+    registrar_evento("urna_cadastrada", f"urna={u.id}")
     return {"id": u.id, "token": token}
 
 @app.post("/api/admin/urnas/{uid}/novo-token", dependencies=[Depends(exigir_admin)])
@@ -396,7 +424,7 @@ async def reemitir_token(uid: str):
     token = secrets.token_urlsafe(32)
     with db:
         db.execute("UPDATE urnas SET token_hash = ? WHERE id = ?", (hash_token(token), uid))
-    registrar_evento("urna_token_reemitido", uid)
+    registrar_evento("urna_token_reemitido", f"urna={uid}")
     return {"id": uid, "token": token}
 
 @app.post("/api/admin/urnas/{uid}/desativar", dependencies=[Depends(exigir_admin)])
@@ -405,7 +433,7 @@ async def desativar_urna(uid: str):
         cur = db.execute("UPDATE urnas SET ativa = 0 WHERE id = ?", (uid,))
     if not cur.rowcount:
         raise HTTPException(status_code=404, detail="Urna inexistente")
-    registrar_evento("urna_desativada", uid)
+    registrar_evento("urna_desativada", f"urna={uid}")
     return {"ok": True}
 
 @app.post("/api/votos")
@@ -486,6 +514,29 @@ async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
 @app.get("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
 async def listar_urnas():
     return status_urnas()
+
+# ---------- Monitoramento ----------
+def contar_urnas() -> tuple[int, int]:
+    # reserva que nunca conectou não é urna fora do ar (mesma regra da revelação)
+    ativas = [u for u in status_urnas() if u["ativa"] and not (u["reserva"] and u["nunca_conectou"])]
+    return sum(u["online"] for u in ativas), len(ativas)
+
+@app.get("/api/admin/metricas", dependencies=[Depends(exigir_admin)])
+async def ver_metricas():
+    online, ativas = contar_urnas()
+    s = buscar_sessao_ativa()
+    return {
+        "votos_por_minuto": metricas.votos_por_minuto(),
+        "latencia_ms": metricas.percentis(),
+        "urnas": {"online": online, "ativas": ativas},
+        "sessao": {**s, "total": total_votos(s["id"])} if s else None,
+        "votos_total": dict(metricas.votos_total),
+        "recusados_total": dict(metricas.recusados_total),
+    }
+
+@app.get("/metrics", dependencies=[Depends(exigir_admin)])
+async def metricas_prometheus():
+    return Response(formato_prometheus(*contar_urnas()), media_type="text/plain; version=0.0.4")
 
 @app.get("/api/admin/eventos", dependencies=[Depends(exigir_admin)])
 async def listar_eventos():
@@ -671,13 +722,27 @@ async def proxima_cedula(p: ProximaCedula):
 
 @app.post("/api/celular/votar")
 async def votar_celular(v: VotoCelular):
+    try:
+        sid, novo = await gravar_voto_celular(v)
+    except HTTPException as e:
+        registrar_recusa(e, None, URNA_CELULAR)
+        raise
+    if novo:
+        metricas.voto_aceito(URNA_CELULAR)
+        log("voto_recebido", sessao=sid, urna=URNA_CELULAR, voto=str(v.id))
+    else:
+        log("voto_reenviado", sessao=sid, urna=URNA_CELULAR, voto=str(v.id))
+    return {"ok": True}
+
+async def gravar_voto_celular(v: VotoCelular) -> tuple[int, bool]:
+    """Grava o voto da cédula; devolve a sessão e se o voto é novo (False no reenvio)."""
     cedula = db.execute("SELECT * FROM cedulas WHERE token_hash = ?", (hash_token(v.cedula),)).fetchone()
     if not cedula:
         raise recusa(401, "cedula_invalida", "Cédula inválida: escaneie o QR code do telão")
     if cedula["voto_id"]:
         # reenvio do mesmo voto (rede instável) é aceito; um segundo voto, não
         if cedula["voto_id"] == str(v.id):
-            return {"ok": True}
+            return cedula["sessao_id"], False
         raise recusa(409, "ja_votou", "Este celular já votou nesta sessão")
     sessao_aberta(cedula["sessao_id"])
     if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?",
@@ -705,7 +770,7 @@ async def votar_celular(v: VotoCelular):
         {"tipo": "total", "sessao_id": cedula["sessao_id"], "total": total_votos(cedula["sessao_id"])},
         "telao", "mesario",
     )
-    return {"ok": True}
+    return cedula["sessao_id"], True
 
 
 
