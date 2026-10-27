@@ -149,6 +149,12 @@ window.mostrarUrnas = (urnas) => {
       linha.textContent = texto;
       cartao.appendChild(linha);
     }
+    if (u.recusados) {
+      const alerta = document.createElement("div");
+      alerta.className = "recusados";
+      alerta.textContent = `${u.recusados} votos recusados`;
+      cartao.appendChild(alerta);
+    }
     if (u.ativa) {
       cartao.appendChild(criarBotao("Desativar", () => {
         if (confirm(`Desativar ${u.id}? Ela não poderá mais enviar votos.`)) {

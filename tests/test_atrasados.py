@@ -36,3 +36,24 @@ def test_recusa_apos_revelar(cliente, urna):
     cliente.post("/api/admin/sessoes/1/avancar?forcar=true", auth=ADMIN)
     antes = datetime.now(timezone.utc) - timedelta(seconds=30)
     assert cliente.post("/api/votos", json=novo_voto(votado_em=antes), headers=urna).status_code == 409
+
+def test_recusa_por_encerramento_traz_motivo(cliente, urna):
+    abrir_e_encerrar(cliente)
+    depois = datetime.now(timezone.utc) + timedelta(seconds=30)
+    r = cliente.post("/api/votos", json=novo_voto(votado_em=depois), headers=urna)
+    assert r.status_code == 409
+    assert r.json()["detail"]["motivo"] == "sessao_encerrada"
+
+
+def test_recusa_antes_de_abrir_traz_motivo(cliente, urna):
+    cliente.post("/api/admin/sessoes/1/ativar", auth=ADMIN)
+    r = cliente.post("/api/votos", json=novo_voto(), headers=urna)
+    assert r.json()["detail"]["motivo"] == "sessao_nao_aberta"
+
+
+def test_importacao_lista_motivo_da_recusa(cliente, urna):
+    abrir_e_encerrar(cliente)
+    depois = datetime.now(timezone.utc) + timedelta(seconds=30)
+    r = cliente.post("/api/admin/importar", auth=ADMIN,
+                     json={"urna_id": "urna-teste", "votos": [novo_voto(votado_em=depois)]})
+    assert r.json()["recusados"][0]["motivo"] == "sessao_encerrada"
