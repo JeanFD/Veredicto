@@ -44,6 +44,8 @@
     .recusados { color: #dc2626; font-weight: bold; }
 
     #link-urna:not(:empty) { margin-top: 1rem; padding: 0.75rem; border: 2px solid #d97706; border-radius: 0.5rem; background: #fffbeb; }
+    #resumo-importacao:not(:empty) { padding: 0.75rem; border-radius: 0.5rem; background: #f3f4f6; }
+    #resumo-importacao .erro { color: #b91c1c; font-weight: bold; }
     #configuracao { margin-top: 2rem; border-top: 1px solid #e5e7eb; padding-top: 1rem; }
     #configuracao > summary { font-size: 1.25rem; font-weight: bold; cursor: pointer; }
     #presets, .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
@@ -72,6 +74,11 @@
     <h2>Urnas</h2>
     <div id="urnas" class="grade"></div>
     <div id="link-urna"></div>
+    <p>
+      <label>Recuperar votos de urna isolada (arquivo exportado):
+        <input id="arquivo-fila" type="file" accept=".json,application/json"></label>
+    </p>
+    <div id="resumo-importacao"></div>
 
     <h2>Sessões</h2>
     <label><input id="mostrar-arquivadas" type="checkbox"> mostrar arquivadas <span id="total-arquivadas"></span></label>
