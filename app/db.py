@@ -54,7 +54,8 @@ def agora() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 def ler_presets() -> list[dict]:
-    with open(SESSOES_PATH, encoding="utf-8") as f:
+    # utf-8-sig: aceita o arquivo salvo com BOM pelo Bloco de Notas
+    with open(SESSOES_PATH, encoding="utf-8-sig") as f:
         return json.load(f)
 
 def inserir_sessao(tema: str, opcoes: list[dict]) -> int:
