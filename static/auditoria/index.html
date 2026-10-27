@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Veredito · Auditoria</title>
+  <style>
+    html { background: #fff; color: #111827; }
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 0 1rem 2rem; }
+    h2 { margin-top: 2rem; }
+    .aviso { color: #4b5563; }
+    #sessoes a { display: block; padding: 0.75rem; border: 1px solid #ccc; border-radius: 0.5rem;
+                 margin-bottom: 0.5rem; color: inherit; text-decoration: none; }
+    #sessoes a:hover, #sessoes a.atual { border-color: #7c3aed; background: #f5f3ff; }
+    .barra { display: grid; grid-template-columns: 8rem 1fr 4rem; gap: 0.75rem; align-items: center; margin: 0.5rem 0; }
+    .trilho { background: #e5e7eb; border-radius: 999px; height: 1rem; overflow: hidden; }
+    .trilho div { height: 100%; }
+    .barra strong { text-align: right; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #e5e7eb; }
+    td.num { text-align: right; }
+    @media (max-width: 480px) { .barra { grid-template-columns: 5rem 1fr 3rem; } }
+  </style>
+</head>
+<body>
+  <h1>Auditoria pública</h1>
+  <p class="aviso">Sessões aparecem aqui só depois da revelação. Por urna, mostramos a quantidade de votos,
+    não em quem votaram: o sigilo do voto vale também na auditoria.</p>
+
+  <div id="sessoes"><p>Carregando…</p></div>
+
+  <section id="detalhe" hidden>
+    <h2 id="tema"></h2>
+    <p>Total de votos: <strong id="total"></strong></p>
+    <div id="resultado"></div>
+
+    <h2>Votos por urna</h2>
+    <table>
+      <thead><tr><th>Urna</th><th>Votos</th><th>Primeiro</th><th>Último</th></tr></thead>
+      <tbody id="urnas"></tbody>
+    </table>
+
+    <h2>Linha do tempo</h2>
+    <table><tbody id="eventos"></tbody></table>
+  </section>
+
+  <script src="auditoria.js"></script>
+</body>
+</html>
