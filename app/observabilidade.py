@@ -4,7 +4,8 @@ Formato do log: uma linha JSON por evento em stdout, com "ts" (UTC, ISO 8601),
 "evento" e, quando aplicável, "sessao" e "urna", além de campos do próprio evento.
 A opção votada nunca vai para o log: o sigilo do voto vale também aqui.
 
-Métricas ficam em memória (a app roda com um worker só) e cobrem a última hora:
+Métricas ficam em memória com um processo só, ou no Redis com vários
+(app/compartilhado.py), e cobrem a última hora:
 servidas em /api/admin/metricas para o painel /monitor/ e em /metrics no formato
 Prometheus, caso um dia valha a pena plugar um Grafana.
 """
@@ -14,6 +15,8 @@ import sys
 import time
 from collections import Counter, deque
 from datetime import datetime, timezone
+
+from app.compartilhado import redis_sync
 
 CAMPOS_FIXOS = ("ts", "evento", "sessao", "urna")
 
@@ -73,14 +76,70 @@ class Metricas:
 
     def percentis(self) -> dict:
         limite = time.monotonic() - JANELA_LATENCIA
-        recentes = sorted(ms for quando, ms in self.latencias if quando >= limite)
-        if not recentes:
-            return {"p50": None, "p95": None, "amostras": 0}
-        def p(q):
-            return round(recentes[min(len(recentes) - 1, int(q * len(recentes)))], 1)
-        return {"p50": p(0.5), "p95": p(0.95), "amostras": len(recentes)}
+        return calcular_percentis([ms for quando, ms in self.latencias if quando >= limite])
 
-metricas = Metricas()
+def calcular_percentis(amostras: list[float]) -> dict:
+    recentes = sorted(amostras)
+    if not recentes:
+        return {"p50": None, "p95": None, "amostras": 0}
+    def p(q):
+        return round(recentes[min(len(recentes) - 1, int(q * len(recentes)))], 1)
+    return {"p50": p(0.5), "p95": p(0.95), "amostras": len(recentes)}
+
+class MetricasRedis(Metricas):
+    """Mesmas métricas, somadas entre todos os processos (com REDIS_URL)."""
+    MINUTOS = "veredicto:metricas:minuto:"
+    LATENCIAS = "veredicto:metricas:latencias"
+    TOTAIS = "veredicto:metricas:votos_total"
+    RECUSADOS = "veredicto:metricas:recusados_total"
+
+    def __init__(self, r):
+        self.r = r
+
+    def zerar(self):
+        for chave in self.r.scan_iter("veredicto:metricas:*"):
+            self.r.delete(chave)
+
+    def voto_aceito(self, origem: str):
+        chave = f"{self.MINUTOS}{int(time.time() // 60)}"
+        p = self.r.pipeline()
+        p.incr(chave)
+        p.expire(chave, (JANELA_MINUTOS + 1) * 60)
+        p.hincrby(self.TOTAIS, origem, 1)
+        p.execute()
+
+    def voto_recusado(self, motivo: str):
+        self.r.hincrby(self.RECUSADOS, motivo, 1)
+
+    def latencia(self, ms: float):
+        # relógio de parede: processos diferentes não compartilham o monotonic
+        p = self.r.pipeline()
+        p.lpush(self.LATENCIAS, f"{time.time()}:{ms}")
+        p.ltrim(self.LATENCIAS, 0, 4999)
+        p.execute()
+
+    def votos_por_minuto(self, minutos: int = 30) -> list[int]:
+        agora = int(time.time() // 60)
+        chaves = [f"{self.MINUTOS}{m}" for m in range(agora - minutos + 1, agora + 1)]
+        return [int(v or 0) for v in self.r.mget(chaves)]
+
+    def percentis(self) -> dict:
+        limite = time.time() - JANELA_LATENCIA
+        pares = (item.split(":") for item in self.r.lrange(self.LATENCIAS, 0, -1))
+        return calcular_percentis([float(ms) for quando, ms in pares if float(quando) >= limite])
+
+    @property
+    def votos_total(self) -> Counter:
+        return Counter({k: int(v) for k, v in self.r.hgetall(self.TOTAIS).items()})
+
+    @property
+    def recusados_total(self) -> Counter:
+        return Counter({k: int(v) for k, v in self.r.hgetall(self.RECUSADOS).items()})
+
+def criar_metricas(r=redis_sync):
+    return MetricasRedis(r) if r else Metricas()
+
+metricas = criar_metricas()
 
 def formato_prometheus(urnas_online: int, urnas_ativas: int) -> str:
     linhas = [
