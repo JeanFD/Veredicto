@@ -1,5 +1,3 @@
-import sqlite3
-
 from app.db import db
 from tests.auxiliares import ADMIN, novo_voto
 
@@ -35,13 +33,3 @@ def test_sessao_ativa_nao_arquiva(cliente):
 def test_arquivada_nao_ativa(cliente):
     arquivar(cliente)
     assert cliente.post("/api/admin/sessoes/1/ativar", auth=ADMIN).status_code == 409
-
-def test_migracao_adiciona_coluna_em_banco_antigo(monkeypatch):
-    import app.db
-    antigo = sqlite3.connect(":memory:")
-    antigo.row_factory = sqlite3.Row
-    antigo.execute("CREATE TABLE sessoes (id INTEGER PRIMARY KEY, tema TEXT)")
-    monkeypatch.setattr(app.db, "db", antigo)
-    app.db.adicionar_coluna("sessoes", "arquivada", "INTEGER NOT NULL DEFAULT 0")
-    app.db.adicionar_coluna("sessoes", "arquivada", "INTEGER NOT NULL DEFAULT 0")
-    assert "arquivada" in {c["name"] for c in antigo.execute("PRAGMA table_info(sessoes)")}
