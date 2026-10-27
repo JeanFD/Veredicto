@@ -69,7 +69,7 @@ class Voto(BaseModel):
 
 class Importacao(BaseModel):
     urna_id: str
-    votos: list[Voto]
+    votos: list[Voto] = Field(max_length=10000)
 
 class Zerar(BaseModel):
     confirmacao: str
@@ -107,14 +107,15 @@ def total_votos(sid: int) -> int:
 def recusa(status: int, motivo: str, mensagem: str) -> HTTPException:
     return HTTPException(status, {"motivo": motivo, "mensagem": mensagem})
 
-async def processar_voto(voto: Voto, urna_id: str):
+async def processar_voto(voto: Voto, urna_id: str, sem_prazo: bool = False) -> bool:
+    """Grava o voto; devolve False quando ele já existia (reenvio)."""
     if db.execute("SELECT 1 FROM votos WHERE id = ?", (str(voto.id),)).fetchone():
-        return
+        return False
 
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (voto.sessao_id,)).fetchone()
     if not sessao:
         raise recusa(404, "sessao_inexistente", "Sessão inexistente")
-    if not aceita_voto(sessao, voto.votado_em):
+    if not aceita_voto(sessao, voto.votado_em, sem_prazo):
         if sessao["estado"] in ("ENCERRADA", "REVELADA"):
             raise recusa(409, "sessao_encerrada", "Sessão encerrada")
         raise recusa(409, "sessao_nao_aberta", "Sessão ainda não foi aberta")
@@ -134,6 +135,7 @@ async def processar_voto(voto: Voto, urna_id: str):
             {"tipo": "total", "sessao_id": voto.sessao_id, "total": total_votos(voto.sessao_id)},
             "telao", "mesario",
         )
+    return bool(cur.rowcount)
 
 def estado_publico(tipo: str = "estado") -> dict:
     s=buscar_sessao_ativa()
@@ -192,12 +194,13 @@ def problemas_para_revelar() -> list[str]:
             problemas.append(f'{u["id"]}: {u["pendentes"]} votos pendentes')
     return problemas
 
-def aceita_voto(sessao, votado_em: datetime) -> bool:
+def aceita_voto(sessao, votado_em: datetime, sem_prazo: bool = False) -> bool:
     if sessao["estado"] == "ABERTA":
         return True
     if sessao["estado"] == "ENCERRADA" and sessao["encerrada_em"]:
         encerrada = datetime.fromisoformat(sessao["encerrada_em"])
-        dentro_do_prazo = datetime.fromisoformat(agora()) - encerrada <= TOLERANCIA_ATRASO
+        # sem_prazo: importação pelo mesário de urna que ficou isolada além da tolerância
+        dentro_do_prazo = sem_prazo or datetime.fromisoformat(agora()) - encerrada <= TOLERANCIA_ATRASO
         return votado_em <= encerrada and dentro_do_prazo
     return False
 
@@ -438,15 +441,20 @@ async def exportar_votos(sid: int):
 async def importar_votos(dados: Importacao):
     if not db.execute("SELECT 1 FROM urnas WHERE id = ?", (dados.urna_id,)).fetchone():
         raise HTTPException(404, "Urna inexistente")
-    aceitos, recusados = 0, []
+    aceitos, existentes, recusados = 0, 0, []
     for voto in dados.votos:
         try:
-            await processar_voto(voto, dados.urna_id)
-            aceitos+=1
+            if await processar_voto(voto, dados.urna_id, sem_prazo=True):
+                aceitos += 1
+            else:
+                existentes += 1
         except HTTPException as e:
             recusados.append({"id": str(voto.id), "motivo": e.detail["motivo"]})
-    registrar_evento("importacao", f"urna={dados.urna_id} aceitos={aceitos} recusados={len(recusados)}")
-    return {"aceitos": aceitos, "recusados": recusados}
+    registrar_evento(
+        "importacao",
+        f"urna={dados.urna_id} aceitos={aceitos} existentes={existentes} recusados={len(recusados)}",
+    )
+    return {"aceitos": aceitos, "existentes": existentes, "recusados": recusados}
 
 
 
