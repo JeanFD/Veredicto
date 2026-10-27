@@ -45,3 +45,9 @@ def test_presets_vem_do_arquivo(cliente):
 
 def test_criar_exige_mesario(cliente):
     assert cliente.post("/api/admin/sessoes", json=NOVA).status_code == 401
+
+def test_presets_aceita_arquivo_com_bom(cliente, tmp_path, monkeypatch):
+    arquivo = tmp_path / "sessoes.json"
+    arquivo.write_text('[{"tema": "Com BOM", "opcoes": []}]', encoding="utf-8-sig")
+    monkeypatch.setattr("app.db.SESSOES_PATH", str(arquivo))
+    assert cliente.get("/api/admin/presets", auth=ADMIN).json()[0]["tema"] == "Com BOM"
