@@ -3,6 +3,8 @@ const $ = (id) => document.getElementById(id);
 // horários vêm em UTC (ISO); mostra no fuso de quem consulta
 const hora = (iso) => (iso ? new Date(iso).toLocaleString("pt-BR") : "—");
 
+const rotulo = (s) => (s.total_perguntas > 1 ? `Pergunta ${s.pergunta} de ${s.total_perguntas} · ${s.tema}` : s.tema);
+
 function celula(texto, classe) {
   const td = document.createElement("td");
   td.textContent = texto;
@@ -27,7 +29,7 @@ async function listar() {
   for (const s of sessoes) {
     const a = document.createElement("a");
     a.href = `#${s.id}`;
-    a.textContent = s.tema;
+    a.textContent = rotulo(s);
     area.appendChild(a);
   }
   mostrar();
@@ -43,7 +45,7 @@ async function mostrar() {
     return;
   }
   const a = await r.json();
-  $("tema").textContent = a.tema;
+  $("tema").textContent = rotulo(a);
   $("total").textContent = a.total;
 
   const soma = a.total || 1;
