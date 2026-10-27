@@ -15,7 +15,8 @@ db.executescript("""
         tema TEXT NOT NULL,
         estado TEXT NOT NULL DEFAULT 'AGUARDANDO',
         ativa INTEGER NOT NULL DEFAULT 0,
-        encerrada_em TEXT
+        encerrada_em TEXT,
+        arquivada INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS opcoes (
         id INTEGER PRIMARY KEY,
@@ -49,6 +50,15 @@ db.executescript("""
         em TEXT NOT NULL
     );
 """)
+
+def adicionar_coluna(tabela: str, coluna: str, definicao: str):
+    # bancos criados antes da coluna existir não passam pelo CREATE TABLE acima
+    colunas = {c["name"] for c in db.execute(f"PRAGMA table_info({tabela})")}
+    if coluna not in colunas:
+        with db:
+            db.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}")
+
+adicionar_coluna("sessoes", "arquivada", "INTEGER NOT NULL DEFAULT 0")
 
 def agora() -> str:
     return datetime.now(timezone.utc).isoformat()

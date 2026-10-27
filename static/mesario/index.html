@@ -10,6 +10,7 @@
               border: 1px solid #ccc; border-radius: 0.5rem; margin-bottom: 0.5rem; }
     .sessao.ativa { border-color: #2563eb; background: #eff6ff; }
     .sessao span { flex: 1; }
+    .sessao.arquivada { opacity: 0.5; }
     button { padding: 0.5rem 1rem; cursor: pointer; }
     .grade { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
     .urna { padding: 0.75rem; border-radius: 0.5rem; border: 2px solid #ccc; }
@@ -32,6 +33,7 @@
   <section id="painel" hidden>
     <h1>Painel do mesário</h1>
     <h2>Sessões</h2>
+    <label><input id="mostrar-arquivadas" type="checkbox"> mostrar arquivadas <span id="total-arquivadas"></span></label>
     <div id="sessoes"></div>
     <p>Sessão ativa: <strong id="ativa">nenhuma</strong> · Total: <strong id="total">0</strong></p>
 
