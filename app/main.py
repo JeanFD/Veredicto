@@ -206,9 +206,33 @@ async def sessao_ativa():
     return{"sessao": buscar_sessao_ativa()}
 
 @app.get("/api/admin/sessoes", dependencies=[Depends(exigir_admin)])
-async def listar_sessoes():
-    linhas = db.execute("SELECT id, tema, estado, ativa FROM sessoes ORDER BY id")
-    return [dict(l) for l in linhas]
+async def listar_sessoes(arquivadas: bool = False):
+    linhas = db.execute(
+        "SELECT id, tema, estado, ativa, arquivada FROM sessoes "
+        "WHERE arquivada = 0 OR ? ORDER BY id", (arquivadas,),
+    )
+    return [{**dict(l), "arquivada": bool(l["arquivada"])} for l in linhas]
+
+@app.post("/api/admin/sessoes/{sid}/arquivar", dependencies=[Depends(exigir_admin)])
+async def arquivar_sessao(sid: int):
+    sessao = db.execute("SELECT ativa FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, "Sessão inexistente")
+    if sessao["ativa"]:
+        raise HTTPException(409, "Ative outra sessão antes de arquivar esta")
+    with db:
+        db.execute("UPDATE sessoes SET arquivada = 1 WHERE id = ?", (sid,))
+    registrar_evento("sessao_arquivada", f"sessao={sid}")
+    return {"ok": True}
+
+@app.post("/api/admin/sessoes/{sid}/desarquivar", dependencies=[Depends(exigir_admin)])
+async def desarquivar_sessao(sid: int):
+    with db:
+        cur = db.execute("UPDATE sessoes SET arquivada = 0 WHERE id = ?", (sid,))
+    if not cur.rowcount:
+        raise HTTPException(404, "Sessão inexistente")
+    registrar_evento("sessao_desarquivada", f"sessao={sid}")
+    return {"ok": True}
 
 def gerar_chave(rotulo: str) -> str:
     sem_acento = unicodedata.normalize("NFKD", rotulo).encode("ascii", "ignore").decode()
@@ -235,8 +259,11 @@ async def listar_presets():
 
 @app.post("/api/admin/sessoes/{sid}/ativar", dependencies=[Depends(exigir_admin)])
 async def ativar_sessao(sid: int):
-    if not db.execute("SELECT 1 FROM sessoes WHERE id = ?", (sid,)).fetchone():
+    sessao = db.execute("SELECT arquivada FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
         raise HTTPException(status_code=404, detail="Sessão inexistente")
+    if sessao["arquivada"]:
+        raise HTTPException(409, "Desarquive a sessão antes de ativá-la")
     with db:
         db.execute("UPDATE sessoes SET ativa = 0")
         db.execute("UPDATE sessoes SET ativa = 1 WHERE id = ?", (sid,))
