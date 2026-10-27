@@ -5,19 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Veredito · Mesário</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
-    .sessao { display: flex; gap: 1rem; align-items: center; padding: 0.75rem;
+    html { background: #fff; color: #111827; }
+    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 0 1rem 2rem; }
+    h2 { margin-top: 2rem; }
+    button { padding: 0.5rem 1rem; cursor: pointer; }
+    input { padding: 0.5rem; }
+
+    /* faixa fixa: o estado atual fica sempre visível sem rolar */
+    #estado-atual { position: sticky; top: 0; z-index: 1; background: #fff; padding: 0.75rem 0;
+                    border-bottom: 2px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    #estado-atual .info { flex: 1; min-width: 240px; }
+    #ativa { display: block; font-size: 1.1rem; }
+    .selo { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 999px; font-weight: bold;
+            letter-spacing: 0.05em; color: #fff; background: #6b7280; }
+    .selo.AGUARDANDO { background: #6b7280; } .selo.ABERTA { background: #16a34a; }
+    .selo.ENCERRADA { background: #d97706; } .selo.REVELADA { background: #7c3aed; }
+    #total { font-size: 1.5rem; }
+    #acoes-estado { display: flex; gap: 0.5rem; }
+    .principal { background: #2563eb; color: #fff; border: none; border-radius: 0.375rem; font-weight: bold; }
+
+    /* ações perigosas: vermelho e separadas das rotineiras */
+    .perigo { background: #fff; color: #b91c1c; border: 1px solid #b91c1c; border-radius: 0.375rem; }
+    .perigo:hover { background: #fef2f2; }
+    .acoes-perigo { display: flex; gap: 0.5rem; padding-left: 0.75rem; margin-left: auto; border-left: 2px dashed #fca5a5; }
+
+    .sessao { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; padding: 0.75rem;
               border: 1px solid #ccc; border-radius: 0.5rem; margin-bottom: 0.5rem; }
     .sessao.ativa { border-color: #2563eb; background: #eff6ff; }
-    .sessao span { flex: 1; }
+    .sessao span { flex: 1; min-width: 200px; }
     .sessao.arquivada { opacity: 0.5; }
-    button { padding: 0.5rem 1rem; cursor: pointer; }
+
     .grade { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
     .urna { padding: 0.75rem; border-radius: 0.5rem; border: 2px solid #ccc; }
+    .urna details { margin-top: 0.5rem; font-size: 0.9rem; }
+    .urna details button { display: block; width: 100%; margin-top: 0.25rem; }
     .online { border-color: #16a34a; } .offline { border-color: #dc2626; }
     .nunca { border-color: #a3a3a3; } .inativa { opacity: 0.4; }
     .recusados { color: #dc2626; font-weight: bold; }
-    input { padding: 0.5rem; }
+
+    #link-urna:not(:empty) { margin-top: 1rem; padding: 0.75rem; border: 2px solid #d97706; border-radius: 0.5rem; background: #fffbeb; }
+    #configuracao { margin-top: 2rem; border-top: 1px solid #e5e7eb; padding-top: 1rem; }
+    #configuracao > summary { font-size: 1.25rem; font-weight: bold; cursor: pointer; }
     #presets, .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
     .opcao input[type=color] { padding: 0; width: 3rem; }
   </style>
@@ -31,31 +59,44 @@
   </section>
 
   <section id="painel" hidden>
-    <h1>Painel do mesário</h1>
-    <h2>Sessões</h2>
-    <label><input id="mostrar-arquivadas" type="checkbox"> mostrar arquivadas <span id="total-arquivadas"></span></label>
-    <div id="sessoes"></div>
-    <p>Sessão ativa: <strong id="ativa">nenhuma</strong> · Total: <strong id="total">0</strong></p>
-
-    <h3>Criar sessão</h3>
-    <div id="presets"></div>
-    <form id="nova-sessao">
-      <input id="sessao-tema" placeholder="tema" required maxlength="200" style="width: 100%">
-      <div id="sessao-opcoes"></div>
-      <button type="button" id="mais-opcao">+ opção</button>
-      <button>Criar sessão</button>
-    </form>
+    <header id="estado-atual">
+      <div class="info">
+        <small>Sessão ativa</small>
+        <strong id="ativa">nenhuma</strong>
+      </div>
+      <span id="selo-estado" class="selo">—</span>
+      <div><small>Votos</small> <strong id="total">0</strong></div>
+      <div id="acoes-estado"></div>
+    </header>
 
     <h2>Urnas</h2>
     <div id="urnas" class="grade"></div>
-    <h3>Cadastrar urna</h3>
-    <form id="nova-urna">
-      <input id="nova-id" placeholder="id (ex: urna3)" required pattern="[a-z0-9-]{1,30}">
-      <input id="nova-nome" placeholder="nome (ex: Entrada)" required>
-      <label><input id="nova-reserva" type="checkbox"> reserva</label>
-      <button>Cadastrar</button>
-    </form>
     <div id="link-urna"></div>
+
+    <h2>Sessões</h2>
+    <label><input id="mostrar-arquivadas" type="checkbox"> mostrar arquivadas <span id="total-arquivadas"></span></label>
+    <div id="sessoes"></div>
+
+    <details id="configuracao">
+      <summary>Configuração</summary>
+
+      <h3>Criar sessão</h3>
+      <div id="presets"></div>
+      <form id="nova-sessao">
+        <input id="sessao-tema" placeholder="tema" required maxlength="200" style="width: 100%">
+        <div id="sessao-opcoes"></div>
+        <button type="button" id="mais-opcao">+ opção</button>
+        <button>Criar sessão</button>
+      </form>
+
+      <h3>Cadastrar urna</h3>
+      <form id="nova-urna">
+        <input id="nova-id" placeholder="id (ex: urna3)" required pattern="[a-z0-9-]{1,30}">
+        <input id="nova-nome" placeholder="nome (ex: Entrada)" required>
+        <label><input id="nova-reserva" type="checkbox"> reserva</label>
+        <button>Cadastrar</button>
+      </form>
+    </details>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   </section>
 
