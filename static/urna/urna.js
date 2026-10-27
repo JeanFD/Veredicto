@@ -54,8 +54,14 @@ function sinalizar(classe, duracao) {
 function renderizar() {
   if (ocupada) return;
   limpar();
+  const questionario = sessao?.total_perguntas > 1;
+  $("pergunta").hidden = !questionario || sessao.estado !== "ABERTA";
+  if (questionario) $("pergunta").textContent = `Pergunta ${sessao.pergunta} de ${sessao.total_perguntas}`;
   if (!sessao || sessao.estado !== "ABERTA") {
-    $("tema").textContent = "Votação fechada";
+    // entre perguntas do questionário a urna espera o mesário liberar a seguinte
+    const entrePerguntas = questionario && (sessao.estado === "AGUARDANDO"
+      ? sessao.pergunta > 1 : Boolean(sessao.proxima_pergunta));
+    $("tema").textContent = entrePerguntas ? "Aguarde a próxima pergunta" : "Votação fechada";
     return;
   }
   $("tema").textContent = sessao.tema;
