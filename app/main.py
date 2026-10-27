@@ -503,7 +503,7 @@ async def exportar_votos(sid: int):
     escritor = csv.writer(buffer)
     escritor.writerow(["id", "urna_id", "opcao", "votado_em", "recebido_em"])
     for v in db.execute(
-        "SELECT id, urna_id, opcao_chave, votado_em, recebido_em"
+        "SELECT id, urna_id, opcao_chave, votado_em, recebido_em "
         "FROM votos WHERE sessao_id = ? ORDER BY recebido_em", (sid,)
     ):
         escritor.writerow(list(v))
