@@ -16,7 +16,9 @@ db.executescript("""
         estado TEXT NOT NULL DEFAULT 'AGUARDANDO',
         ativa INTEGER NOT NULL DEFAULT 0,
         encerrada_em TEXT,
-        arquivada INTEGER NOT NULL DEFAULT 0
+        arquivada INTEGER NOT NULL DEFAULT 0,
+        grupo_id INTEGER,
+        pergunta INTEGER NOT NULL DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS opcoes (
         id INTEGER PRIMARY KEY,
@@ -53,7 +55,8 @@ db.executescript("""
         token_hash TEXT PRIMARY KEY,
         sessao_id INTEGER NOT NULL REFERENCES sessoes(id),
         criada_em TEXT NOT NULL,
-        voto_id TEXT
+        voto_id TEXT,
+        seguinte_emitida INTEGER NOT NULL DEFAULT 0
     );
 """)
 
@@ -65,6 +68,11 @@ def adicionar_coluna(tabela: str, coluna: str, definicao: str):
             db.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}")
 
 adicionar_coluna("sessoes", "arquivada", "INTEGER NOT NULL DEFAULT 0")
+# questionário: perguntas encadeadas são sessões com o mesmo grupo_id (o id da
+# primeira), cada uma com estado próprio; sessão avulsa tem grupo_id nulo
+adicionar_coluna("sessoes", "grupo_id", "INTEGER")
+adicionar_coluna("sessoes", "pergunta", "INTEGER NOT NULL DEFAULT 1")
+adicionar_coluna("cedulas", "seguinte_emitida", "INTEGER NOT NULL DEFAULT 0")
 
 def agora() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -74,8 +82,10 @@ def ler_presets() -> list[dict]:
     with open(SESSOES_PATH, encoding="utf-8-sig") as f:
         return json.load(f)
 
-def inserir_sessao(tema: str, opcoes: list[dict]) -> int:
-    cur = db.execute("INSERT INTO sessoes (tema) VALUES (?)", (tema,))
+def inserir_sessao(tema: str, opcoes: list[dict], grupo_id: int | None = None, pergunta: int = 1) -> int:
+    cur = db.execute(
+        "INSERT INTO sessoes (tema, grupo_id, pergunta) VALUES (?, ?, ?)", (tema, grupo_id, pergunta),
+    )
     for ordem, op in enumerate(opcoes):
         db.execute(
             "INSERT INTO opcoes (sessao_id, chave, rotulo, cor, ordem) "

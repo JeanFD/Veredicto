@@ -38,7 +38,9 @@ def test_nada_antes_de_revelar(cliente, urna, estado):
 
 # ---------- depois da revelação ----------
 def test_lista_sessoes_reveladas(cliente, revelada):
-    assert cliente.get("/api/auditoria/sessoes").json() == [{"id": 1, "tema": "Sessão de teste"}]
+    assert cliente.get("/api/auditoria/sessoes").json() == [
+        {"id": 1, "tema": "Sessão de teste", "pergunta": 1, "total_perguntas": 1},
+    ]
 
 def test_total_por_urna_sem_divisao_por_opcao(cliente, revelada):
     a = cliente.get("/api/auditoria/sessoes/1").json()

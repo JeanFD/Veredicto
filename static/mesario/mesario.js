@@ -46,13 +46,24 @@ function botaoAvancar(s) {
   return criarBotao(PROXIMO[s.estado], () => avancar(s.id, s.estado), perigoso ? "perigo" : "principal");
 }
 
+// "Pergunta 2 de 3 · " para perguntas de questionário; vazio para sessão avulsa
+const posicao = (s) => (s.total_perguntas > 1 ? `Pergunta ${s.pergunta} de ${s.total_perguntas} · ` : "");
+
 function mostrarEstado(sessao, total) {
-  $("ativa").textContent = sessao ? sessao.tema : "nenhuma";
+  $("ativa").textContent = sessao ? posicao(sessao) + sessao.tema : "nenhuma";
   $("selo-estado").textContent = sessao ? sessao.estado : "—";
   $("selo-estado").className = "selo " + (sessao ? sessao.estado : "");
   $("total").textContent = total;
   $("acoes-estado").innerHTML = "";
   if (sessao && PROXIMO[sessao.estado]) $("acoes-estado").appendChild(botaoAvancar(sessao));
+  // o mesário libera cada pergunta do questionário depois de revelar a anterior
+  if (sessao?.estado === "REVELADA" && sessao.proxima_pergunta) {
+    $("acoes-estado").appendChild(criarBotao(`Liberar pergunta ${sessao.pergunta + 1}`, () => {
+      if (confirm(`Liberar a pergunta ${sessao.pergunta + 1} de ${sessao.total_perguntas}?`)) {
+        acao(`/api/admin/sessoes/${sessao.proxima_pergunta}/ativar`);
+      }
+    }, "principal"));
+  }
 }
 
 async function carregarSessoes() {
@@ -65,21 +76,27 @@ async function carregarSessoes() {
     const linha = document.createElement("div");
     linha.className = "sessao" + (s.ativa ? " ativa" : "") + (s.arquivada ? " arquivada" : "");
     const titulo = document.createElement("span");
-    titulo.textContent = `${s.tema} · ${s.estado}${s.arquivada ? " · arquivada" : ""}`;
+    titulo.textContent = `${posicao(s)}${s.tema} · ${s.estado}${s.arquivada ? " · arquivada" : ""}`;
     linha.appendChild(titulo);
 
     const perigo = document.createElement("div");
     perigo.className = "acoes-perigo";
     if (s.arquivada) {
       linha.appendChild(criarBotao("Desarquivar", () => acao(`/api/admin/sessoes/${s.id}/desarquivar`)));
+    } else if (!s.ativa && !s.liberada) {
+      const aviso = document.createElement("small");
+      aviso.textContent = "aguarda a revelação da pergunta anterior";
+      linha.appendChild(aviso);
     } else if (!s.ativa) {
       linha.appendChild(criarBotao("Ativar", () => acao(`/api/admin/sessoes/${s.id}/ativar`)));
+    }
+    if (!s.arquivada && !s.ativa) {
       perigo.appendChild(criarBotao("Arquivar", () => {
         if (confirm(`Arquivar "${s.tema}"? Ela some da lista, mas pode ser desarquivada.`)) {
           acao(`/api/admin/sessoes/${s.id}/arquivar`);
         }
       }, "perigo"));
-    } else if (PROXIMO[s.estado]) {
+    } else if (s.ativa && PROXIMO[s.estado]) {
       (PERIGOSO.has(s.estado) ? perigo : linha).appendChild(botaoAvancar(s));
     }
     if (!s.arquivada && s.estado !== "REVELADA") {
@@ -107,9 +124,9 @@ function mostrarPresets(sessoes) {
   }
 }
 
-async function criarSessao(dados) {
+async function criarSessao(dados, caminho = "/api/admin/sessoes") {
   try {
-    await api("POST", "/api/admin/sessoes", dados);
+    await api("POST", caminho, dados);
     await carregarSessoes();
     return true;
   } catch (e) {
@@ -118,7 +135,7 @@ async function criarSessao(dados) {
   }
 }
 
-function adicionarOpcao(rotulo = "", cor = "#64748b") {
+function adicionarOpcao(area, rotulo = "", cor = "#64748b") {
   const linha = document.createElement("div");
   linha.className = "opcao";
   const campo = document.createElement("input");
@@ -130,31 +147,65 @@ function adicionarOpcao(rotulo = "", cor = "#64748b") {
   seletor.type = "color";
   seletor.value = cor;
   linha.append(campo, seletor, criarBotao("remover", () => {
-    if ($("sessao-opcoes").children.length > 2) linha.remove();
+    if (area.children.length > 2) linha.remove();
   }));
-  $("sessao-opcoes").appendChild(linha);
+  area.appendChild(linha);
+}
+
+// Com mais de uma pergunta, a sessão vira um questionário: perguntas encadeadas,
+// cada uma aberta, encerrada e revelada separadamente.
+function adicionarPergunta() {
+  const bloco = document.createElement("fieldset");
+  bloco.className = "pergunta";
+  const titulo = document.createElement("legend");
+  const tema = document.createElement("input");
+  tema.placeholder = "tema ou pergunta";
+  tema.required = true;
+  tema.maxLength = 200;
+  const opcoes = document.createElement("div");
+  const remover = criarBotao("remover pergunta", () => { bloco.remove(); numerarPerguntas(); });
+  remover.className = "remover-pergunta";
+  bloco.append(titulo, tema, opcoes, criarBotao("+ opção", () => adicionarOpcao(opcoes)), remover);
+  adicionarOpcao(opcoes, "Acusação", "#dc2626");
+  adicionarOpcao(opcoes, "Defesa", "#2563eb");
+  $("perguntas").appendChild(bloco);
+  numerarPerguntas();
+}
+
+function numerarPerguntas() {
+  const blocos = [...$("perguntas").children];
+  blocos.forEach((b, i) => {
+    b.querySelector("legend").textContent = blocos.length > 1 ? `Pergunta ${i + 1}` : "";
+    b.querySelector(".remover-pergunta").hidden = blocos.length === 1;
+  });
 }
 
 function reiniciarFormularioSessao() {
-  $("nova-sessao").reset();
-  $("sessao-opcoes").innerHTML = "";
-  adicionarOpcao("Acusação", "#dc2626");
-  adicionarOpcao("Defesa", "#2563eb");
+  $("perguntas").innerHTML = "";
+  adicionarPergunta();
 }
 
-$("mais-opcao").onclick = () => adicionarOpcao();
+$("mais-pergunta").onclick = adicionarPergunta;
 
 $("nova-sessao").onsubmit = async (e) => {
   e.preventDefault();
-  const opcoes = [...$("sessao-opcoes").children].map((linha) => {
-    const [rotulo, cor] = linha.querySelectorAll("input");
-    return { rotulo: rotulo.value.trim(), cor: cor.value };
-  });
-  if (opcoes.some((o) => !o.rotulo)) return alert("Preencha todas as opções");
-  if (new Set(opcoes.map((o) => o.rotulo.toLowerCase())).size !== opcoes.length) {
-    return alert("Há opções repetidas");
+  const perguntas = [];
+  for (const bloco of $("perguntas").children) {
+    const opcoes = [...bloco.querySelectorAll(".opcao")].map((linha) => {
+      const [rotulo, cor] = linha.querySelectorAll("input");
+      return { rotulo: rotulo.value.trim(), cor: cor.value };
+    });
+    const tema = bloco.querySelector("input").value.trim();
+    if (opcoes.some((o) => !o.rotulo)) return alert(`Preencha todas as opções de "${tema}"`);
+    if (new Set(opcoes.map((o) => o.rotulo.toLowerCase())).size !== opcoes.length) {
+      return alert(`Há opções repetidas em "${tema}"`);
+    }
+    perguntas.push({ tema, opcoes });
   }
-  if (await criarSessao({ tema: $("sessao-tema").value.trim(), opcoes })) reiniciarFormularioSessao();
+  const criada = perguntas.length === 1
+    ? await criarSessao(perguntas[0])
+    : await criarSessao({ perguntas }, "/api/admin/questionarios");
+  if (criada) reiniciarFormularioSessao();
 };
 
 reiniciarFormularioSessao();

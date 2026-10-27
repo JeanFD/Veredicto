@@ -100,6 +100,12 @@ class NovaSessao(BaseModel):
     tema: str = Field(min_length=1, max_length=200)
     opcoes: list[NovaOpcao] = Field(min_length=2, max_length=10)
 
+class NovoQuestionario(BaseModel):
+    perguntas: list[NovaSessao] = Field(min_length=2, max_length=10)
+
+class ProximaCedula(BaseModel):
+    cedula: str = Field(max_length=100)
+
 
 
 def buscar_sessao_ativa():
@@ -113,8 +119,27 @@ def buscar_sessao_ativa():
         "id": s["id"],
         "tema": s["tema"],
         "estado": s["estado"],
-        "opcoes": [dict(o) for o in opcoes]
+        "opcoes": [dict(o) for o in opcoes],
+        **posicao_no_questionario(s),
     }
+
+def posicao_no_questionario(s) -> dict:
+    """Pergunta k de N; para sessão avulsa, 1 de 1 e sem próxima."""
+    if s["grupo_id"] is None:
+        return {"grupo_id": None, "pergunta": 1, "total_perguntas": 1, "proxima_pergunta": None}
+    irmas = db.execute(
+        "SELECT id, pergunta FROM sessoes WHERE grupo_id = ? ORDER BY pergunta", (s["grupo_id"],),
+    ).fetchall()
+    proxima = next((i["id"] for i in irmas if i["pergunta"] == s["pergunta"] + 1), None)
+    return {"grupo_id": s["grupo_id"], "pergunta": s["pergunta"],
+            "total_perguntas": len(irmas), "proxima_pergunta": proxima}
+
+def pergunta_anterior(s):
+    if s["grupo_id"] is None or s["pergunta"] == 1:
+        return None
+    return db.execute(
+        "SELECT id, estado FROM sessoes WHERE grupo_id = ? AND pergunta = ?", (s["grupo_id"], s["pergunta"] - 1),
+    ).fetchone()
 
 def total_votos(sid: int) -> int:
     return db.execute("SELECT COUNT(*) FROM votos WHERE sessao_id = ?", (sid,)).fetchone()[0]
@@ -229,10 +254,19 @@ async def sessao_ativa():
 @app.get("/api/admin/sessoes", dependencies=[Depends(exigir_admin)])
 async def listar_sessoes(arquivadas: bool = False):
     linhas = db.execute(
-        "SELECT id, tema, estado, ativa, arquivada FROM sessoes "
-        "WHERE arquivada = 0 OR ? ORDER BY id", (arquivadas,),
-    )
-    return [{**dict(l), "arquivada": bool(l["arquivada"])} for l in linhas]
+        "SELECT * FROM sessoes WHERE arquivada = 0 OR ? ORDER BY id", (arquivadas,),
+    ).fetchall()
+    resposta = []
+    for l in linhas:
+        anterior = pergunta_anterior(l)
+        resposta.append({
+            "id": l["id"], "tema": l["tema"], "estado": l["estado"], "ativa": l["ativa"],
+            "arquivada": bool(l["arquivada"]),
+            **posicao_no_questionario(l),
+            # pergunta encadeada só pode ser ativada depois de revelada a anterior
+            "liberada": anterior is None or anterior["estado"] == "REVELADA",
+        })
+    return resposta
 
 @app.post("/api/admin/sessoes/{sid}/arquivar", dependencies=[Depends(exigir_admin)])
 async def arquivar_sessao(sid: int):
@@ -278,18 +312,41 @@ def gerar_chave(rotulo: str) -> str:
 
 @app.post("/api/admin/sessoes", status_code=201, dependencies=[Depends(exigir_admin)])
 async def criar_sessao(nova: NovaSessao):
+    opcoes = validar_opcoes(nova)
+    validar_temas_livres([nova.tema])
+    with db:
+        sid = inserir_sessao(nova.tema, opcoes)
+    registrar_evento("sessao_criada", f"sessao={sid}")
+    return {"id": sid}
+
+def validar_opcoes(nova: NovaSessao) -> list[dict]:
     opcoes = [
         {"chave": op.chave or gerar_chave(op.rotulo), "rotulo": op.rotulo, "cor": op.cor}
         for op in nova.opcoes
     ]
     if len({op["chave"] for op in opcoes}) != len(opcoes):
         raise HTTPException(400, "Opções repetidas")
-    if any(s["tema"].casefold() == nova.tema.casefold() for s in db.execute("SELECT tema FROM sessoes")):
+    return opcoes
+
+def validar_temas_livres(temas: list[str]):
+    if len({t.casefold() for t in temas}) != len(temas):
+        raise HTTPException(400, "Perguntas repetidas")
+    existentes = {s["tema"].casefold() for s in db.execute("SELECT tema FROM sessoes")}
+    if any(t.casefold() in existentes for t in temas):
         raise HTTPException(409, "Já existe uma sessão com este tema")
+
+@app.post("/api/admin/questionarios", status_code=201, dependencies=[Depends(exigir_admin)])
+async def criar_questionario(novo: NovoQuestionario):
+    opcoes = [validar_opcoes(p) for p in novo.perguntas]
+    validar_temas_livres([p.tema for p in novo.perguntas])
     with db:
-        sid = inserir_sessao(nova.tema, opcoes)
-    registrar_evento("sessao_criada", f"sessao={sid}")
-    return {"id": sid}
+        ids = [inserir_sessao(novo.perguntas[0].tema, opcoes[0])]
+        db.execute("UPDATE sessoes SET grupo_id = ? WHERE id = ?", (ids[0], ids[0]))
+        for n, (p, ops) in enumerate(zip(novo.perguntas[1:], opcoes[1:]), start=2):
+            ids.append(inserir_sessao(p.tema, ops, grupo_id=ids[0], pergunta=n))
+    for sid in ids:
+        registrar_evento("sessao_criada", f"sessao={sid} grupo={ids[0]}")
+    return {"ids": ids}
 
 @app.get("/api/admin/presets", dependencies=[Depends(exigir_admin)])
 async def listar_presets():
@@ -297,11 +354,14 @@ async def listar_presets():
 
 @app.post("/api/admin/sessoes/{sid}/ativar", dependencies=[Depends(exigir_admin)])
 async def ativar_sessao(sid: int):
-    sessao = db.execute("SELECT arquivada FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
         raise HTTPException(status_code=404, detail="Sessão inexistente")
     if sessao["arquivada"]:
         raise HTTPException(409, "Desarquive a sessão antes de ativá-la")
+    anterior = pergunta_anterior(sessao)
+    if anterior and anterior["estado"] != "REVELADA":
+        raise HTTPException(409, "Revele a pergunta anterior antes de liberar esta")
     with db:
         db.execute("UPDATE sessoes SET ativa = 0")
         db.execute("UPDATE sessoes SET ativa = 1 WHERE id = ?", (sid,))
@@ -443,7 +503,7 @@ async def exportar_votos(sid: int):
     escritor = csv.writer(buffer)
     escritor.writerow(["id", "urna_id", "opcao", "votado_em", "recebido_em"])
     for v in db.execute(
-        "SELECT id, urna_id, opcao_chave, votado_em, recebido_em"
+        "SELECT id, urna_id, opcao_chave, votado_em, recebido_em "
         "FROM votos WHERE sessao_id = ? ORDER BY recebido_em", (sid,)
     ):
         escritor.writerow(list(v))
@@ -507,12 +567,17 @@ def eventos_publicos(sid: int) -> list[dict]:
 
 @app.get("/api/auditoria/sessoes")
 async def auditoria_sessoes():
-    linhas = db.execute("SELECT id, tema FROM sessoes WHERE estado = 'REVELADA' ORDER BY id")
-    return [dict(l) for l in linhas]
+    linhas = db.execute("SELECT * FROM sessoes WHERE estado = 'REVELADA' ORDER BY id")
+    return [{"id": l["id"], "tema": l["tema"], **pergunta_publica(l)} for l in linhas]
+
+def pergunta_publica(s) -> dict:
+    # só a posição: o id da próxima pergunta não interessa ao público
+    p = posicao_no_questionario(s)
+    return {"pergunta": p["pergunta"], "total_perguntas": p["total_perguntas"]}
 
 @app.get("/api/auditoria/sessoes/{sid}")
 async def auditoria_sessao(sid: int):
-    sessao = db.execute("SELECT id, tema, estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     # mesma resposta para inexistente e não revelada: não confirma nada antes da hora
     if not sessao or sessao["estado"] != "REVELADA":
         raise HTTPException(404, "Auditoria disponível só após a revelação")
@@ -529,6 +594,7 @@ async def auditoria_sessao(sid: int):
     return {
         "id": sessao["id"],
         "tema": sessao["tema"],
+        **pergunta_publica(sessao),
         "total": total_votos(sid),
         "resultado": contar_por_opcao(sid),
         "por_urna": por_urna,
@@ -571,6 +637,37 @@ async def entrar_celular(e: EntradaCelular):
             (hash_token(cedula), e.sessao_id, agora()),
         )
     return {"cedula": cedula, "sessao": buscar_sessao_ativa()}
+
+@app.post("/api/celular/proxima")
+async def proxima_cedula(p: ProximaCedula):
+    """Troca a cédula de uma pergunta pela da pergunta seguinte do mesmo questionário.
+
+    Cada cédula gera no máximo uma seguinte: o celular passa pelas perguntas sem
+    escanear o QR de novo e continua valendo um voto por pergunta."""
+    cedula = db.execute(
+        "SELECT c.token_hash, s.grupo_id, s.pergunta FROM cedulas c JOIN sessoes s ON s.id = c.sessao_id "
+        "WHERE c.token_hash = ?", (hash_token(p.cedula),),
+    ).fetchone()
+    if not cedula:
+        raise recusa(401, "cedula_invalida", "Cédula inválida: escaneie o QR code do telão")
+    ativa = buscar_sessao_ativa()
+    if (not ativa or ativa["grupo_id"] is None or ativa["grupo_id"] != cedula["grupo_id"]
+            or ativa["pergunta"] <= cedula["pergunta"]):
+        raise recusa(409, "sem_proxima", "Não há outra pergunta deste questionário liberada")
+    sessao_aberta(ativa["id"])
+    nova = secrets.token_urlsafe(32)
+    with db:
+        # o WHERE garante uma única cédula seguinte mesmo com dois pedidos simultâneos
+        if not db.execute(
+            "UPDATE cedulas SET seguinte_emitida = 1 WHERE token_hash = ? AND seguinte_emitida = 0",
+            (cedula["token_hash"],),
+        ).rowcount:
+            raise recusa(409, "cedula_usada", "Escaneie o QR code do telão para a próxima pergunta")
+        db.execute(
+            "INSERT INTO cedulas (token_hash, sessao_id, criada_em) VALUES (?, ?, ?)",
+            (hash_token(nova), ativa["id"], agora()),
+        )
+    return {"cedula": nova, "sessao": ativa}
 
 @app.post("/api/celular/votar")
 async def votar_celular(v: VotoCelular):

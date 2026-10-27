@@ -55,6 +55,8 @@ function mostrarEstado(m, aoVivo) {
     && sessaoAtual?.estado === "ENCERRADA";
   sessaoAtual = m.sessao;
   $("tema").textContent = m.sessao ? m.sessao.tema : "Aguardando";
+  $("pergunta").hidden = !(m.sessao?.total_perguntas > 1);
+  if (!$("pergunta").hidden) $("pergunta").textContent = `Pergunta ${m.sessao.pergunta} de ${m.sessao.total_perguntas}`;
   // o QR some na hora em que a votação fecha, sem esperar a próxima consulta
   if (m.sessao?.estado !== "ABERTA") {
     $("celular").hidden = true;

@@ -50,6 +50,9 @@
     #configuracao > summary { font-size: 1.25rem; font-weight: bold; cursor: pointer; }
     #presets, .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
     .opcao input[type=color] { padding: 0; width: 3rem; }
+    .pergunta { border: 1px solid #ccc; border-radius: 0.5rem; margin: 0 0 0.75rem; padding: 0.75rem; }
+    .pergunta legend:empty { display: none; }
+    .pergunta > input { width: 100%; box-sizing: border-box; }
   </style>
 </head>
 <body>
@@ -94,9 +97,8 @@
       <h3>Criar sessão</h3>
       <div id="presets"></div>
       <form id="nova-sessao">
-        <input id="sessao-tema" placeholder="tema" required maxlength="200" style="width: 100%">
-        <div id="sessao-opcoes"></div>
-        <button type="button" id="mais-opcao">+ opção</button>
+        <div id="perguntas"></div>
+        <button type="button" id="mais-pergunta">+ pergunta</button>
         <button>Criar sessão</button>
       </form>
 
