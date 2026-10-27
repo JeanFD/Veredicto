@@ -3,11 +3,13 @@ body {
   margin: 0; height: 100vh; font-family: system-ui, sans-serif;
   background: #0f172a; color: #f8fafc;
   display: flex; flex-direction: column; user-select: none;
+  transition: background 0.3s;
 }
 main {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 2rem; padding: 2rem;
 }
+main.entrando { animation: entrada 0.25s ease-out; }
 h1 { font-size: clamp(1.5rem, 4vw, 3rem); text-align: center; margin: 0; }
 #opcoes {
   display: grid; gap: 1.5rem; width: 100%; max-width: 900px;
@@ -16,9 +18,35 @@ h1 { font-size: clamp(1.5rem, 4vw, 3rem); text-align: center; margin: 0; }
 button {
   font-size: clamp(1.5rem, 5vw, 3rem); padding: 2.5rem 1rem;
   border: none; border-radius: 1rem; color: white; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s, filter 0.08s, box-shadow 0.08s;
 }
-button:active { transform: scale(0.97); }
+button:active, button.tocado {
+  transform: scale(0.95); filter: brightness(1.25);
+  box-shadow: 0 0 0 0.4rem rgba(248, 250, 252, 0.8);
+}
 .secundario { background: #475569; }
 body.recusa { background: #7f1d1d; }
+body.sucesso { background: #14532d; }
+
+h1.enviando::after {
+  content: ""; display: block; width: 3rem; height: 3rem; margin: 1.5rem auto 0;
+  border: 0.4rem solid rgba(248, 250, 252, 0.3); border-top-color: #f8fafc;
+  border-radius: 50%; animation: girar 0.8s linear infinite;
+}
+.carimbo {
+  display: block; font-size: clamp(5rem, 15vw, 10rem); line-height: 1; color: #4ade80;
+  animation: carimbo 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 footer { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; opacity: 0.5; }
 footer .exportar { font-size: 1rem; padding: 0.5rem 1rem; border-radius: 0.5rem; background: #475569; }
+
+/* começa visível (opacidade 0.4): se a animação não rodar, a tela continua legível */
+@keyframes entrada { from { opacity: 0.4; transform: translateY(1rem); } to { opacity: 1; transform: none; } }
+@keyframes carimbo { from { transform: scale(0.3) rotate(-15deg); } to { transform: none; } }
+@keyframes girar { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

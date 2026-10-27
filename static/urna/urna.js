@@ -24,8 +24,14 @@ $("urna-id").textContent = URNA_ID;
 let sessao = ler("sessao", null);
 let ocupada = false;   // true durante confirmação ou mensagem de sucesso
 
+// cada troca de tela entra com uma transição curta, em vez de um corte seco
 function limpar() {
   $("opcoes").innerHTML = "";
+  $("tema").classList.remove("enviando");
+  const tela = document.querySelector("main");
+  tela.classList.remove("entrando");
+  void tela.offsetWidth; // reinicia a animação
+  tela.classList.add("entrando");
 }
 
 function botao(texto, cor, aoClicar, classe) {
@@ -34,7 +40,15 @@ function botao(texto, cor, aoClicar, classe) {
   if (cor) b.style.background = cor;
   if (classe) b.className = classe;
   b.onclick = aoClicar;
+  // :active falha em algumas telas touch; pointerdown dá o retorno no instante do toque
+  b.onpointerdown = () => b.classList.add("tocado");
+  b.onpointerup = b.onpointercancel = b.onpointerleave = () => b.classList.remove("tocado");
   $("opcoes").appendChild(b);
+}
+
+function sinalizar(classe, duracao) {
+  document.body.classList.add(classe);
+  setTimeout(() => document.body.classList.remove(classe), duracao);
 }
 
 function renderizar() {
@@ -70,14 +84,19 @@ async function votar(op) {
 
   limpar();
   $("tema").textContent = "Enviando voto…";
+  $("tema").classList.add("enviando");
   await enviarPendentes();
 
   // houve recusa: avisarRecusa() já assumiu a tela e ela fica até o "Entendi"
   if (document.body.classList.contains("recusa")) return;
   const naFila = ler("fila", []).some((v) => v.id === voto.id);
-  $("tema").textContent = naFila
-    ? "Sem conexão: voto guardado, será enviado quando a rede voltar"
-    : "Voto registrado ✓";
+  limpar();
+  if (naFila) {
+    $("tema").textContent = "Sem conexão: voto guardado, será enviado quando a rede voltar";
+  } else {
+    $("tema").innerHTML = '<span class="carimbo">✓</span>Voto registrado';
+    sinalizar("sucesso", 1500);
+  }
   setTimeout(() => { ocupada = false; renderizar(); }, naFila ? 3000 : 1500);
 }
 
