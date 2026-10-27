@@ -5,12 +5,12 @@
 //   atualiza a cópia guardada: a urna online roda sempre a versão publicada,
 //   sem precisar de ação do mesário, e HTML e JS nunca ficam de versões diferentes.
 // - Sem rede (ou servidor sem responder em 3s), usa a última cópia guardada.
-// - Só os arquivos da própria urna passam por aqui; /api/ vai sempre direto à
+// - Só os arquivos da própria urna (e as traduções, /i18n.js) passam por aqui; /api/ vai sempre direto à
 //   rede. A fila de votos continua no localStorage, sem mudança.
 // Trocar a estrutura do cache (lista de arquivos, nome) pede subir a VERSAO.
-const VERSAO = "urna-v1";
+const VERSAO = "urna-v2";
 const ARQUIVOS = ["/urna/", "/urna/urna.css", "/urna/urna.js", "/urna/manifest.json",
-  "/urna/icone-192.png", "/urna/icone-512.png"];
+  "/urna/icone-192.png", "/urna/icone-512.png", "/i18n.js"];
 const LIMITE_REDE = 3000;
 
 self.addEventListener("install", (e) => {
@@ -27,7 +27,8 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || url.origin !== location.origin || !url.pathname.startsWith("/urna/")) return;
+  const daUrna = url.pathname.startsWith("/urna/") || ARQUIVOS.includes(url.pathname);
+  if (e.request.method !== "GET" || url.origin !== location.origin || !daUrna) return;
   e.respondWith(redePrimeiro(url));
 });
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Veredicto · Urna</title>
+    <title data-i18n="urna.titulo">Veredicto · Urna</title>
     <meta name="theme-color" content="#0f172a">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icone-192.png">
@@ -13,7 +13,7 @@
 <body>
     <main>
         <p id="pergunta" hidden></p>
-        <h1 id="tema">Carregando…</h1>
+        <h1 id="tema" data-i18n="comum.carregando">Carregando…</h1>
         <div id="opcoes"></div>
     </main>
     <footer>
@@ -21,6 +21,7 @@
         <button id="exportar" class="exportar" hidden>exportar fila</button>
         <span id="rede"></span>
     </footer>
+    <script src="/i18n.js"></script>
     <script src="urna.js"></script>
 </body>
 </html>
