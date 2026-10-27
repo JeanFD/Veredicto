@@ -53,20 +53,26 @@ db.executescript("""
 def agora() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+def ler_presets() -> list[dict]:
+    with open(SESSOES_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+def inserir_sessao(tema: str, opcoes: list[dict]) -> int:
+    cur = db.execute("INSERT INTO sessoes (tema) VALUES (?)", (tema,))
+    for ordem, op in enumerate(opcoes):
+        db.execute(
+            "INSERT INTO opcoes (sessao_id, chave, rotulo, cor, ordem) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (cur.lastrowid, op["chave"], op["rotulo"], op["cor"], ordem),
+        )
+    return cur.lastrowid
+
 def carregar_sessoes():
     if db.execute("SELECT COUNT(*) FROM sessoes").fetchone()[0] != 0:
         return
-    with open(SESSOES_PATH, encoding="utf-8") as f:
-        sessoes = json.load(f)
     with db:
-        for s in sessoes:
-            cur = db.execute("INSERT INTO sessoes (tema) VALUES (?)", (s["tema"],))
-            for ordem, op in enumerate(s["opcoes"]):
-                db.execute(
-                    "INSERT INTO opcoes (sessao_id, chave, rotulo, cor, ordem) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (cur.lastrowid, op["chave"], op["rotulo"], op["cor"], ordem),
-                )
+        for s in ler_presets():
+            inserir_sessao(s["tema"], s["opcoes"])
 
 def registrar_evento(tipo: str, detalhe: str = ""):
     with db:
