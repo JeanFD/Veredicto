@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Veredito · Telão</title>
+  <title data-i18n="telao.titulo">Veredito · Telão</title>
   <style>
     body { margin: 0; height: 100vh; background: #0f172a; color: #f8fafc; overflow: hidden;
            font-family: system-ui, sans-serif; display: flex; flex-direction: column;
@@ -42,18 +42,19 @@
 </head>
 <body>
   <p id="pergunta" hidden></p>
-  <h1 id="tema">Aguardando</h1>
+  <h1 id="tema" data-i18n="telao.aguardando">Aguardando</h1>
   <section id="contagem">
     <div id="total">0</div>
-    <p id="legenda">votos registrados</p>
+    <p id="legenda" data-i18n="telao.legenda.ABERTA">votos registrados</p>
   </section>
   <section id="resultado" hidden></section>
   <aside id="celular" hidden>
     <div id="qr"></div>
-    <p>Vote pelo celular</p>
+    <p data-i18n="telao.vote_celular">Vote pelo celular</p>
   </aside>
   <div id="regressiva" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="/i18n.js"></script>
   <script src="telao.js"></script>
 </body>
 </html>

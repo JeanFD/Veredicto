@@ -38,14 +38,8 @@ function botao(texto, cor, aoClicar, classe) {
   $("opcoes").appendChild(b);
 }
 
-const MENSAGENS = {
-  codigo_expirado: "QR code expirado. Escaneie de novo o código do telão.",
-  sessao_fechada: "A votação não está aberta.",
-  sessao_inexistente: "Votação não encontrada. Escaneie o código do telão.",
-  cedula_invalida: "Escaneie de novo o QR code do telão.",
-  ja_votou: "Este celular já votou nesta sessão ✓",
-  cedula_usada: "Escaneie o QR code do telão para responder a próxima pergunta.",
-};
+const MOTIVOS = ["codigo_expirado", "sessao_fechada", "sessao_inexistente", "cedula_invalida", "ja_votou", "cedula_usada"];
+const mensagem = (motivo, padrao) => (MOTIVOS.includes(motivo) ? t(`celular.motivo.${motivo}`) : t(padrao));
 
 async function enviar(caminho, corpo) {
   const r = await fetch(caminho, {
@@ -60,19 +54,19 @@ async function enviar(caminho, corpo) {
 
 // ---------- Fluxo ----------
 async function iniciar() {
-  if (!sessaoId) return tela("Escaneie o QR code exibido no telão.");
+  if (!sessaoId) return tela(t("celular.escaneie"));
   gravar("ultima_sessao", sessaoId);
   if (minhaCedula()?.votou) {
-    tela(MENSAGENS.ja_votou, "sucesso");
+    tela(mensagem("ja_votou"), "sucesso");
     return aguardarProxima();
   }
 
   let sessao;
   try {
     if (!minhaCedula()?.cedula) {
-      if (!codigo) return tela("Escaneie o QR code exibido no telão.");
+      if (!codigo) return tela(t("celular.escaneie"));
       const r = await enviar("/api/celular/entrar", { sessao_id: sessaoId, codigo });
-      if (!r.ok) return tela(MENSAGENS[r.motivo] ?? "Não foi possível entrar na votação.");
+      if (!r.ok) return tela(mensagem(r.motivo, "celular.nao_entrou"));
       sessao = r.dados.sessao;
       guardarCedula({ cedula: r.dados.cedula, grupo_id: sessao.grupo_id, pergunta: sessao.pergunta });
     } else {
@@ -82,7 +76,7 @@ async function iniciar() {
     return semConexao(iniciar);
   }
   if (!sessao || sessao.id !== sessaoId || sessao.estado !== "ABERTA") {
-    tela(MENSAGENS.sessao_fechada);
+    tela(mensagem("sessao_fechada"));
     return aguardarProxima();
   }
   escolher(sessao);
@@ -91,22 +85,22 @@ async function iniciar() {
 function escolher(sessao) {
   tela(sessao.tema);
   if (sessao.total_perguntas > 1) {
-    $("pergunta").textContent = `Pergunta ${sessao.pergunta} de ${sessao.total_perguntas}`;
+    $("pergunta").textContent = t("comum.pergunta_de", { n: sessao.pergunta, total: sessao.total_perguntas });
     $("pergunta").hidden = false;
   }
   for (const op of sessao.opcoes) botao(op.rotulo, op.cor, () => confirmar(sessao, op));
 }
 
 function confirmar(sessao, op) {
-  tela(`Confirmar voto em ${op.rotulo}?`);
-  botao("Confirmar", op.cor, () => votar(op));
-  botao("Corrigir", null, () => escolher(sessao), "secundario");
+  tela(t("comum.confirmar_voto", { opcao: op.rotulo }));
+  botao(t("comum.confirmar"), op.cor, () => votar(op));
+  botao(t("comum.corrigir"), null, () => escolher(sessao), "secundario");
 }
 
 async function votar(op) {
   // o id do voto é guardado antes do envio: um reenvio após queda de rede não duplica
   if (!minhaCedula().voto_id) guardarCedula({ voto_id: crypto.randomUUID() });
-  tela("Enviando voto…");
+  tela(t("comum.enviando"));
   $("tema").classList.add("enviando");
   let r;
   try {
@@ -117,12 +111,13 @@ async function votar(op) {
   if (r.ok || r.motivo === "ja_votou") {
     guardarCedula({ votou: true });
     tela("");
-    $("tema").innerHTML = '<span class="carimbo">✓</span>Voto registrado';
+    $("tema").innerHTML = '<span class="carimbo">✓</span>';
+    $("tema").append(t("comum.voto_registrado"));
     document.body.className = "sucesso";
     return aguardarProxima();
   }
-  if (r.motivo === "sessao_fechada") return tela("Voto NÃO computado: a votação já foi encerrada.", "recusa");
-  tela(MENSAGENS[r.motivo] ?? "Voto NÃO computado. Tente de novo.", "recusa");
+  if (r.motivo === "sessao_fechada") return tela(t("celular.encerrada"), "recusa");
+  tela(mensagem(r.motivo, "celular.nao_computado"), "recusa");
 }
 
 // Questionário: quando o mesário libera a pergunta seguinte, o celular troca a
@@ -149,7 +144,7 @@ function aguardarProxima() {
     } catch {
       return semConexao(aguardarProxima);
     }
-    if (!r.ok) return tela(MENSAGENS[r.motivo] ?? MENSAGENS.cedula_usada);
+    if (!r.ok) return tela(mensagem(r.motivo, "celular.motivo.cedula_usada"));
     sessaoId = ativa.id;
     gravar("ultima_sessao", sessaoId);
     guardarCedula({ cedula: r.dados.cedula, grupo_id: ativa.grupo_id, pergunta: ativa.pergunta });
@@ -158,8 +153,8 @@ function aguardarProxima() {
 }
 
 function semConexao(tentarDeNovo) {
-  tela("Sem conexão com o servidor.", "recusa");
-  botao("Tentar de novo", null, tentarDeNovo, "secundario");
+  tela(t("celular.sem_conexao"), "recusa");
+  botao(t("celular.tentar_de_novo"), null, tentarDeNovo, "secundario");
 }
 
 iniciar();

@@ -22,6 +22,7 @@ from app.ws import gerente
 from app.config import EM_PRODUCAO
 from app.compartilhado import sinais
 from app.observabilidade import formato_prometheus, log, metricas
+from app.i18n import idioma_atual, idioma_do_cabecalho, msg
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
 from app.seguranca import (
     JANELA_CODIGO, chave_telao, codigo_celular, codigo_valido, exigir_telao, janela_atual,
@@ -57,6 +58,7 @@ ROTAS_DE_VOTO = {"/api/votos", "/api/celular/votar"}
 
 @app.middleware("http")
 async def medir_latencia(request: Request, proximo):
+    idioma_atual.set(idioma_do_cabecalho(request.headers.get("accept-language")))
     inicio = time.perf_counter()
     resposta = await proximo(request)
     if request.method == "POST" and request.url.path in ROTAS_DE_VOTO:
@@ -161,8 +163,8 @@ def pergunta_anterior(s):
 def total_votos(sid: int) -> int:
     return db.execute("SELECT COUNT(*) FROM votos WHERE sessao_id = ?", (sid,)).fetchone()[0]
 
-def recusa(status: int, motivo: str, mensagem: str) -> HTTPException:
-    return HTTPException(status, {"motivo": motivo, "mensagem": mensagem})
+def recusa(status: int, motivo: str) -> HTTPException:
+    return HTTPException(status, {"motivo": motivo, "mensagem": msg(motivo)})
 
 def registrar_recusa(e: HTTPException, sessao: int | None, urna: str):
     motivo = e.detail["motivo"] if isinstance(e.detail, dict) else str(e.status_code)
@@ -184,13 +186,13 @@ async def gravar_voto(voto: Voto, urna_id: str, sem_prazo: bool) -> bool:
 
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (voto.sessao_id,)).fetchone()
     if not sessao:
-        raise recusa(404, "sessao_inexistente", "Sessão inexistente")
+        raise recusa(404, "sessao_inexistente")
     if not aceita_voto(sessao, voto.votado_em, sem_prazo):
         if sessao["estado"] in ("ENCERRADA", "REVELADA"):
-            raise recusa(409, "sessao_encerrada", "Sessão encerrada")
-        raise recusa(409, "sessao_nao_aberta", "Sessão ainda não foi aberta")
+            raise recusa(409, "sessao_encerrada")
+        raise recusa(409, "sessao_nao_aberta")
     if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?", (voto.sessao_id, voto.opcao)).fetchone():
-        raise recusa(400, "opcao_invalida", "Opção inválida")
+        raise recusa(400, "opcao_invalida")
 
     with db:
         cur = db.execute(
@@ -253,17 +255,18 @@ def status_urnas() -> list[dict]:
         })
     return resultado
 
-def problemas_para_revelar() -> list[str]:
+def problemas_para_revelar() -> list[tuple[str, dict]]:
+    """Pendências como (chave, campos): a tela recebe no idioma dela, a auditoria em português."""
     problemas = []
     for u in status_urnas():
         if not u["ativa"] or (u["reserva"] and u["nunca_conectou"]):
             continue
         if u["nunca_conectou"]:
-            problemas.append(f'{u["id"]}: nunca conectou')
+            problemas.append(("problema_nunca_conectou", {"urna": u["id"]}))
         elif not u["online"]:
-            problemas.append(f'{u["id"]}: offline há {u["segundos_sem_sinal"]}s, pendências desconhecidas')
+            problemas.append(("problema_offline", {"urna": u["id"], "s": u["segundos_sem_sinal"]}))
         elif u["pendentes"]:
-            problemas.append(f'{u["id"]}: {u["pendentes"]} votos pendentes')
+            problemas.append(("problema_pendentes", {"urna": u["id"], "n": u["pendentes"]}))
     return problemas
 
 def aceita_voto(sessao, votado_em: datetime, sem_prazo: bool = False) -> bool:
@@ -304,9 +307,9 @@ async def listar_sessoes(arquivadas: bool = False):
 async def arquivar_sessao(sid: int):
     sessao = db.execute("SELECT ativa FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
-        raise HTTPException(404, "Sessão inexistente")
+        raise HTTPException(404, msg("sessao_inexistente"))
     if sessao["ativa"]:
-        raise HTTPException(409, "Ative outra sessão antes de arquivar esta")
+        raise HTTPException(409, msg("ative_outra_antes"))
     with db:
         db.execute("UPDATE sessoes SET arquivada = 1 WHERE id = ?", (sid,))
     registrar_evento("sessao_arquivada", f"sessao={sid}")
@@ -316,11 +319,11 @@ async def arquivar_sessao(sid: int):
 async def zerar_sessao(sid: int, dados: Zerar, responsavel: str = Depends(exigir_admin)):
     sessao = db.execute("SELECT tema, estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
-        raise HTTPException(404, "Sessão inexistente")
+        raise HTTPException(404, msg("sessao_inexistente"))
     if sessao["estado"] == "REVELADA":
-        raise HTTPException(409, "Sessão já revelada: o resultado não pode ser apagado")
+        raise HTTPException(409, msg("ja_revelada_zerar"))
     if dados.confirmacao.strip().casefold() != sessao["tema"].casefold():
-        raise HTTPException(400, "Confirmação não confere com o tema da sessão")
+        raise HTTPException(400, msg("confirmacao_nao_confere"))
     with db:
         apagados = db.execute("DELETE FROM votos WHERE sessao_id = ?", (sid,)).rowcount
         db.execute("DELETE FROM cedulas WHERE sessao_id = ?", (sid,))
@@ -334,7 +337,7 @@ async def desarquivar_sessao(sid: int):
     with db:
         cur = db.execute("UPDATE sessoes SET arquivada = 0 WHERE id = ?", (sid,))
     if not cur.rowcount:
-        raise HTTPException(404, "Sessão inexistente")
+        raise HTTPException(404, msg("sessao_inexistente"))
     registrar_evento("sessao_desarquivada", f"sessao={sid}")
     return {"ok": True}
 
@@ -357,15 +360,15 @@ def validar_opcoes(nova: NovaSessao) -> list[dict]:
         for op in nova.opcoes
     ]
     if len({op["chave"] for op in opcoes}) != len(opcoes):
-        raise HTTPException(400, "Opções repetidas")
+        raise HTTPException(400, msg("opcoes_repetidas"))
     return opcoes
 
 def validar_temas_livres(temas: list[str]):
     if len({t.casefold() for t in temas}) != len(temas):
-        raise HTTPException(400, "Perguntas repetidas")
+        raise HTTPException(400, msg("perguntas_repetidas"))
     existentes = {s["tema"].casefold() for s in db.execute("SELECT tema FROM sessoes")}
     if any(t.casefold() in existentes for t in temas):
-        raise HTTPException(409, "Já existe uma sessão com este tema")
+        raise HTTPException(409, msg("tema_existente"))
 
 @app.post("/api/admin/questionarios", status_code=201, dependencies=[Depends(exigir_admin)])
 async def criar_questionario(novo: NovoQuestionario):
@@ -388,12 +391,12 @@ async def listar_presets():
 async def ativar_sessao(sid: int):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
-        raise HTTPException(status_code=404, detail="Sessão inexistente")
+        raise HTTPException(status_code=404, detail=msg("sessao_inexistente"))
     if sessao["arquivada"]:
-        raise HTTPException(409, "Desarquive a sessão antes de ativá-la")
+        raise HTTPException(409, msg("desarquive_antes"))
     anterior = pergunta_anterior(sessao)
     if anterior and anterior["estado"] != "REVELADA":
-        raise HTTPException(409, "Revele a pergunta anterior antes de liberar esta")
+        raise HTTPException(409, msg("revele_anterior"))
     with db:
         db.execute("UPDATE sessoes SET ativa = 0")
         db.execute("UPDATE sessoes SET ativa = 1 WHERE id = ?", (sid,))
@@ -404,7 +407,7 @@ async def ativar_sessao(sid: int):
 @app.post("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
 async def cadastrar_urna(u: NovaUrna):
     if u.id.lower() == URNA_CELULAR:
-        raise HTTPException(409, "ID reservado para os votos por celular")
+        raise HTTPException(409, msg("id_reservado"))
     token = secrets.token_urlsafe(32)
     try:
         with db:
@@ -413,7 +416,7 @@ async def cadastrar_urna(u: NovaUrna):
                 (u.id, u.nome, hash_token(token), int(u.reserva), agora()),
             )
     except sqlite3.IntegrityError:
-        raise HTTPException(status_code=409, detail="ID de urna já existe")
+        raise HTTPException(status_code=409, detail=msg("urna_existente"))
     registrar_evento("urna_cadastrada", f"urna={u.id}")
     return {"id": u.id, "token": token}
 
@@ -422,9 +425,9 @@ async def reemitir_token(uid: str):
     # só o hash fica no banco: para mostrar o link de novo é preciso trocar o token
     urna = db.execute("SELECT ativa FROM urnas WHERE id = ?", (uid,)).fetchone()
     if not urna:
-        raise HTTPException(404, "Urna inexistente")
+        raise HTTPException(404, msg("urna_inexistente"))
     if not urna["ativa"]:
-        raise HTTPException(409, "Urna desativada")
+        raise HTTPException(409, msg("urna_desativada"))
     token = secrets.token_urlsafe(32)
     with db:
         db.execute("UPDATE urnas SET token_hash = ? WHERE id = ?", (hash_token(token), uid))
@@ -436,7 +439,7 @@ async def desativar_urna(uid: str):
     with db:
         cur = db.execute("UPDATE urnas SET ativa = 0 WHERE id = ?", (uid,))
     if not cur.rowcount:
-        raise HTTPException(status_code=404, detail="Urna inexistente")
+        raise HTTPException(status_code=404, detail=msg("urna_inexistente"))
     registrar_evento("urna_desativada", f"urna={uid}")
     return {"ok": True}
 
@@ -460,17 +463,17 @@ async def ws_telao(ws: WebSocket):
 async def avancar_sessao(sid: int, forcar: bool = False):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
-        raise HTTPException(404, "Sessão inexistente")
+        raise HTTPException(404, msg("sessao_inexistente"))
     if not sessao["ativa"]:
-        raise HTTPException(409, "Ative a sessão antes")
+        raise HTTPException(409, msg("ative_antes"))
     novo = TRANSICOES.get(sessao["estado"])
     if not novo:
-        raise HTTPException(409, "Sessão já revelada")
+        raise HTTPException(409, msg("ja_revelada"))
 
     if novo == "REVELADA":
         problemas = problemas_para_revelar()
         if problemas and not forcar:
-            raise HTTPException(409, {"mensagem": "Há pendências", "problemas": problemas})
+            raise HTTPException(409, {"mensagem": msg("pendencias"), "problemas": [msg(c, **v) for c, v in problemas]})
     else:
         problemas = []
 
@@ -482,9 +485,9 @@ async def avancar_sessao(sid: int, forcar: bool = False):
             (novo, agora() if novo == "ENCERRADA" else None, sid, sessao["estado"]),
         ).rowcount
     if not mudou:
-        raise HTTPException(409, "A sessão mudou de estado nesse meio-tempo; atualize a tela")
+        raise HTTPException(409, msg("mudou_estado"))
     if problemas:
-        registrar_evento("revelacao_forcada", f"sessao={sid} " + "; ".join(problemas))
+        registrar_evento("revelacao_forcada", f"sessao={sid} " + "; ".join(msg(c, "pt", **v) for c, v in problemas))
 
     await gerente.broadcast(estado_publico(), "telao", "mesario")
     registrar_evento("sessao_avancada", f"sessao={sid} estado={novo}")
@@ -555,9 +558,9 @@ async def listar_eventos():
 async def exportar_votos(sid: int):
     sessao = db.execute("SELECT estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
-        raise HTTPException(404, "Sessão inexistente")
+        raise HTTPException(404, msg("sessao_inexistente"))
     if sessao["estado"] != "REVELADA":
-        raise HTTPException(409, "Exportação liberada só após revelar")
+        raise HTTPException(409, msg("exportacao_apos_revelar"))
 
     buffer = io.StringIO()
     escritor = csv.writer(buffer)
@@ -578,7 +581,7 @@ async def exportar_votos(sid: int):
 @app.post("/api/admin/importar", dependencies=[Depends(exigir_admin)])
 async def importar_votos(dados: Importacao):
     if not db.execute("SELECT 1 FROM urnas WHERE id = ?", (dados.urna_id,)).fetchone():
-        raise HTTPException(404, "Urna inexistente")
+        raise HTTPException(404, msg("urna_inexistente"))
     aceitos, existentes, recusados = 0, 0, []
     for voto in dados.votos:
         try:
@@ -640,7 +643,7 @@ async def auditoria_sessao(sid: int):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     # mesma resposta para inexistente e não revelada: não confirma nada antes da hora
     if not sessao or sessao["estado"] != "REVELADA":
-        raise HTTPException(404, "Auditoria disponível só após a revelação")
+        raise HTTPException(404, msg("auditoria_apos_revelar"))
     nomes = {u["id"]: u["nome"] for u in db.execute("SELECT id, nome FROM urnas")}
     nomes[URNA_CELULAR] = "Voto por celular"
     por_urna = [
@@ -665,9 +668,9 @@ async def auditoria_sessao(sid: int):
 def sessao_aberta(sid: int):
     sessao = db.execute("SELECT estado, ativa FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
-        raise recusa(404, "sessao_inexistente", "Sessão inexistente")
+        raise recusa(404, "sessao_inexistente")
     if not sessao["ativa"] or sessao["estado"] != "ABERTA":
-        raise recusa(409, "sessao_fechada", "A votação não está aberta")
+        raise recusa(409, "sessao_fechada")
 
 @app.get("/api/admin/telao", dependencies=[Depends(exigir_admin)])
 async def link_telao():
@@ -689,7 +692,7 @@ async def codigo_telao():
 async def entrar_celular(e: EntradaCelular):
     sessao_aberta(e.sessao_id)
     if not codigo_valido(e.sessao_id, e.codigo):
-        raise recusa(403, "codigo_expirado", "QR code expirado: escaneie de novo o código do telão")
+        raise recusa(403, "codigo_expirado")
     cedula = secrets.token_urlsafe(32)
     with db:
         db.execute(
@@ -709,11 +712,11 @@ async def proxima_cedula(p: ProximaCedula):
         "WHERE c.token_hash = ?", (hash_token(p.cedula),),
     ).fetchone()
     if not cedula:
-        raise recusa(401, "cedula_invalida", "Cédula inválida: escaneie o QR code do telão")
+        raise recusa(401, "cedula_invalida")
     ativa = buscar_sessao_ativa()
     if (not ativa or ativa["grupo_id"] is None or ativa["grupo_id"] != cedula["grupo_id"]
             or ativa["pergunta"] <= cedula["pergunta"]):
-        raise recusa(409, "sem_proxima", "Não há outra pergunta deste questionário liberada")
+        raise recusa(409, "sem_proxima")
     sessao_aberta(ativa["id"])
     nova = secrets.token_urlsafe(32)
     with db:
@@ -722,7 +725,7 @@ async def proxima_cedula(p: ProximaCedula):
             "UPDATE cedulas SET seguinte_emitida = 1 WHERE token_hash = ? AND seguinte_emitida = 0",
             (cedula["token_hash"],),
         ).rowcount:
-            raise recusa(409, "cedula_usada", "Escaneie o QR code do telão para a próxima pergunta")
+            raise recusa(409, "cedula_usada")
         db.execute(
             "INSERT INTO cedulas (token_hash, sessao_id, criada_em) VALUES (?, ?, ?)",
             (hash_token(nova), ativa["id"], agora()),
@@ -747,16 +750,16 @@ async def gravar_voto_celular(v: VotoCelular) -> tuple[int, bool]:
     """Grava o voto da cédula; devolve a sessão e se o voto é novo (False no reenvio)."""
     cedula = db.execute("SELECT * FROM cedulas WHERE token_hash = ?", (hash_token(v.cedula),)).fetchone()
     if not cedula:
-        raise recusa(401, "cedula_invalida", "Cédula inválida: escaneie o QR code do telão")
+        raise recusa(401, "cedula_invalida")
     if cedula["voto_id"]:
         # reenvio do mesmo voto (rede instável) é aceito; um segundo voto, não
         if cedula["voto_id"] == str(v.id):
             return cedula["sessao_id"], False
-        raise recusa(409, "ja_votou", "Este celular já votou nesta sessão")
+        raise recusa(409, "ja_votou")
     sessao_aberta(cedula["sessao_id"])
     if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?",
                       (cedula["sessao_id"], v.opcao)).fetchone():
-        raise recusa(400, "opcao_invalida", "Opção inválida")
+        raise recusa(400, "opcao_invalida")
 
     try:
         with db:
@@ -766,7 +769,7 @@ async def gravar_voto_celular(v: VotoCelular) -> tuple[int, bool]:
                 (str(v.id), cedula["token_hash"]),
             ).rowcount
             if not marcada:
-                raise recusa(409, "ja_votou", "Este celular já votou nesta sessão")
+                raise recusa(409, "ja_votou")
             db.execute(
                 "INSERT INTO votos (id, sessao_id, urna_id, opcao_chave, votado_em, recebido_em) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
@@ -774,7 +777,7 @@ async def gravar_voto_celular(v: VotoCelular) -> tuple[int, bool]:
             )
     except sqlite3.IntegrityError:
         # id de voto que já existe: a transação desfaz a marcação da cédula
-        raise recusa(409, "voto_repetido", "Voto repetido")
+        raise recusa(409, "voto_repetido")
     await gerente.broadcast(
         {"tipo": "total", "sessao_id": cedula["sessao_id"], "total": total_votos(cedula["sessao_id"])},
         "telao", "mesario",

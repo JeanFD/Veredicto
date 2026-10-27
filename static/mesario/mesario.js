@@ -15,7 +15,7 @@ async function api(metodo, caminho, corpo) {
   if (r.status === 401 && !$("painel").hidden) sair();
   if (!r.ok) {
     const detalhe = typeof dados.detail === "string" ? dados.detail : dados.detail?.mensagem;
-    const erro = new Error(detalhe ?? `Erro ${r.status}`);
+    const erro = new Error(detalhe ?? t("mesario.erro", { status: r.status }));
     erro.status = r.status;
     erro.dados = dados;
     throw erro;
@@ -34,9 +34,9 @@ function criarBotao(texto, aoClicar, classe) {
 
 // ---------- Sessões ----------
 const PROXIMO = {
-  AGUARDANDO: "Abrir votação",
-  ABERTA: "Encerrar votação",
-  ENCERRADA: "Revelar resultado",
+  AGUARDANDO: t("mesario.abrir_votacao"),
+  ABERTA: t("mesario.encerrar_votacao"),
+  ENCERRADA: t("mesario.revelar_resultado"),
 };
 // revelar é irreversível: vai junto das ações perigosas
 const PERIGOSO = new Set(["ENCERRADA"]);
@@ -47,19 +47,19 @@ function botaoAvancar(s) {
 }
 
 // "Pergunta 2 de 3 · " para perguntas de questionário; vazio para sessão avulsa
-const posicao = (s) => (s.total_perguntas > 1 ? `Pergunta ${s.pergunta} de ${s.total_perguntas} · ` : "");
+const posicao = (s) => (s.total_perguntas > 1 ? t("mesario.pergunta_prefixo", { n: s.pergunta, total: s.total_perguntas }) : "");
 
 function mostrarEstado(sessao, total) {
-  $("ativa").textContent = sessao ? posicao(sessao) + sessao.tema : "nenhuma";
-  $("selo-estado").textContent = sessao ? sessao.estado : "—";
+  $("ativa").textContent = sessao ? posicao(sessao) + sessao.tema : t("mesario.nenhuma");
+  $("selo-estado").textContent = sessao ? t(`estado.${sessao.estado}`) : "—";
   $("selo-estado").className = "selo " + (sessao ? sessao.estado : "");
   $("total").textContent = total;
   $("acoes-estado").innerHTML = "";
   if (sessao && PROXIMO[sessao.estado]) $("acoes-estado").appendChild(botaoAvancar(sessao));
   // o mesário libera cada pergunta do questionário depois de revelar a anterior
   if (sessao?.estado === "REVELADA" && sessao.proxima_pergunta) {
-    $("acoes-estado").appendChild(criarBotao(`Liberar pergunta ${sessao.pergunta + 1}`, () => {
-      if (confirm(`Liberar a pergunta ${sessao.pergunta + 1} de ${sessao.total_perguntas}?`)) {
+    $("acoes-estado").appendChild(criarBotao(t("mesario.liberar_pergunta", { n: sessao.pergunta + 1 }), () => {
+      if (confirm(t("mesario.confirmar_liberar", { n: sessao.pergunta + 1, total: sessao.total_perguntas }))) {
         acao(`/api/admin/sessoes/${sessao.proxima_pergunta}/ativar`);
       }
     }, "principal"));
@@ -76,23 +76,23 @@ async function carregarSessoes() {
     const linha = document.createElement("div");
     linha.className = "sessao" + (s.ativa ? " ativa" : "") + (s.arquivada ? " arquivada" : "");
     const titulo = document.createElement("span");
-    titulo.textContent = `${posicao(s)}${s.tema} · ${s.estado}${s.arquivada ? " · arquivada" : ""}`;
+    titulo.textContent = `${posicao(s)}${s.tema} · ${t(`estado.${s.estado}`)}${s.arquivada ? ` · ${t("mesario.arquivada")}` : ""}`;
     linha.appendChild(titulo);
 
     const perigo = document.createElement("div");
     perigo.className = "acoes-perigo";
     if (s.arquivada) {
-      linha.appendChild(criarBotao("Desarquivar", () => acao(`/api/admin/sessoes/${s.id}/desarquivar`)));
+      linha.appendChild(criarBotao(t("mesario.desarquivar"), () => acao(`/api/admin/sessoes/${s.id}/desarquivar`)));
     } else if (!s.ativa && !s.liberada) {
       const aviso = document.createElement("small");
-      aviso.textContent = "aguarda a revelação da pergunta anterior";
+      aviso.textContent = t("mesario.aguarda_anterior");
       linha.appendChild(aviso);
     } else if (!s.ativa) {
-      linha.appendChild(criarBotao("Ativar", () => acao(`/api/admin/sessoes/${s.id}/ativar`)));
+      linha.appendChild(criarBotao(t("mesario.ativar"), () => acao(`/api/admin/sessoes/${s.id}/ativar`)));
     }
     if (!s.arquivada && !s.ativa) {
-      perigo.appendChild(criarBotao("Arquivar", () => {
-        if (confirm(`Arquivar "${s.tema}"? Ela some da lista, mas pode ser desarquivada.`)) {
+      perigo.appendChild(criarBotao(t("mesario.arquivar"), () => {
+        if (confirm(t("mesario.confirmar_arquivar", { tema: s.tema }))) {
           acao(`/api/admin/sessoes/${s.id}/arquivar`);
         }
       }, "perigo"));
@@ -100,7 +100,7 @@ async function carregarSessoes() {
       (PERIGOSO.has(s.estado) ? perigo : linha).appendChild(botaoAvancar(s));
     }
     if (!s.arquivada && s.estado !== "REVELADA") {
-      perigo.appendChild(criarBotao("Zerar", () => zerar(s), "perigo"));
+      perigo.appendChild(criarBotao(t("mesario.zerar"), () => zerar(s), "perigo"));
     }
     if (perigo.children.length) linha.appendChild(perigo);
     area.appendChild(linha);
@@ -120,7 +120,7 @@ function mostrarPresets(sessoes) {
   const area = $("presets");
   area.innerHTML = "";
   for (const p of presets.filter((p) => !existentes.has(p.tema.toLowerCase()))) {
-    area.appendChild(criarBotao(`Criar: ${p.tema}`, () => criarSessao(p)));
+    area.appendChild(criarBotao(t("mesario.criar_preset", { tema: p.tema }), () => criarSessao(p)));
   }
 }
 
@@ -139,14 +139,14 @@ function adicionarOpcao(area, rotulo = "", cor = "#64748b") {
   const linha = document.createElement("div");
   linha.className = "opcao";
   const campo = document.createElement("input");
-  campo.placeholder = "rótulo";
+  campo.placeholder = t("mesario.rotulo");
   campo.required = true;
   campo.maxLength = 40;
   campo.value = rotulo;
   const seletor = document.createElement("input");
   seletor.type = "color";
   seletor.value = cor;
-  linha.append(campo, seletor, criarBotao("remover", () => {
+  linha.append(campo, seletor, criarBotao(t("mesario.remover"), () => {
     if (area.children.length > 2) linha.remove();
   }));
   area.appendChild(linha);
@@ -159,15 +159,15 @@ function adicionarPergunta() {
   bloco.className = "pergunta";
   const titulo = document.createElement("legend");
   const tema = document.createElement("input");
-  tema.placeholder = "tema ou pergunta";
+  tema.placeholder = t("mesario.tema_pergunta");
   tema.required = true;
   tema.maxLength = 200;
   const opcoes = document.createElement("div");
-  const remover = criarBotao("remover pergunta", () => { bloco.remove(); numerarPerguntas(); });
+  const remover = criarBotao(t("mesario.remover_pergunta"), () => { bloco.remove(); numerarPerguntas(); });
   remover.className = "remover-pergunta";
-  bloco.append(titulo, tema, opcoes, criarBotao("+ opção", () => adicionarOpcao(opcoes)), remover);
-  adicionarOpcao(opcoes, "Acusação", "#dc2626");
-  adicionarOpcao(opcoes, "Defesa", "#2563eb");
+  bloco.append(titulo, tema, opcoes, criarBotao(t("mesario.mais_opcao"), () => adicionarOpcao(opcoes)), remover);
+  adicionarOpcao(opcoes, t("mesario.opcao_padrao_1"), "#dc2626");
+  adicionarOpcao(opcoes, t("mesario.opcao_padrao_2"), "#2563eb");
   $("perguntas").appendChild(bloco);
   numerarPerguntas();
 }
@@ -175,7 +175,7 @@ function adicionarPergunta() {
 function numerarPerguntas() {
   const blocos = [...$("perguntas").children];
   blocos.forEach((b, i) => {
-    b.querySelector("legend").textContent = blocos.length > 1 ? `Pergunta ${i + 1}` : "";
+    b.querySelector("legend").textContent = blocos.length > 1 ? t("mesario.legenda_pergunta", { n: i + 1 }) : "";
     b.querySelector(".remover-pergunta").hidden = blocos.length === 1;
   });
 }
@@ -196,9 +196,9 @@ $("nova-sessao").onsubmit = async (e) => {
       return { rotulo: rotulo.value.trim(), cor: cor.value };
     });
     const tema = bloco.querySelector("input").value.trim();
-    if (opcoes.some((o) => !o.rotulo)) return alert(`Preencha todas as opções de "${tema}"`);
+    if (opcoes.some((o) => !o.rotulo)) return alert(t("mesario.preencha_opcoes", { tema }));
     if (new Set(opcoes.map((o) => o.rotulo.toLowerCase())).size !== opcoes.length) {
-      return alert(`Há opções repetidas em "${tema}"`);
+      return alert(t("mesario.opcoes_repetidas", { tema }));
     }
     perguntas.push({ tema, opcoes });
   }
@@ -220,14 +220,11 @@ async function acao(caminho) {
 }
 
 async function zerar(s) {
-  const confirmacao = prompt(
-    `Zerar apaga TODOS os votos de "${s.tema}" e volta a sessão para AGUARDANDO.\n\n` +
-    "Para confirmar, digite o tema da sessão:"
-  );
+  const confirmacao = prompt(t("mesario.confirmar_zerar", { tema: s.tema }));
   if (confirmacao === null) return;
   try {
     const { apagados } = await api("POST", `/api/admin/sessoes/${s.id}/zerar`, { confirmacao });
-    alert(`${apagados} votos apagados.`);
+    alert(t("mesario.votos_apagados", { n: apagados }));
     await carregarSessoes();
   } catch (e) {
     alert(e.message);
@@ -235,13 +232,13 @@ async function zerar(s) {
 }
 
 async function avancar(id, estado) {
-  if (!confirm(`${PROXIMO[estado]}?`)) return;
+  if (!confirm(t("mesario.confirmar_acao", { acao: PROXIMO[estado] }))) return;
   try {
     await api("POST", `/api/admin/sessoes/${id}/avancar`);
   } catch (e) {
     const problemas = e.dados?.detail?.problemas;
     if (e.status === 409 && problemas) {
-      const texto = `Há pendências:\n\n${problemas.join("\n")}\n\nRevelar mesmo assim?`;
+      const texto = t("mesario.pendencias", { problemas: problemas.join("\n") });
       if (!confirm(texto)) return;
       await api("POST", `/api/admin/sessoes/${id}/avancar?forcar=true`);
     } else {
@@ -296,7 +293,7 @@ $("entrar").onclick = async () => {
     sessionStorage.setItem("senha", senha);
     iniciar();
   } catch {
-    $("erro-login").textContent = "Senha incorreta";
+    $("erro-login").textContent = t("comum.senha_incorreta");
   }
 };
 
@@ -312,14 +309,14 @@ window.mostrarUrnas = (urnas) => {
   area.innerHTML = "";
   for (const u of urnas) {
     const classe = !u.ativa ? "inativa" : u.nunca_conectou ? "nunca" : u.online ? "online" : "offline";
-    const situacao = !u.ativa ? "desativada"
-      : u.nunca_conectou ? "nunca conectou"
-      : u.online ? `${u.pendentes} pendentes`
-      : `offline há ${u.segundos_sem_sinal}s`;
+    const situacao = !u.ativa ? t("mesario.desativada")
+      : u.nunca_conectou ? t("mesario.nunca_conectou")
+      : u.online ? t("mesario.n_pendentes", { n: u.pendentes })
+      : t("mesario.offline_ha", { s: u.segundos_sem_sinal });
 
     const cartao = document.createElement("div");
     cartao.className = `urna ${classe}`;
-    for (const texto of [`${u.id}${u.reserva ? " (reserva)" : ""}`, u.nome, `${u.votos_sessao} votos`, situacao]) {
+    for (const texto of [`${u.id}${u.reserva ? t("mesario.reserva_marca") : ""}`, u.nome, t("mesario.n_votos", { n: u.votos_sessao }), situacao]) {
       const linha = document.createElement("div");
       linha.textContent = texto;
       cartao.appendChild(linha);
@@ -327,14 +324,14 @@ window.mostrarUrnas = (urnas) => {
     if (u.recusados) {
       const alerta = document.createElement("div");
       alerta.className = "recusados";
-      alerta.textContent = `${u.recusados} votos recusados`;
+      alerta.textContent = t("mesario.n_recusados", { n: u.recusados });
       cartao.appendChild(alerta);
     }
     if (u.ativa) {
       // ações raras e perigosas recolhidas, para não competir com o status
       const acoes = document.createElement("details");
       const titulo = document.createElement("summary");
-      titulo.textContent = "Ações";
+      titulo.textContent = t("mesario.acoes");
       acoes.appendChild(titulo);
       acoes.open = urnasComAcoesAbertas.has(u.id);
       acoes.ontoggle = () => {
@@ -342,8 +339,8 @@ window.mostrarUrnas = (urnas) => {
         else urnasComAcoesAbertas.delete(u.id);
       };
       cartao.appendChild(acoes);
-      acoes.appendChild(criarBotao("Gerar novo link", async () => {
-        if (!confirm(`Gerar novo link para ${u.id}? O link atual deixa de funcionar e a urna precisa ser reconfigurada.`)) return;
+      acoes.appendChild(criarBotao(t("mesario.gerar_link"), async () => {
+        if (!confirm(t("mesario.confirmar_link", { id: u.id }))) return;
         try {
           const { id, token } = await api("POST", `/api/admin/urnas/${u.id}/novo-token`);
           prepararLink(id, token);
@@ -351,8 +348,8 @@ window.mostrarUrnas = (urnas) => {
           alert(e.message);
         }
       }, "perigo"));
-      acoes.appendChild(criarBotao("Desativar", () => {
-        if (confirm(`Desativar ${u.id}? Ela não poderá mais enviar votos.`)) {
+      acoes.appendChild(criarBotao(t("mesario.desativar"), () => {
+        if (confirm(t("mesario.confirmar_desativar", { id: u.id }))) {
           acao(`/api/admin/urnas/${u.id}/desativar`);
         }
       }, "perigo"));
@@ -390,12 +387,7 @@ $("abrir-telao").onclick = async () => {
 };
 
 // ---------- Importar fila ----------
-const MOTIVOS = {
-  sessao_encerrada: "feitos depois do encerramento ou com a sessão já revelada",
-  sessao_nao_aberta: "sessão ainda não aberta",
-  sessao_inexistente: "sessão inexistente",
-  opcao_invalida: "opção inválida",
-};
+const MOTIVOS = ["sessao_encerrada", "sessao_nao_aberta", "sessao_inexistente", "opcao_invalida"];
 
 function resumirImportacao(linhas, erro = false) {
   const area = $("resumo-importacao");
@@ -417,27 +409,29 @@ $("arquivo-fila").onchange = async (e) => {
   try {
     dados = JSON.parse(await arquivo.text());
   } catch {
-    return resumirImportacao([`${arquivo.name}: não é um arquivo JSON válido.`], true);
+    return resumirImportacao([t("mesario.arquivo_invalido", { arquivo: arquivo.name })], true);
   }
   if (dados?.formato !== "veredicto-fila" || !Array.isArray(dados.votos) || !dados.urna_id) {
-    return resumirImportacao([`${arquivo.name}: não é uma fila exportada pela urna.`], true);
+    return resumirImportacao([t("mesario.nao_e_fila", { arquivo: arquivo.name })], true);
   }
-  if (!confirm(`Importar ${dados.votos.length} votos da urna ${dados.urna_id}?`)) return;
+  if (!confirm(t("mesario.confirmar_importar", { n: dados.votos.length, urna: dados.urna_id }))) return;
 
   try {
     const r = await api("POST", "/api/admin/importar", { urna_id: dados.urna_id, votos: dados.votos });
     const porMotivo = {};
     for (const v of r.recusados) porMotivo[v.motivo] = (porMotivo[v.motivo] ?? 0) + 1;
     resumirImportacao([
-      `Urna ${dados.urna_id} · arquivo de ${new Date(dados.exportado_em).toLocaleString("pt-BR")}`,
-      `${r.aceitos} votos aceitos`,
-      `${r.existentes} já estavam no servidor (não duplicados)`,
-      `${r.recusados.length} recusados`,
-      ...Object.entries(porMotivo).map(([m, n]) => `  · ${n} ${MOTIVOS[m] ?? m}`),
+      t("mesario.importacao_origem", { urna: dados.urna_id, quando: new Date(dados.exportado_em).toLocaleString(document.documentElement.lang) }),
+      t("mesario.importacao_aceitos", { n: r.aceitos }),
+      t("mesario.importacao_existentes", { n: r.existentes }),
+      t("mesario.importacao_recusados", { n: r.recusados.length }),
+      ...Object.entries(porMotivo).map(([m, n]) => t("mesario.importacao_motivo", {
+        n, motivo: MOTIVOS.includes(m) ? t(`mesario.motivo.${m}`) : m,
+      })),
     ]);
   } catch (err) {
-    const msg = err.status === 422 ? "o arquivo tem votos em formato inválido" : err.message;
-    resumirImportacao([`Falha ao importar: ${msg}.`], true);
+    const msg = err.status === 422 ? t("mesario.formato_invalido") : err.message;
+    resumirImportacao([t("mesario.falha_importar", { erro: msg })], true);
   }
 };
 
@@ -455,20 +449,20 @@ function prepararLink(id, token) {
   const ocultar = () => {
     area.innerHTML = "";
     const aviso = document.createElement("p");
-    aviso.textContent = `Link da urna ${id} pronto. Mostre só na hora de configurar a urna.`;
-    area.append(aviso, criarBotao("Mostrar link e QR code", mostrar), criarBotao("Descartar", descartar));
+    aviso.textContent = t("mesario.link_pronto", { id });
+    area.append(aviso, criarBotao(t("mesario.mostrar_link"), mostrar), criarBotao(t("mesario.descartar"), descartar));
   };
 
   const mostrar = () => {
     area.innerHTML = "";
     const aviso = document.createElement("p");
-    aviso.textContent = `Abra na urna ${id}. Oculta sozinho em ${SEGUNDOS_VISIVEL}s.`;
+    aviso.textContent = t("mesario.abra_na_urna", { id, s: SEGUNDOS_VISIVEL });
     const campo = document.createElement("input");
     campo.value = link;
     campo.readOnly = true;
     campo.style.width = "100%";
     const qr = document.createElement("div");
-    area.append(aviso, campo, qr, criarBotao("Ocultar", ocultar));
+    area.append(aviso, campo, qr, criarBotao(t("mesario.ocultar"), ocultar));
     new QRCode(qr, { text: link, width: 220, height: 220 });
     temporizadores.push(setTimeout(() => { if (area.contains(campo)) ocultar(); }, SEGUNDOS_VISIVEL * 1000));
   };

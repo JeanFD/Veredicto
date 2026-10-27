@@ -2,12 +2,6 @@ const $ = (id) => document.getElementById(id);
 const semMovimento = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let sessaoAtual = null;
 
-const LEGENDAS = {
-  AGUARDANDO: "votação ainda não aberta",
-  ABERTA: "votos registrados",
-  ENCERRADA: "votação encerrada · aguardando revelação",
-};
-
 // ---------- Números animados ----------
 const animacoes = new WeakMap();
 
@@ -54,9 +48,11 @@ function mostrarEstado(m, aoVivo) {
   const revelandoAgora = aoVivo && m.resultado && sessaoAtual?.id === m.sessao?.id
     && sessaoAtual?.estado === "ENCERRADA";
   sessaoAtual = m.sessao;
-  $("tema").textContent = m.sessao ? m.sessao.tema : "Aguardando";
+  $("tema").textContent = m.sessao ? m.sessao.tema : t("telao.aguardando");
   $("pergunta").hidden = !(m.sessao?.total_perguntas > 1);
-  if (!$("pergunta").hidden) $("pergunta").textContent = `Pergunta ${m.sessao.pergunta} de ${m.sessao.total_perguntas}`;
+  if (!$("pergunta").hidden) {
+    $("pergunta").textContent = t("comum.pergunta_de", { n: m.sessao.pergunta, total: m.sessao.total_perguntas });
+  }
   // o QR some na hora em que a votação fecha, sem esperar a próxima consulta
   if (m.sessao?.estado !== "ABERTA") {
     $("celular").hidden = true;
@@ -70,7 +66,9 @@ function mostrarEstado(m, aoVivo) {
     else mostrarResultado(m.resultado);
     return;
   }
-  $("legenda").textContent = (m.sessao && LEGENDAS[m.sessao.estado]) || "";
+  // revelada, o resultado fala por si: sem legenda
+  const comLegenda = m.sessao && m.sessao.estado !== "REVELADA";
+  $("legenda").textContent = comLegenda ? t(`telao.legenda.${m.sessao.estado}`) : "";
   atualizarTotal(m.total);
   $("resultado").hidden = true;
   $("contagem").hidden = false;

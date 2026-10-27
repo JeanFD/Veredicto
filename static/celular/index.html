@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Veredicto · Voto pelo celular</title>
+    <title data-i18n="celular.titulo">Veredicto · Voto pelo celular</title>
     <link rel="stylesheet" href="../urna/urna.css">
     <style>
         main { gap: 1.5rem; padding: 1.5rem; }
@@ -14,9 +14,10 @@
 <body>
     <main>
         <p id="pergunta" hidden></p>
-        <h1 id="tema">Carregando…</h1>
+        <h1 id="tema" data-i18n="comum.carregando">Carregando…</h1>
         <div id="opcoes"></div>
     </main>
+    <script src="/i18n.js"></script>
     <script src="celular.js"></script>
 </body>
 </html>

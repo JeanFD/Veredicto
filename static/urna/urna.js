@@ -14,7 +14,7 @@ const ler = (chave, padrao) => JSON.parse(localStorage.getItem(chave)) ?? padrao
 const gravar = (chave, valor) => localStorage.setItem(chave, JSON.stringify(valor));
 
 if (!URNA_ID || !TOKEN) {
-  $("tema").textContent = "Urna não configurada";
+  $("tema").textContent = t("urna.nao_configurada");
   throw new Error("urna sem configuração");
 }
 $("urna-id").textContent = URNA_ID;
@@ -56,12 +56,12 @@ function renderizar() {
   limpar();
   const questionario = sessao?.total_perguntas > 1;
   $("pergunta").hidden = !questionario || sessao.estado !== "ABERTA";
-  if (questionario) $("pergunta").textContent = `Pergunta ${sessao.pergunta} de ${sessao.total_perguntas}`;
+  if (questionario) $("pergunta").textContent = t("comum.pergunta_de", { n: sessao.pergunta, total: sessao.total_perguntas });
   if (!sessao || sessao.estado !== "ABERTA") {
     // entre perguntas do questionário a urna espera o mesário liberar a seguinte
     const entrePerguntas = questionario && (sessao.estado === "AGUARDANDO"
       ? sessao.pergunta > 1 : Boolean(sessao.proxima_pergunta));
-    $("tema").textContent = entrePerguntas ? "Aguarde a próxima pergunta" : "Votação fechada";
+    $("tema").textContent = t(entrePerguntas ? "urna.aguarde_proxima" : "urna.fechada");
     return;
   }
   $("tema").textContent = sessao.tema;
@@ -74,9 +74,9 @@ function renderizar() {
 function confirmar(op) {
   ocupada = true;
   limpar();
-  $("tema").textContent = `Confirmar voto em ${op.rotulo}?`;
-  botao("Confirmar", op.cor, () => votar(op));
-  botao("Corrigir", null, () => { ocupada = false; renderizar(); }, "secundario");
+  $("tema").textContent = t("comum.confirmar_voto", { opcao: op.rotulo });
+  botao(t("comum.confirmar"), op.cor, () => votar(op));
+  botao(t("comum.corrigir"), null, () => { ocupada = false; renderizar(); }, "secundario");
 }
 
 async function votar(op) {
@@ -89,7 +89,7 @@ async function votar(op) {
   gravar("fila", [...ler("fila", []), voto]);
 
   limpar();
-  $("tema").textContent = "Enviando voto…";
+  $("tema").textContent = t("comum.enviando");
   $("tema").classList.add("enviando");
   await enviarPendentes();
 
@@ -98,25 +98,22 @@ async function votar(op) {
   const naFila = ler("fila", []).some((v) => v.id === voto.id);
   limpar();
   if (naFila) {
-    $("tema").textContent = "Sem conexão: voto guardado, será enviado quando a rede voltar";
+    $("tema").textContent = t("urna.sem_conexao");
   } else {
-    $("tema").innerHTML = '<span class="carimbo">✓</span>Voto registrado';
+    $("tema").innerHTML = '<span class="carimbo">✓</span>';
+    $("tema").append(t("comum.voto_registrado"));
     sinalizar("sucesso", 1500);
   }
   setTimeout(() => { ocupada = false; renderizar(); }, naFila ? 3000 : 1500);
 }
 
-const MENSAGENS_RECUSA = {
-  sessao_encerrada: "Voto NÃO computado: a votação já foi encerrada",
-  sessao_nao_aberta: "Voto NÃO computado: a votação ainda não foi aberta",
-};
-
 function avisarRecusa(motivo) {
   ocupada = true;
   limpar();
   document.body.classList.add("recusa");
-  $("tema").textContent = `${MENSAGENS_RECUSA[motivo] ?? "Voto NÃO computado: o servidor recusou o voto"}. Chame o mesário.`;
-  botao("Entendi", null, () => {
+  const conhecido = ["sessao_encerrada", "sessao_nao_aberta"].includes(motivo);
+  $("tema").textContent = t("urna.chame_mesario", { motivo: t(conhecido ? `urna.recusa.${motivo}` : "urna.recusa.outra") });
+  botao(t("urna.entendi"), null, () => {
     document.body.classList.remove("recusa");
     ocupada = false;
     renderizar();
@@ -139,13 +136,13 @@ async function buscarSessao() {
       body: JSON.stringify({ pendentes: ler("fila", []).length, recusados: ler("recusados", []).length }),
     });
     if (r.status === 401) {
-      $("rede").textContent = "urna não autorizada";
+      $("rede").textContent = t("urna.nao_autorizada");
       return;
     }
     atualizarSessao((await r.json()).sessao);
-    $("rede").textContent = "online";
+    $("rede").textContent = t("urna.online");
   } catch {
-    $("rede").textContent = "offline";
+    $("rede").textContent = t("urna.offline");
   }
 }
 
@@ -200,7 +197,7 @@ $("urna-id").onclick = () => {
   if (toques.length >= 5) {
     toques = [];
     $("exportar").hidden = !$("exportar").hidden;
-    $("exportar").textContent = `exportar fila (${ler("fila", []).length})`;
+    $("exportar").textContent = t("urna.exportar", { n: ler("fila", []).length });
   }
 };
 

@@ -6,6 +6,7 @@ import time
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
+from app.i18n import msg
 from app.compartilhado import falhas
 from app.config import ADMIN_SENHA
 from app.db import db
@@ -33,10 +34,10 @@ def registrar_falha(ip: str):
 async def exigir_admin(request: Request, cred: HTTPBasicCredentials | None = Depends(basic)) -> str:
     ip = request.client.host
     if bloqueado(ip):
-        raise HTTPException(429, "Muitas tentativas. Aguarde alguns minutos.")
+        raise HTTPException(429, msg("muitas_tentativas"))
     if cred is None or not senha_correta(cred.password):
         registrar_falha(ip)
-        raise HTTPException(401, "Não autorizado")
+        raise HTTPException(401, msg("nao_autorizado"))
     # a senha é compartilhada: o IP é o que distingue quem agiu na auditoria
     return f"{cred.username}@{ip}"
 
@@ -74,7 +75,7 @@ def codigo_valido(sessao_id: int, codigo: str) -> bool:
 async def exigir_telao(x_telao_chave: str = Header("")):
     # sem a chave, qualquer um leria o código de casa e votaria sem estar no local
     if not secrets.compare_digest(x_telao_chave.encode(), chave_telao().encode()):
-        raise HTTPException(401, "Telão não autorizado")
+        raise HTTPException(401, msg("telao_nao_autorizado"))
 
 
 async def exigir_urna(x_urna_token: str = Header(...)) -> str:
@@ -83,5 +84,5 @@ async def exigir_urna(x_urna_token: str = Header(...)) -> str:
         (hash_token(x_urna_token),),
     ).fetchone()
     if not linha:
-        raise HTTPException(401, "Urna não autorizada")
+        raise HTTPException(401, msg("urna_nao_autorizada"))
     return linha["id"]

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Veredito · Mesário</title>
+  <title data-i18n="mesario.titulo">Veredito · Mesário</title>
   <style>
     html { background: #fff; color: #111827; }
     body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 0 1rem 2rem; }
@@ -14,6 +14,8 @@
     /* faixa fixa: o estado atual fica sempre visível sem rolar */
     #estado-atual { position: sticky; top: 0; z-index: 1; background: #fff; padding: 0.75rem 0;
                     border-bottom: 2px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+    /* espaço para o botão de idioma, fixo no canto */
+    #estado-atual { padding-right: 3rem; }
     #estado-atual .info { flex: 1; min-width: 240px; }
     #ativa { display: block; font-size: 1.1rem; }
     .selo { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 999px; font-weight: bold;
@@ -57,65 +59,66 @@
 </head>
 <body>
   <section id="login">
-    <h1>Veredito · Mesário</h1>
-    <input id="senha" type="password" placeholder="Senha">
-    <button id="entrar">Entrar</button>
+    <h1 data-i18n="mesario.titulo">Veredito · Mesário</h1>
+    <input id="senha" type="password" placeholder="Senha" data-i18n-placeholder="comum.senha">
+    <button id="entrar" data-i18n="comum.entrar">Entrar</button>
     <p id="erro-login"></p>
   </section>
 
   <section id="painel" hidden>
     <header id="estado-atual">
       <div class="info">
-        <small>Sessão ativa</small>
-        <strong id="ativa">nenhuma</strong>
+        <small data-i18n="mesario.sessao_ativa">Sessão ativa</small>
+        <strong id="ativa" data-i18n="mesario.nenhuma">nenhuma</strong>
       </div>
       <span id="selo-estado" class="selo">—</span>
-      <div><small>Votos</small> <strong id="total">0</strong></div>
+      <div><small data-i18n="mesario.votos">Votos</small> <strong id="total">0</strong></div>
       <div id="acoes-estado"></div>
     </header>
 
-    <h2>Urnas</h2>
+    <h2 data-i18n="mesario.urnas">Urnas</h2>
     <div id="urnas" class="grade"></div>
     <div id="link-urna"></div>
     <p>
-      <label>Recuperar votos de urna isolada (arquivo exportado):
+      <label><span data-i18n="mesario.recuperar">Recuperar votos de urna isolada (arquivo exportado):</span>
         <input id="arquivo-fila" type="file" accept=".json,application/json"></label>
     </p>
     <div id="resumo-importacao"></div>
 
-    <h2>Sessões</h2>
-    <label><input id="mostrar-arquivadas" type="checkbox"> mostrar arquivadas <span id="total-arquivadas"></span></label>
+    <h2 data-i18n="mesario.sessoes">Sessões</h2>
+    <label><input id="mostrar-arquivadas" type="checkbox"> <span data-i18n="mesario.mostrar_arquivadas">mostrar arquivadas</span> <span id="total-arquivadas"></span></label>
     <div id="sessoes"></div>
 
     <details id="configuracao">
-      <summary>Configuração</summary>
+      <summary data-i18n="mesario.configuracao">Configuração</summary>
 
-      <h3>Telão</h3>
-      <p>Abra o telão por este botão para exibir o QR code do voto por celular.</p>
-      <button type="button" id="abrir-telao">Abrir telão com QR do celular</button>
+      <h3 data-i18n="mesario.telao">Telão</h3>
+      <p data-i18n="mesario.telao_ajuda">Abra o telão por este botão para exibir o QR code do voto por celular.</p>
+      <button type="button" id="abrir-telao" data-i18n="mesario.abrir_telao">Abrir telão com QR do celular</button>
 
-      <h3>Monitoramento</h3>
-      <p><a href="/monitor/" target="_blank">Abrir painel de monitoramento</a>: votos por minuto, latência e urnas online.</p>
+      <h3 data-i18n="mesario.monitoramento">Monitoramento</h3>
+      <p><a href="/monitor/" target="_blank" data-i18n="mesario.abrir_monitor">Abrir painel de monitoramento</a><span data-i18n="mesario.monitor_ajuda">: votos por minuto, latência e urnas online.</span></p>
 
-      <h3>Criar sessão</h3>
+      <h3 data-i18n="mesario.criar_sessao">Criar sessão</h3>
       <div id="presets"></div>
       <form id="nova-sessao">
         <div id="perguntas"></div>
-        <button type="button" id="mais-pergunta">+ pergunta</button>
-        <button>Criar sessão</button>
+        <button type="button" id="mais-pergunta" data-i18n="mesario.mais_pergunta">+ pergunta</button>
+        <button data-i18n="mesario.criar_sessao">Criar sessão</button>
       </form>
 
-      <h3>Cadastrar urna</h3>
+      <h3 data-i18n="mesario.cadastrar_urna">Cadastrar urna</h3>
       <form id="nova-urna">
-        <input id="nova-id" placeholder="id (ex: urna3)" required pattern="[a-z0-9-]{1,30}">
-        <input id="nova-nome" placeholder="nome (ex: Entrada)" required>
-        <label><input id="nova-reserva" type="checkbox"> reserva</label>
-        <button>Cadastrar</button>
+        <input id="nova-id" placeholder="id (ex: urna3)" data-i18n-placeholder="mesario.id_urna" required pattern="[a-z0-9-]{1,30}">
+        <input id="nova-nome" placeholder="nome (ex: Entrada)" data-i18n-placeholder="mesario.nome_urna" required>
+        <label><input id="nova-reserva" type="checkbox"> <span data-i18n="mesario.reserva">reserva</span></label>
+        <button data-i18n="mesario.cadastrar">Cadastrar</button>
       </form>
     </details>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   </section>
 
+  <script src="/i18n.js"></script>
   <script src="mesario.js"></script>
 </body>
 </html>
