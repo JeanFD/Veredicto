@@ -304,6 +304,20 @@ async def cadastrar_urna(u: NovaUrna):
     registrar_evento("urna_cadastrada", u.id)
     return {"id": u.id, "token": token}
 
+@app.post("/api/admin/urnas/{uid}/novo-token", dependencies=[Depends(exigir_admin)])
+async def reemitir_token(uid: str):
+    # só o hash fica no banco: para mostrar o link de novo é preciso trocar o token
+    urna = db.execute("SELECT ativa FROM urnas WHERE id = ?", (uid,)).fetchone()
+    if not urna:
+        raise HTTPException(404, "Urna inexistente")
+    if not urna["ativa"]:
+        raise HTTPException(409, "Urna desativada")
+    token = secrets.token_urlsafe(32)
+    with db:
+        db.execute("UPDATE urnas SET token_hash = ? WHERE id = ?", (hash_token(token), uid))
+    registrar_evento("urna_token_reemitido", uid)
+    return {"id": uid, "token": token}
+
 @app.post("/api/admin/urnas/{uid}/desativar", dependencies=[Depends(exigir_admin)])
 async def desativar_urna(uid: str):
     with db:
