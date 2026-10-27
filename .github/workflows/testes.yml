@@ -40,3 +40,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t veredicto:ci .
+      # o mesmo comando que o deploy roda antes de trocar o container
+      - run: docker run --rm -e DB_PATH=/tmp/ci.db -e ADMIN_SENHA=ci veredicto:ci python -m app.migrar

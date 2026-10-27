@@ -24,7 +24,11 @@ jobs:
             set -e
             cd /opt/veredicto
             git pull --ff-only
-            docker compose up -d --build veredicto
+            docker compose build veredicto
+            # backup + migrações antes de trocar o container: se falharem, o
+            # set -e para o deploy aqui e a versão antiga continua no ar
+            docker compose run --rm --no-deps veredicto python -m app.migrar
+            docker compose up -d veredicto
             sleep 5
             docker compose ps veredicto | grep -q "Up" || exit 1
             docker image prune -f
