@@ -251,6 +251,15 @@ window.mostrarUrnas = (urnas) => {
       cartao.appendChild(alerta);
     }
     if (u.ativa) {
+      cartao.appendChild(criarBotao("Gerar novo link", async () => {
+        if (!confirm(`Gerar novo link para ${u.id}? O link atual deixa de funcionar e a urna precisa ser reconfigurada.`)) return;
+        try {
+          const { id, token } = await api("POST", `/api/admin/urnas/${u.id}/novo-token`);
+          prepararLink(id, token);
+        } catch (e) {
+          alert(e.message);
+        }
+      }));
       cartao.appendChild(criarBotao("Desativar", () => {
         if (confirm(`Desativar ${u.id}? Ela não poderá mais enviar votos.`)) {
           acao(`/api/admin/urnas/${u.id}/desativar`);
@@ -269,22 +278,50 @@ $("nova-urna").onsubmit = async (e) => {
       nome: $("nova-nome").value,
       reserva: $("nova-reserva").checked,
     });
-    const link = `${location.origin}/urna/#id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`;
-
-    const area = $("link-urna");
-    area.innerHTML = "";
-    const aviso = document.createElement("p");
-    aviso.textContent = `Abra na urna ${id}. Este link não será mostrado de novo.`;
-    const campo = document.createElement("input");
-    campo.value = link;
-    campo.readOnly = true;
-    campo.style.width = "100%";
-    const qr = document.createElement("div");
-    area.append(aviso, campo, qr);
-    new QRCode(qr, { text: link, width: 220, height: 220 });
-
+    prepararLink(id, token);
     e.target.reset();
   } catch (err) {
     alert(err.message);
   }
 };
+
+// O link carrega o token da urna: fica oculto até o mesário pedir,
+// some sozinho após um minuto à mostra e é descartado de vez em 10 minutos.
+const SEGUNDOS_VISIVEL = 60;
+const MINUTOS_DISPONIVEL = 10;
+let temporizadores = [];
+
+function prepararLink(id, token) {
+  temporizadores.forEach(clearTimeout);
+  const link = `${location.origin}/urna/#id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`;
+  const area = $("link-urna");
+
+  const ocultar = () => {
+    area.innerHTML = "";
+    const aviso = document.createElement("p");
+    aviso.textContent = `Link da urna ${id} pronto. Mostre só na hora de configurar a urna.`;
+    area.append(aviso, criarBotao("Mostrar link e QR code", mostrar), criarBotao("Descartar", descartar));
+  };
+
+  const mostrar = () => {
+    area.innerHTML = "";
+    const aviso = document.createElement("p");
+    aviso.textContent = `Abra na urna ${id}. Oculta sozinho em ${SEGUNDOS_VISIVEL}s.`;
+    const campo = document.createElement("input");
+    campo.value = link;
+    campo.readOnly = true;
+    campo.style.width = "100%";
+    const qr = document.createElement("div");
+    area.append(aviso, campo, qr, criarBotao("Ocultar", ocultar));
+    new QRCode(qr, { text: link, width: 220, height: 220 });
+    temporizadores.push(setTimeout(() => { if (area.contains(campo)) ocultar(); }, SEGUNDOS_VISIVEL * 1000));
+  };
+
+  const descartar = () => {
+    temporizadores.forEach(clearTimeout);
+    area.innerHTML = "";
+  };
+
+  ocultar();
+  temporizadores = [setTimeout(descartar, MINUTOS_DISPONIVEL * 60 * 1000)];
+}
