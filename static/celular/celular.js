@@ -8,7 +8,7 @@ const hash = new URLSearchParams(location.hash.slice(1));
 history.replaceState(null, "", location.pathname);
 // novo QR escaneado com a página já aberta só muda o #: recarrega para ler o código novo
 addEventListener("hashchange", () => location.reload());
-const sessaoId = Number(hash.get("s")) || ler("ultima_sessao", null);
+let sessaoId = Number(hash.get("s")) || ler("ultima_sessao", null);
 const codigo = hash.get("c");
 
 const cedulas = () => ler("cedulas", {});
@@ -18,6 +18,7 @@ const guardarCedula = (dados) => gravar("cedulas", { ...cedulas(), [sessaoId]: {
 // ---------- Tela ----------
 function tela(texto, classe) {
   $("opcoes").innerHTML = "";
+  $("pergunta").hidden = true;
   $("tema").textContent = texto;
   document.body.className = classe ?? "";
   const main = document.querySelector("main");
@@ -43,6 +44,7 @@ const MENSAGENS = {
   sessao_inexistente: "Votação não encontrada. Escaneie o código do telão.",
   cedula_invalida: "Escaneie de novo o QR code do telão.",
   ja_votou: "Este celular já votou nesta sessão ✓",
+  cedula_usada: "Escaneie o QR code do telão para responder a próxima pergunta.",
 };
 
 async function enviar(caminho, corpo) {
@@ -60,7 +62,10 @@ async function enviar(caminho, corpo) {
 async function iniciar() {
   if (!sessaoId) return tela("Escaneie o QR code exibido no telão.");
   gravar("ultima_sessao", sessaoId);
-  if (minhaCedula()?.votou) return tela(MENSAGENS.ja_votou, "sucesso");
+  if (minhaCedula()?.votou) {
+    tela(MENSAGENS.ja_votou, "sucesso");
+    return aguardarProxima();
+  }
 
   let sessao;
   try {
@@ -68,8 +73,8 @@ async function iniciar() {
       if (!codigo) return tela("Escaneie o QR code exibido no telão.");
       const r = await enviar("/api/celular/entrar", { sessao_id: sessaoId, codigo });
       if (!r.ok) return tela(MENSAGENS[r.motivo] ?? "Não foi possível entrar na votação.");
-      guardarCedula({ cedula: r.dados.cedula });
       sessao = r.dados.sessao;
+      guardarCedula({ cedula: r.dados.cedula, grupo_id: sessao.grupo_id, pergunta: sessao.pergunta });
     } else {
       sessao = (await (await fetch("/api/sessao/ativa")).json()).sessao;
     }
@@ -77,13 +82,18 @@ async function iniciar() {
     return semConexao(iniciar);
   }
   if (!sessao || sessao.id !== sessaoId || sessao.estado !== "ABERTA") {
-    return tela(MENSAGENS.sessao_fechada);
+    tela(MENSAGENS.sessao_fechada);
+    return aguardarProxima();
   }
   escolher(sessao);
 }
 
 function escolher(sessao) {
   tela(sessao.tema);
+  if (sessao.total_perguntas > 1) {
+    $("pergunta").textContent = `Pergunta ${sessao.pergunta} de ${sessao.total_perguntas}`;
+    $("pergunta").hidden = false;
+  }
   for (const op of sessao.opcoes) botao(op.rotulo, op.cor, () => confirmar(sessao, op));
 }
 
@@ -109,10 +119,42 @@ async function votar(op) {
     tela("");
     $("tema").innerHTML = '<span class="carimbo">✓</span>Voto registrado';
     document.body.className = "sucesso";
-    return;
+    return aguardarProxima();
   }
   if (r.motivo === "sessao_fechada") return tela("Voto NÃO computado: a votação já foi encerrada.", "recusa");
   tela(MENSAGENS[r.motivo] ?? "Voto NÃO computado. Tente de novo.", "recusa");
+}
+
+// Questionário: quando o mesário libera a pergunta seguinte, o celular troca a
+// cédula atual pela da nova pergunta, sem precisar escanear o QR de novo.
+let esperando = null;
+
+function aguardarProxima() {
+  const minha = minhaCedula();
+  if (!minha?.grupo_id || esperando) return;
+  esperando = setInterval(async () => {
+    let ativa;
+    try {
+      ativa = (await (await fetch("/api/sessao/ativa")).json()).sessao;
+    } catch {
+      return; // sem rede: tenta na próxima volta
+    }
+    if (!ativa || ativa.grupo_id !== minha.grupo_id || ativa.pergunta <= minha.pergunta
+        || ativa.estado !== "ABERTA") return;
+    clearInterval(esperando);
+    esperando = null;
+    let r;
+    try {
+      r = await enviar("/api/celular/proxima", { cedula: minha.cedula });
+    } catch {
+      return semConexao(aguardarProxima);
+    }
+    if (!r.ok) return tela(MENSAGENS[r.motivo] ?? MENSAGENS.cedula_usada);
+    sessaoId = ativa.id;
+    gravar("ultima_sessao", sessaoId);
+    guardarCedula({ cedula: r.dados.cedula, grupo_id: ativa.grupo_id, pergunta: ativa.pergunta });
+    escolher(r.dados.sessao);
+  }, 3000);
 }
 
 function semConexao(tentarDeNovo) {
