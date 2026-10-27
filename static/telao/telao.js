@@ -55,6 +55,13 @@ function mostrarEstado(m, aoVivo) {
     && sessaoAtual?.estado === "ENCERRADA";
   sessaoAtual = m.sessao;
   $("tema").textContent = m.sessao ? m.sessao.tema : "Aguardando";
+  // o QR some na hora em que a votação fecha, sem esperar a próxima consulta
+  if (m.sessao?.estado !== "ABERTA") {
+    $("celular").hidden = true;
+    codigoNaTela = null;
+  } else {
+    atualizarQr();
+  }
   if (m.resultado) {
     // snapshot (telão aberto ou reconectado depois da revelação): sem contagem regressiva
     if (revelandoAgora) regressiva(() => mostrarResultado(m.resultado));
@@ -117,6 +124,39 @@ function mostrarResultado(opcoes) {
   });
 }
 
+// ---------- QR do voto por celular ----------
+// O mesário abre o telão pelo link do painel (#chave=...); sem a chave, o telão funciona sem QR.
+(() => {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get("chave")) {
+    localStorage.setItem("telao_chave", p.get("chave"));
+    history.replaceState(null, "", location.pathname);
+  }
+})();
+
+let codigoNaTela = null;
+
+async function atualizarQr() {
+  const chave = localStorage.getItem("telao_chave");
+  if (!chave || !window.QRCode) return;
+  try {
+    const r = await fetch("/api/telao/codigo", { headers: { "X-Telao-Chave": chave } });
+    if (!r.ok) return;
+    const { sessao_id, codigo } = await r.json();
+    if (codigo === codigoNaTela) return;
+    codigoNaTela = codigo;
+    const area = $("qr");
+    area.innerHTML = "";
+    $("celular").hidden = !codigo;
+    if (codigo) {
+      const link = `${location.origin}/celular/#s=${sessao_id}&c=${codigo}`;
+      new QRCode(area, { text: link, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+    }
+  } catch {
+    // sem rede: mantém o último QR; o código antigo ainda vale por até 30s
+  }
+}
+
 function conectar() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws/telao`);
@@ -131,3 +171,6 @@ function conectar() {
 }
 
 conectar();
+atualizarQr();
+// o código muda a cada 30s; buscar a cada 5s mantém o QR sempre na janela atual
+setInterval(atualizarQr, 5000);
