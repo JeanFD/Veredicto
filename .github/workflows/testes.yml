@@ -17,6 +17,24 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pytest -v
 
+  # ~15s de execução: rodam em todo PR, junto dos testes de backend
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-e2e.txt
+      - run: playwright install --with-deps chromium
+      - run: pytest e2e -v --tracing retain-on-failure
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-traces
+          path: test-results/
+
   build:
     runs-on: ubuntu-latest
     steps:
