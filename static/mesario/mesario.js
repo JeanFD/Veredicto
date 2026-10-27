@@ -325,6 +325,58 @@ $("nova-urna").onsubmit = async (e) => {
   }
 };
 
+// ---------- Importar fila ----------
+const MOTIVOS = {
+  sessao_encerrada: "feitos depois do encerramento ou com a sessão já revelada",
+  sessao_nao_aberta: "sessão ainda não aberta",
+  sessao_inexistente: "sessão inexistente",
+  opcao_invalida: "opção inválida",
+};
+
+function resumirImportacao(linhas, erro = false) {
+  const area = $("resumo-importacao");
+  area.innerHTML = "";
+  for (const texto of linhas) {
+    const p = document.createElement("div");
+    p.textContent = texto;
+    if (erro) p.className = "erro";
+    area.appendChild(p);
+  }
+}
+
+$("arquivo-fila").onchange = async (e) => {
+  const arquivo = e.target.files[0];
+  e.target.value = "";
+  if (!arquivo) return;
+
+  let dados;
+  try {
+    dados = JSON.parse(await arquivo.text());
+  } catch {
+    return resumirImportacao([`${arquivo.name}: não é um arquivo JSON válido.`], true);
+  }
+  if (dados?.formato !== "veredicto-fila" || !Array.isArray(dados.votos) || !dados.urna_id) {
+    return resumirImportacao([`${arquivo.name}: não é uma fila exportada pela urna.`], true);
+  }
+  if (!confirm(`Importar ${dados.votos.length} votos da urna ${dados.urna_id}?`)) return;
+
+  try {
+    const r = await api("POST", "/api/admin/importar", { urna_id: dados.urna_id, votos: dados.votos });
+    const porMotivo = {};
+    for (const v of r.recusados) porMotivo[v.motivo] = (porMotivo[v.motivo] ?? 0) + 1;
+    resumirImportacao([
+      `Urna ${dados.urna_id} · arquivo de ${new Date(dados.exportado_em).toLocaleString("pt-BR")}`,
+      `${r.aceitos} votos aceitos`,
+      `${r.existentes} já estavam no servidor (não duplicados)`,
+      `${r.recusados.length} recusados`,
+      ...Object.entries(porMotivo).map(([m, n]) => `  · ${n} ${MOTIVOS[m] ?? m}`),
+    ]);
+  } catch (err) {
+    const msg = err.status === 422 ? "o arquivo tem votos em formato inválido" : err.message;
+    resumirImportacao([`Falha ao importar: ${msg}.`], true);
+  }
+};
+
 // O link carrega o token da urna: fica oculto até o mesário pedir,
 // some sozinho após um minuto à mostra e é descartado de vez em 10 minutos.
 const SEGUNDOS_VISIVEL = 60;
