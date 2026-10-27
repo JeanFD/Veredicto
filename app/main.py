@@ -380,7 +380,7 @@ async def avancar_sessao(sid: int, forcar: bool = False):
         if problemas and not forcar:
             raise HTTPException(409, {"mensagem": "Há pendências", "problemas": problemas})
         if problemas:
-            registrar_evento("revelacao_forcada", "; ".join(problemas))
+            registrar_evento("revelacao_forcada", f"sessao={sid} " + "; ".join(problemas))
         
     with db:
         if novo == "ENCERRADA":
@@ -473,6 +473,67 @@ async def importar_votos(dados: Importacao):
         f"urna={dados.urna_id} aceitos={aceitos} existentes={existentes} recusados={len(recusados)}",
     )
     return {"aceitos": aceitos, "existentes": existentes, "recusados": recusados}
+
+# ---------- Auditoria pública ----------
+# Invariante: nada de uma sessão sai daqui antes de ela estar REVELADA.
+# Por urna vai só a quantidade de votos, nunca a divisão por opção: numa urna
+# com poucos votos, ela revelaria em quem cada pessoa votou.
+
+def descrever_evento(tipo: str, campos: dict) -> str | None:
+    """Texto público de um evento da sessão; None para eventos que não são publicados."""
+    if tipo == "sessao_ativada":
+        return "Sessão ativada"
+    if tipo == "sessao_avancada":
+        return f"Estado alterado para {campos.get('estado')}"
+    if tipo == "sessao_zerada":
+        # 'por' traz o IP de quem zerou: fica só na auditoria interna
+        return f"Contagem zerada ({campos.get('votos')} votos apagados)"
+    if tipo == "revelacao_forcada":
+        return "Revelação forçada com pendências nas urnas"
+    if tipo == "votos_exportados":
+        return "Votos exportados pelo mesário"
+    return None
+
+def eventos_publicos(sid: int) -> list[dict]:
+    publicos = []
+    for e in db.execute("SELECT tipo, detalhe, em FROM eventos ORDER BY id"):
+        campos = dict(p.split("=", 1) for p in e["detalhe"].split() if "=" in p)
+        if campos.get("sessao") != str(sid):
+            continue
+        texto = descrever_evento(e["tipo"], campos)
+        if texto:
+            publicos.append({"em": e["em"], "evento": texto})
+    return publicos
+
+@app.get("/api/auditoria/sessoes")
+async def auditoria_sessoes():
+    linhas = db.execute("SELECT id, tema FROM sessoes WHERE estado = 'REVELADA' ORDER BY id")
+    return [dict(l) for l in linhas]
+
+@app.get("/api/auditoria/sessoes/{sid}")
+async def auditoria_sessao(sid: int):
+    sessao = db.execute("SELECT id, tema, estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    # mesma resposta para inexistente e não revelada: não confirma nada antes da hora
+    if not sessao or sessao["estado"] != "REVELADA":
+        raise HTTPException(404, "Auditoria disponível só após a revelação")
+    nomes = {u["id"]: u["nome"] for u in db.execute("SELECT id, nome FROM urnas")}
+    nomes[URNA_CELULAR] = "Voto por celular"
+    por_urna = [
+        {"urna": nomes.get(u["urna_id"], u["urna_id"]), "votos": u["votos"],
+         "primeiro_voto": u["primeiro"], "ultimo_voto": u["ultimo"]}
+        for u in db.execute(
+            "SELECT urna_id, COUNT(*) AS votos, MIN(recebido_em) AS primeiro, MAX(recebido_em) AS ultimo "
+            "FROM votos WHERE sessao_id = ? GROUP BY urna_id ORDER BY urna_id", (sid,),
+        )
+    ]
+    return {
+        "id": sessao["id"],
+        "tema": sessao["tema"],
+        "total": total_votos(sid),
+        "resultado": contar_por_opcao(sid),
+        "por_urna": por_urna,
+        "eventos": eventos_publicos(sid),
+    }
 
 # ---------- Voto por celular ----------
 def sessao_aberta(sid: int):
