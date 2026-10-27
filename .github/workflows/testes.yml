@@ -20,6 +20,8 @@ jobs:
   # ~15s de execução: rodam em todo PR, junto dos testes de backend
   e2e:
     runs-on: ubuntu-latest
+    # leva ~1 min; o limite evita um passo travado (ex: apt do Playwright) segurar o PR por horas
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

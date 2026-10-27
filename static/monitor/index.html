@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Veredito · Monitoramento</title>
+  <style>
+    html { background: #fff; color: #111827; }
+    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 0 1rem 2rem; }
+    .cartoes { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+    .cartao { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.75rem 1rem; }
+    .cartao small { color: #4b5563; display: block; }
+    .cartao strong { font-size: 2rem; font-variant-numeric: tabular-nums; }
+    .cartao.alerta { border-color: #dc2626; background: #fef2f2; }
+    #grafico { display: flex; align-items: flex-end; gap: 2px; height: 180px; border-bottom: 1px solid #9ca3af; }
+    #grafico div { flex: 1; background: #2563eb; min-height: 1px; border-radius: 2px 2px 0 0; }
+    #grafico div:last-child { background: #93c5fd; } /* minuto atual, ainda incompleto */
+    .eixo { display: flex; justify-content: space-between; color: #4b5563; font-size: 0.85rem; }
+    #atualizado { color: #4b5563; }
+    table { border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.25rem 1rem 0.25rem 0; }
+  </style>
+</head>
+<body>
+  <section id="login">
+    <h1>Veredito · Monitoramento</h1>
+    <input id="senha" type="password" placeholder="Senha do mesário">
+    <button id="entrar">Entrar</button>
+    <p id="erro-login"></p>
+  </section>
+
+  <section id="painel" hidden>
+    <h1>Monitoramento</h1>
+    <p id="atualizado"></p>
+    <div class="cartoes">
+      <div class="cartao"><small>Votos no último minuto completo</small><strong id="vpm">—</strong>
+        <small id="vpm-agora"></small></div>
+      <div class="cartao" id="cartao-urnas"><small>Urnas online</small><strong id="urnas">—</strong></div>
+      <div class="cartao"><small>Latência do voto p50 · p95</small><strong id="latencia">—</strong></div>
+      <div class="cartao"><small id="sessao">Sessão ativa</small><strong id="total">—</strong></div>
+    </div>
+
+    <h2>Votos por minuto (últimos 30 min)</h2>
+    <div id="grafico"></div>
+    <div class="eixo"><span>−30 min</span><span>agora</span></div>
+
+    <h2>Desde que o servidor subiu</h2>
+    <table><tbody id="totais"></tbody></table>
+  </section>
+
+  <script src="monitor.js"></script>
+</body>
+</html>
