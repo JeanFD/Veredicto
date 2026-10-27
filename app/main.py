@@ -21,6 +21,9 @@ from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets
 from app.ws import gerente
 from app.config import EM_PRODUCAO
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
+from app.seguranca import (
+    JANELA_CODIGO, chave_telao, codigo_celular, codigo_valido, exigir_telao, janela_atual,
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,6 +53,9 @@ TRANSICOES = {
 
 TOLERANCIA_ATRASO = timedelta(minutes=10)
 
+# votos por celular são gravados com este urna_id, que não pode ser cadastrado como urna
+URNA_CELULAR = "celular"
+
 ultimo_sinal: dict[str, dict] = {}
 
 class Heartbeat(BaseModel):
@@ -73,6 +79,15 @@ class Importacao(BaseModel):
 
 class Zerar(BaseModel):
     confirmacao: str
+
+class EntradaCelular(BaseModel):
+    sessao_id: int
+    codigo: str = Field(max_length=20)
+
+class VotoCelular(BaseModel):
+    cedula: str = Field(max_length=100)
+    id: uuid.UUID
+    opcao: str
 
 class NovaOpcao(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -242,6 +257,7 @@ async def zerar_sessao(sid: int, dados: Zerar, responsavel: str = Depends(exigir
         raise HTTPException(400, "Confirmação não confere com o tema da sessão")
     with db:
         apagados = db.execute("DELETE FROM votos WHERE sessao_id = ?", (sid,)).rowcount
+        db.execute("DELETE FROM cedulas WHERE sessao_id = ?", (sid,))
         db.execute("UPDATE sessoes SET estado = 'AGUARDANDO', encerrada_em = NULL WHERE id = ?", (sid,))
     registrar_evento("sessao_zerada", f"sessao={sid} votos={apagados} por={responsavel}")
     await gerente.broadcast(estado_publico(), "telao", "mesario")
@@ -295,6 +311,8 @@ async def ativar_sessao(sid: int):
 
 @app.post("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
 async def cadastrar_urna(u: NovaUrna):
+    if u.id.lower() == URNA_CELULAR:
+        raise HTTPException(409, "ID reservado para os votos por celular")
     token = secrets.token_urlsafe(32)
     try:
         with db:
@@ -455,6 +473,81 @@ async def importar_votos(dados: Importacao):
         f"urna={dados.urna_id} aceitos={aceitos} existentes={existentes} recusados={len(recusados)}",
     )
     return {"aceitos": aceitos, "existentes": existentes, "recusados": recusados}
+
+# ---------- Voto por celular ----------
+def sessao_aberta(sid: int):
+    sessao = db.execute("SELECT estado, ativa FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise recusa(404, "sessao_inexistente", "Sessão inexistente")
+    if not sessao["ativa"] or sessao["estado"] != "ABERTA":
+        raise recusa(409, "sessao_fechada", "A votação não está aberta")
+
+@app.get("/api/admin/telao", dependencies=[Depends(exigir_admin)])
+async def link_telao():
+    return {"chave": chave_telao()}
+
+@app.get("/api/telao/codigo", dependencies=[Depends(exigir_telao)])
+async def codigo_telao():
+    s = buscar_sessao_ativa()
+    if not s or s["estado"] != "ABERTA":
+        return {"sessao_id": None, "codigo": None}
+    janela = janela_atual()
+    return {
+        "sessao_id": s["id"],
+        "codigo": codigo_celular(s["id"], janela),
+        "expira_em": (janela + 1) * JANELA_CODIGO,
+    }
+
+@app.post("/api/celular/entrar")
+async def entrar_celular(e: EntradaCelular):
+    sessao_aberta(e.sessao_id)
+    if not codigo_valido(e.sessao_id, e.codigo):
+        raise recusa(403, "codigo_expirado", "QR code expirado: escaneie de novo o código do telão")
+    cedula = secrets.token_urlsafe(32)
+    with db:
+        db.execute(
+            "INSERT INTO cedulas (token_hash, sessao_id, criada_em) VALUES (?, ?, ?)",
+            (hash_token(cedula), e.sessao_id, agora()),
+        )
+    return {"cedula": cedula, "sessao": buscar_sessao_ativa()}
+
+@app.post("/api/celular/votar")
+async def votar_celular(v: VotoCelular):
+    cedula = db.execute("SELECT * FROM cedulas WHERE token_hash = ?", (hash_token(v.cedula),)).fetchone()
+    if not cedula:
+        raise recusa(401, "cedula_invalida", "Cédula inválida: escaneie o QR code do telão")
+    if cedula["voto_id"]:
+        # reenvio do mesmo voto (rede instável) é aceito; um segundo voto, não
+        if cedula["voto_id"] == str(v.id):
+            return {"ok": True}
+        raise recusa(409, "ja_votou", "Este celular já votou nesta sessão")
+    sessao_aberta(cedula["sessao_id"])
+    if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?",
+                      (cedula["sessao_id"], v.opcao)).fetchone():
+        raise recusa(400, "opcao_invalida", "Opção inválida")
+
+    try:
+        with db:
+            # o WHERE voto_id IS NULL garante uso único mesmo com dois envios simultâneos
+            marcada = db.execute(
+                "UPDATE cedulas SET voto_id = ? WHERE token_hash = ? AND voto_id IS NULL",
+                (str(v.id), cedula["token_hash"]),
+            ).rowcount
+            if not marcada:
+                raise recusa(409, "ja_votou", "Este celular já votou nesta sessão")
+            db.execute(
+                "INSERT INTO votos (id, sessao_id, urna_id, opcao_chave, votado_em, recebido_em) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (str(v.id), cedula["sessao_id"], URNA_CELULAR, v.opcao, agora(), agora()),
+            )
+    except sqlite3.IntegrityError:
+        # id de voto que já existe: a transação desfaz a marcação da cédula
+        raise recusa(409, "voto_repetido", "Voto repetido")
+    await gerente.broadcast(
+        {"tipo": "total", "sessao_id": cedula["sessao_id"], "total": total_votos(cedula["sessao_id"])},
+        "telao", "mesario",
+    )
+    return {"ok": True}
 
 
 

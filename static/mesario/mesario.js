@@ -325,6 +325,19 @@ $("nova-urna").onsubmit = async (e) => {
   }
 };
 
+// ---------- Telão ----------
+$("abrir-telao").onclick = async () => {
+  // abre a aba antes do await para o navegador não bloquear o pop-up
+  const aba = window.open("about:blank", "_blank");
+  try {
+    const { chave } = await api("GET", "/api/admin/telao");
+    aba.location = `/telao/#chave=${encodeURIComponent(chave)}`;
+  } catch (e) {
+    aba.close();
+    alert(e.message);
+  }
+};
+
 // ---------- Importar fila ----------
 const MOTIVOS = {
   sessao_encerrada: "feitos depois do encerramento ou com a sessão já revelada",
