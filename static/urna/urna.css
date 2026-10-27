@@ -20,4 +20,5 @@ button {
 button:active { transform: scale(0.97); }
 .secundario { background: #475569; }
 body.recusa { background: #7f1d1d; }
-footer { display: flex; justify-content: space-between; padding: 0.5rem 1rem; opacity: 0.5; }
+footer { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; opacity: 0.5; }
+footer .exportar { font-size: 1rem; padding: 0.5rem 1rem; border-radius: 0.5rem; background: #475569; }

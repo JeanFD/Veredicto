@@ -164,6 +164,39 @@ async function cicloEnvio() {
   setTimeout(cicloEnvio, espera);
 }
 
+// ---------- Exportar fila (mesário) ----------
+// O arquivo traz votos ainda não enviados: o botão fica escondido do eleitor
+// e aparece com 5 toques rápidos no id da urna, no rodapé.
+let toques = [];
+
+$("urna-id").onclick = () => {
+  const agora = Date.now();
+  toques = [...toques.filter((t) => agora - t < 3000), agora];
+  if (toques.length >= 5) {
+    toques = [];
+    $("exportar").hidden = !$("exportar").hidden;
+    $("exportar").textContent = `exportar fila (${ler("fila", []).length})`;
+  }
+};
+
+$("exportar").onclick = () => {
+  const fila = ler("fila", []);
+  const conteudo = {
+    formato: "veredicto-fila",
+    versao: 1,
+    urna_id: URNA_ID,
+    exportado_em: new Date().toISOString(),
+    votos: fila,
+  };
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(conteudo, null, 2)], { type: "application/json" }));
+  link.download = `fila-${URNA_ID}-${conteudo.exportado_em.replace(/[:.]/g, "-")}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  // a fila continua na urna: reimportar ou reenviar não duplica (id por voto)
+  $("exportar").hidden = true;
+};
+
 // ---------- Início ----------
 renderizar();
 buscarSessao();
