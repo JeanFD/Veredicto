@@ -1,4 +1,5 @@
 import os
+import re
 
 from playwright.sync_api import Page, expect
 
@@ -16,7 +17,7 @@ def test_painel_mostra_votos_urnas_e_latencia(page: Page, base_url, admin, urna,
 
     expect(page.locator("#total")).to_have_text("3 votos")
     expect(page.locator("#latencia")).to_contain_text("ms")
-    expect(page.locator("#urnas")).to_have_text(__import__("re").compile(r"^\d+ / \d+$"))
+    expect(page.locator("#urnas")).to_have_text(re.compile(r"^\d+ / \d+$"))
     expect(page.locator("#grafico div")).to_have_count(30)
     expect(page.locator("#totais")).to_contain_text("Votos aceitos (urna)")
     if os.getenv("E2E_CAPTURA"):
