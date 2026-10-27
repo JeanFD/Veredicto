@@ -27,8 +27,14 @@ jobs:
   # ~15s de execução: rodam em todo PR, junto dos testes de backend
   e2e:
     runs-on: ubuntu-latest
-    # leva ~1 min; o limite evita um passo travado (ex: apt do Playwright) segurar o PR por horas
+    # leva ~1 min; o limite evita um passo travado segurar o PR por horas
     timeout-minutes: 15
+    # imagem oficial com Chromium e dependências de sistema já instalados: o
+    # "playwright install --with-deps" travava no runner. A versão acompanha a
+    # do pacote playwright em requirements-e2e.txt.
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.64.1-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,7 +42,6 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements-e2e.txt
-      - run: playwright install --with-deps chromium
       - run: pytest e2e -v --tracing retain-on-failure
       - uses: actions/upload-artifact@v4
         if: failure()
