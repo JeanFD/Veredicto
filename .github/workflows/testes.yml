@@ -8,6 +8,13 @@ on:
 jobs:
   testes:
     runs-on: ubuntu-latest
+    # Redis de verdade para o teste com vários processos (tests/test_redis_processos.py)
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+    env:
+      REDIS_TESTE_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,17 +27,22 @@ jobs:
   # ~15s de execução: rodam em todo PR, junto dos testes de backend
   e2e:
     runs-on: ubuntu-latest
-    # leva ~1 min; o limite evita um passo travado (ex: apt do Playwright) segurar o PR por horas
+    # leva ~1 min; o limite evita um passo travado segurar o PR por horas
     timeout-minutes: 15
+    # imagem oficial com Chromium e dependências de sistema já instalados: o
+    # "playwright install --with-deps" travava no runner. A versão acompanha a
+    # do pacote playwright em requirements-e2e.txt.
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.64.1-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v4
+      # sem cache: pip, que dentro do container exige lsb_release
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
       - run: pip install -r requirements-e2e.txt
-      - run: playwright install --with-deps chromium
-      - run: pytest e2e -v --tracing retain-on-failure
+      - run: python -m pytest e2e -v --tracing retain-on-failure
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -44,3 +56,8 @@ jobs:
       - run: docker build -t veredicto:ci .
       # o mesmo comando que o deploy roda antes de trocar o container
       - run: docker run --rm -e DB_PATH=/tmp/ci.db -e ADMIN_SENHA=ci veredicto:ci python -m app.migrar
+      # o CMD da imagem (o que o deploy sobe) precisa responder
+      - run: |
+          docker run -d --name ci -p 8000:8000 -e DB_PATH=/tmp/ci.db -e ADMIN_SENHA=ci veredicto:ci
+          for i in $(seq 30); do curl -sf localhost:8000/api/sessao/ativa && exit 0; sleep 1; done
+          docker logs ci; exit 1

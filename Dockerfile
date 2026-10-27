@@ -14,6 +14,5 @@ USER veredicto
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", \ 
-     "--host", "0.0.0.0", "--port", "8000", "--workers", "1", \
-     "--proxy-headers", "--forwarded-allow-ips=*"]
+# WORKERS > 1 só com REDIS_URL definido: ver deploy/ESCALA.md
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS:-1} --proxy-headers --forwarded-allow-ips='*'"]

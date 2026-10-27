@@ -10,15 +10,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.db import db
-from app.main import app, ultimo_sinal
+from app.main import app
 from tests.auxiliares import ADMIN
 
 @pytest.fixture
 def cliente():
-    from app.main import ultimo_sinal
-    from app.seguranca import falhas
-    ultimo_sinal.clear()
-    falhas.clear()
+    from app.compartilhado import falhas, sinais
+    sinais.limpar()
+    falhas.limpar()
 
     with db:
         db.execute("DELETE FROM votos")

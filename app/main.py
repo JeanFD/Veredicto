@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets
 from app.ws import gerente
 from app.config import EM_PRODUCAO
+from app.compartilhado import sinais
 from app.observabilidade import formato_prometheus, log, metricas
 from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
 from app.seguranca import (
@@ -30,12 +31,17 @@ from app.seguranca import (
 async def lifespan(app: FastAPI):
     async def vigiar_urnas():
         while True:
-            await gerente.broadcast({"tipo": "urnas", "urnas": status_urnas()}, "mesario")
+            # cada processo calcula a grade a partir do estado compartilhado e entrega
+            # só aos seus clientes: publicar no Redis repetiria a grade N vezes
+            await gerente.entregar({"tipo": "urnas", "urnas": status_urnas()}, ["mesario"])
             await asyncio.sleep(5)
 
-    tarefa = asyncio.create_task(vigiar_urnas())
+    tarefas = [asyncio.create_task(vigiar_urnas())]
+    if gerente.redis:
+        tarefas.append(asyncio.create_task(gerente.escutar()))
     yield
-    tarefa.cancel()
+    for tarefa in tarefas:
+        tarefa.cancel()
 
 app = FastAPI(
     title="Veredicto",
@@ -68,7 +74,6 @@ TOLERANCIA_ATRASO = timedelta(minutes=10)
 # votos por celular são gravados com este urna_id, que não pode ser cadastrado como urna
 URNA_CELULAR = "celular"
 
-ultimo_sinal: dict[str, dict] = {}
 
 class Heartbeat(BaseModel):
     pendentes: int = Field(ge=0)
@@ -225,10 +230,9 @@ def contar_por_opcao(sid: int) -> list[dict]:
 
 def status_urnas() -> list[dict]:
     s = buscar_sessao_ativa()
-    agora_mono = time.monotonic()
     resultado = []
     for u in db.execute("SELECT id, nome, ativa, reserva FROM urnas ORDER BY id"):
-        sinal = ultimo_sinal.get(u["id"])
+        sinal = sinais.obter(u["id"])
         votos = 0
         if s:
             votos = db.execute(
@@ -241,8 +245,8 @@ def status_urnas() -> list[dict]:
             "ativa": bool(u["ativa"]),
             "reserva": bool(u["reserva"]),
             "nunca_conectou": sinal is None,
-            "online": sinal is not None and agora_mono - sinal["em"] < 15,
-            "segundos_sem_sinal": int(agora_mono - sinal["em"]) if sinal else None,
+            "online": sinal is not None and sinal["segundos"] < 15,
+            "segundos_sem_sinal": int(sinal["segundos"]) if sinal else None,
             "pendentes": sinal["pendentes"] if sinal else None,
             "recusados": sinal["recusados"] if sinal else 0,
             "votos_sessao": votos,
@@ -467,15 +471,20 @@ async def avancar_sessao(sid: int, forcar: bool = False):
         problemas = problemas_para_revelar()
         if problemas and not forcar:
             raise HTTPException(409, {"mensagem": "Há pendências", "problemas": problemas})
-        if problemas:
-            registrar_evento("revelacao_forcada", f"sessao={sid} " + "; ".join(problemas))
-        
+    else:
+        problemas = []
+
+    # o WHERE estado = ? torna a transição atômica: com vários processos, dois
+    # cliques simultâneos não avançam a sessão duas vezes
     with db:
-        if novo == "ENCERRADA":
-            db.execute("UPDATE sessoes SET estado = ?, encerrada_em = ? WHERE id = ?",
-                       (novo, agora(), sid))
-        else:
-            db.execute("UPDATE sessoes SET estado = ? WHERE id = ?", (novo, sid))
+        mudou = db.execute(
+            "UPDATE sessoes SET estado = ?, encerrada_em = COALESCE(?, encerrada_em) WHERE id = ? AND estado = ?",
+            (novo, agora() if novo == "ENCERRADA" else None, sid, sessao["estado"]),
+        ).rowcount
+    if not mudou:
+        raise HTTPException(409, "A sessão mudou de estado nesse meio-tempo; atualize a tela")
+    if problemas:
+        registrar_evento("revelacao_forcada", f"sessao={sid} " + "; ".join(problemas))
 
     await gerente.broadcast(estado_publico(), "telao", "mesario")
     registrar_evento("sessao_avancada", f"sessao={sid} estado={novo}")
@@ -508,7 +517,7 @@ async def ws_mesario(ws: WebSocket):
 
 @app.post("/api/urnas/heartbeat")
 async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
-    ultimo_sinal[urna_id] = {"em": time.monotonic(), "pendentes": hb.pendentes, "recusados": hb.recusados}
+    sinais.registrar(urna_id, hb.pendentes, hb.recusados)
     return {"sessao": buscar_sessao_ativa()}
 
 @app.get("/api/admin/urnas", dependencies=[Depends(exigir_admin)])

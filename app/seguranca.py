@@ -2,19 +2,16 @@ import hashlib
 import hmac
 import secrets
 import time
-from collections import defaultdict
 
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
+from app.compartilhado import falhas
 from app.config import ADMIN_SENHA
 from app.db import db
 
 basic = HTTPBasic(auto_error=False)
 
-MAX_FALHAS = 10
-JANELA_SEGUNDOS = 300
-falhas: dict[str, list[float]] = defaultdict(list)
 
 
 def hash_token(token: str) -> str:
@@ -26,13 +23,11 @@ def senha_correta(senha: str) -> bool:
 
 
 def bloqueado(ip: str) -> bool:
-    agora = time.monotonic()
-    falhas[ip] = [t for t in falhas[ip] if agora - t < JANELA_SEGUNDOS]
-    return len(falhas[ip]) >= MAX_FALHAS
+    return falhas.bloqueado(ip)
 
 
 def registrar_falha(ip: str):
-    falhas[ip].append(time.monotonic())
+    falhas.registrar(ip)
 
 
 async def exigir_admin(request: Request, cred: HTTPBasicCredentials | None = Depends(basic)) -> str:
