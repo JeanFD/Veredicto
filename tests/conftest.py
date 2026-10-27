@@ -23,6 +23,8 @@ def cliente():
     with db:
         db.execute("DELETE FROM votos")
         db.execute("DELETE FROM urnas")
+        db.execute("DELETE FROM opcoes WHERE sessao_id > 1")
+        db.execute("DELETE FROM sessoes WHERE id > 1")
         db.execute("UPDATE sessoes SET estado = 'AGUARDANDO', ativa = 0, encerrada_em = NULL")
     with TestClient(app) as c:
         yield c
