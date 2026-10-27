@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import httpx
@@ -86,11 +87,12 @@ def sessao_aberta(processos):
     admin(a, "POST", "/api/admin/sessoes/1/avancar")
     return token
 
+@contextmanager
 def conectar_telao(url):
     from websockets.sync.client import connect
-    ws = connect(url.replace("http", "ws") + "/ws/telao")
-    assert json.loads(ws.recv(timeout=5))["tipo"] == "snapshot"
-    return ws
+    with connect(url.replace("http", "ws") + "/ws/telao") as ws:
+        assert json.loads(ws.recv(timeout=5))["tipo"] == "snapshot"
+        yield ws
 
 def test_voto_recebido_por_um_processo_chega_ao_telao_de_outro(processos, sessao_aberta):
     (_, a), (_, b), (_, c) = processos
