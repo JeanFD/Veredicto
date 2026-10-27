@@ -39,24 +39,33 @@ const PROXIMO = {
 };
 
 async function carregarSessoes() {
-  const sessoes = await api("GET", "/api/admin/sessoes");
+  // lista completa: os presets precisam conhecer também os temas arquivados
+  const sessoes = await api("GET", "/api/admin/sessoes?arquivadas=true");
+  const mostrarArquivadas = $("mostrar-arquivadas").checked;
   const area = $("sessoes");
   area.innerHTML = "";
-  for (const s of sessoes) {
+  for (const s of sessoes.filter((s) => mostrarArquivadas || !s.arquivada)) {
     const linha = document.createElement("div");
-    linha.className = "sessao" + (s.ativa ? " ativa" : "");
+    linha.className = "sessao" + (s.ativa ? " ativa" : "") + (s.arquivada ? " arquivada" : "");
     const titulo = document.createElement("span");
-    titulo.textContent = `${s.tema} · ${s.estado}`;
+    titulo.textContent = `${s.tema} · ${s.estado}${s.arquivada ? " · arquivada" : ""}`;
     linha.appendChild(titulo);
-    if (!s.ativa) {
+    if (s.arquivada) {
+      linha.appendChild(criarBotao("Desarquivar", () => acao(`/api/admin/sessoes/${s.id}/desarquivar`)));
+    } else if (!s.ativa) {
       linha.appendChild(criarBotao("Ativar", () => acao(`/api/admin/sessoes/${s.id}/ativar`)));
+      linha.appendChild(criarBotao("Arquivar", () => acao(`/api/admin/sessoes/${s.id}/arquivar`)));
     } else if (PROXIMO[s.estado]) {
       linha.appendChild(criarBotao(PROXIMO[s.estado], () => avancar(s.id, s.estado)));
     }
     area.appendChild(linha);
   }
+  const arquivadas = sessoes.filter((s) => s.arquivada).length;
+  $("total-arquivadas").textContent = arquivadas ? `(${arquivadas})` : "";
   mostrarPresets(sessoes);
 }
+
+$("mostrar-arquivadas").onchange = carregarSessoes;
 
 // ---------- Criar sessão ----------
 let presets = [];
