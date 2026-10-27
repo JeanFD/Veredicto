@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import secrets
 import time
 from collections import defaultdict
@@ -43,6 +44,42 @@ async def exigir_admin(request: Request, cred: HTTPBasicCredentials | None = Dep
         raise HTTPException(401, "Não autorizado")
     # a senha é compartilhada: o IP é o que distingue quem agiu na auditoria
     return f"{cred.username}@{ip}"
+
+
+# ---------- Voto por celular ----------
+# O QR do telão traz um código que muda a cada JANELA_CODIGO segundos; aceitar
+# também a janela anterior evita recusar quem escaneou na virada.
+JANELA_CODIGO = 30
+
+
+def _assinar(texto: str) -> str:
+    return hmac.new(ADMIN_SENHA.encode(), texto.encode(), hashlib.sha256).hexdigest()
+
+
+def chave_telao() -> str:
+    return _assinar("telao")[:32]
+
+
+def janela_atual() -> int:
+    return int(time.time() // JANELA_CODIGO)
+
+
+def codigo_celular(sessao_id: int, janela: int) -> str:
+    return _assinar(f"celular:{sessao_id}:{janela}")[:10]
+
+
+def codigo_valido(sessao_id: int, codigo: str) -> bool:
+    janela = janela_atual()
+    return any(
+        secrets.compare_digest(codigo.encode(), codigo_celular(sessao_id, j).encode())
+        for j in (janela, janela - 1)
+    )
+
+
+async def exigir_telao(x_telao_chave: str = Header("")):
+    # sem a chave, qualquer um leria o código de casa e votaria sem estar no local
+    if not secrets.compare_digest(x_telao_chave.encode(), chave_telao().encode()):
+        raise HTTPException(401, "Telão não autorizado")
 
 
 async def exigir_urna(x_urna_token: str = Header(...)) -> str:

@@ -49,6 +49,12 @@ db.executescript("""
         detalhe TEXT NOT NULL DEFAULT '',
         em TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS cedulas (
+        token_hash TEXT PRIMARY KEY,
+        sessao_id INTEGER NOT NULL REFERENCES sessoes(id),
+        criada_em TEXT NOT NULL,
+        voto_id TEXT
+    );
 """)
 
 def adicionar_coluna(tabela: str, coluna: str, definicao: str):
