@@ -23,11 +23,12 @@ async function api(metodo, caminho, corpo) {
   return dados;
 }
 
-function criarBotao(texto, aoClicar) {
+function criarBotao(texto, aoClicar, classe) {
   const b = document.createElement("button");
   b.type = "button";
   b.textContent = texto;
   b.onclick = aoClicar;
+  if (classe) b.className = classe;
   return b;
 }
 
@@ -37,6 +38,22 @@ const PROXIMO = {
   ABERTA: "Encerrar votação",
   ENCERRADA: "Revelar resultado",
 };
+// revelar é irreversível: vai junto das ações perigosas
+const PERIGOSO = new Set(["ENCERRADA"]);
+
+function botaoAvancar(s) {
+  const perigoso = PERIGOSO.has(s.estado);
+  return criarBotao(PROXIMO[s.estado], () => avancar(s.id, s.estado), perigoso ? "perigo" : "principal");
+}
+
+function mostrarEstado(sessao, total) {
+  $("ativa").textContent = sessao ? sessao.tema : "nenhuma";
+  $("selo-estado").textContent = sessao ? sessao.estado : "—";
+  $("selo-estado").className = "selo " + (sessao ? sessao.estado : "");
+  $("total").textContent = total;
+  $("acoes-estado").innerHTML = "";
+  if (sessao && PROXIMO[sessao.estado]) $("acoes-estado").appendChild(botaoAvancar(sessao));
+}
 
 async function carregarSessoes() {
   // lista completa: os presets precisam conhecer também os temas arquivados
@@ -50,17 +67,25 @@ async function carregarSessoes() {
     const titulo = document.createElement("span");
     titulo.textContent = `${s.tema} · ${s.estado}${s.arquivada ? " · arquivada" : ""}`;
     linha.appendChild(titulo);
+
+    const perigo = document.createElement("div");
+    perigo.className = "acoes-perigo";
     if (s.arquivada) {
       linha.appendChild(criarBotao("Desarquivar", () => acao(`/api/admin/sessoes/${s.id}/desarquivar`)));
     } else if (!s.ativa) {
       linha.appendChild(criarBotao("Ativar", () => acao(`/api/admin/sessoes/${s.id}/ativar`)));
-      linha.appendChild(criarBotao("Arquivar", () => acao(`/api/admin/sessoes/${s.id}/arquivar`)));
+      perigo.appendChild(criarBotao("Arquivar", () => {
+        if (confirm(`Arquivar "${s.tema}"? Ela some da lista, mas pode ser desarquivada.`)) {
+          acao(`/api/admin/sessoes/${s.id}/arquivar`);
+        }
+      }, "perigo"));
     } else if (PROXIMO[s.estado]) {
-      linha.appendChild(criarBotao(PROXIMO[s.estado], () => avancar(s.id, s.estado)));
+      (PERIGOSO.has(s.estado) ? perigo : linha).appendChild(botaoAvancar(s));
     }
     if (!s.arquivada && s.estado !== "REVELADA") {
-      linha.appendChild(criarBotao("Zerar", () => zerar(s)));
+      perigo.appendChild(criarBotao("Zerar", () => zerar(s), "perigo"));
     }
+    if (perigo.children.length) linha.appendChild(perigo);
     area.appendChild(linha);
   }
   const arquivadas = sessoes.filter((s) => s.arquivada).length;
@@ -184,8 +209,7 @@ function conectarWs() {
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (m.tipo === "snapshot" || m.tipo === "estado") {
-      $("ativa").textContent = m.sessao ? `${m.sessao.tema} (${m.sessao.estado})` : "nenhuma";
-      $("total").textContent = m.total;
+      mostrarEstado(m.sessao, m.total);
       carregarSessoes();
     }
     if (m.tipo === "total") $("total").textContent = m.total;
@@ -209,6 +233,8 @@ function iniciar() {
   api("GET", "/api/admin/presets")
     .then((p) => { presets = p; }, () => {})
     .finally(carregarSessoes);
+  // a grade chega pelo WebSocket a cada 5s; busca já para não abrir vazia
+  api("GET", "/api/admin/urnas").then((u) => window.mostrarUrnas(u), () => {});
   conectarWs();
 }
 
@@ -227,6 +253,9 @@ if (senha) iniciar();
 
 
 // ---------- Urnas ----------
+// a grade é redesenhada a cada 5s: lembra quais menus de ações estavam abertos
+const urnasComAcoesAbertas = new Set();
+
 window.mostrarUrnas = (urnas) => {
   const area = $("urnas");
   area.innerHTML = "";
@@ -251,7 +280,18 @@ window.mostrarUrnas = (urnas) => {
       cartao.appendChild(alerta);
     }
     if (u.ativa) {
-      cartao.appendChild(criarBotao("Gerar novo link", async () => {
+      // ações raras e perigosas recolhidas, para não competir com o status
+      const acoes = document.createElement("details");
+      const titulo = document.createElement("summary");
+      titulo.textContent = "Ações";
+      acoes.appendChild(titulo);
+      acoes.open = urnasComAcoesAbertas.has(u.id);
+      acoes.ontoggle = () => {
+        if (acoes.open) urnasComAcoesAbertas.add(u.id);
+        else urnasComAcoesAbertas.delete(u.id);
+      };
+      cartao.appendChild(acoes);
+      acoes.appendChild(criarBotao("Gerar novo link", async () => {
         if (!confirm(`Gerar novo link para ${u.id}? O link atual deixa de funcionar e a urna precisa ser reconfigurada.`)) return;
         try {
           const { id, token } = await api("POST", `/api/admin/urnas/${u.id}/novo-token`);
@@ -259,12 +299,12 @@ window.mostrarUrnas = (urnas) => {
         } catch (e) {
           alert(e.message);
         }
-      }));
-      cartao.appendChild(criarBotao("Desativar", () => {
+      }, "perigo"));
+      acoes.appendChild(criarBotao("Desativar", () => {
         if (confirm(`Desativar ${u.id}? Ela não poderá mais enviar votos.`)) {
           acao(`/api/admin/urnas/${u.id}/desativar`);
         }
-      }));
+      }, "perigo"));
     }
     area.appendChild(cartao);
   }
