@@ -33,6 +33,10 @@ MENSAGENS = {
     },
     "ja_votou": {"pt": "Este celular já votou nesta sessão", "en": "This phone has already voted in this session"},
     "voto_repetido": {"pt": "Voto repetido", "en": "Duplicate vote"},
+    "urna_de_teste": {
+        "pt": "Urna de teste não vota em sessão de verdade",
+        "en": "A test ballot box cannot vote in a real session",
+    },
 
     # painel do mesário
     "ative_outra_antes": {"pt": "Ative outra sessão antes de arquivar esta", "en": "Activate another session before archiving this one"},

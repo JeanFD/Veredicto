@@ -22,9 +22,11 @@ def ler_presets() -> list[dict]:
     with open(SESSOES_PATH, encoding="utf-8-sig") as f:
         return json.load(f)
 
-def inserir_sessao(tema: str, opcoes: list[dict], grupo_id: int | None = None, pergunta: int = 1) -> int:
+def inserir_sessao(tema: str, opcoes: list[dict], grupo_id: int | None = None, pergunta: int = 1,
+                   teste: bool = False) -> int:
     cur = db.execute(
-        "INSERT INTO sessoes (tema, grupo_id, pergunta) VALUES (?, ?, ?)", (tema, grupo_id, pergunta),
+        "INSERT INTO sessoes (tema, grupo_id, pergunta, teste) VALUES (?, ?, ?, ?)",
+        (tema, grupo_id, pergunta, int(teste)),
     )
     for ordem, op in enumerate(opcoes):
         db.execute(
