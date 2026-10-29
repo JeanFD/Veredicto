@@ -1,9 +1,11 @@
 const $ = (id) => document.getElementById(id);
 
 // horários vêm em UTC (ISO); mostra no fuso de quem consulta
-const hora = (iso) => (iso ? new Date(iso).toLocaleString("pt-BR") : "—");
+const hora = (iso) => (iso ? new Date(iso).toLocaleString(document.documentElement.lang) : "—");
 
-const rotulo = (s) => (s.total_perguntas > 1 ? `Pergunta ${s.pergunta} de ${s.total_perguntas} · ${s.tema}` : s.tema);
+const rotulo = (s) => (s.total_perguntas > 1
+  ? `${t("comum.pergunta_de", { n: s.pergunta, total: s.total_perguntas })} · ${s.tema}`
+  : s.tema);
 
 function celula(texto, classe) {
   const td = document.createElement("td");
@@ -23,7 +25,10 @@ async function listar() {
   const area = $("sessoes");
   area.innerHTML = "";
   if (!sessoes.length) {
-    area.innerHTML = "<p>Nenhuma sessão revelada ainda.</p>";
+    const aviso = document.createElement("p");
+    aviso.textContent = t("auditoria.nenhuma");
+    area.appendChild(aviso);
+    $("escolha").hidden = true;
     return;
   }
   for (const s of sessoes) {
@@ -38,10 +43,12 @@ async function listar() {
 async function mostrar() {
   const sid = location.hash.slice(1);
   document.querySelectorAll("#sessoes a").forEach((a) => a.classList.toggle("atual", a.hash === `#${sid}`));
+  $("escolha").hidden = Boolean(sid);
   if (!sid) return;
   const r = await fetch(`/api/auditoria/sessoes/${encodeURIComponent(sid)}`);
   if (!r.ok) {
     $("detalhe").hidden = true;
+    $("escolha").hidden = false;
     return;
   }
   const a = await r.json();

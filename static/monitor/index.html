@@ -3,51 +3,78 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Veredito · Monitoramento</title>
+  <title data-i18n="monitor.titulo">Veredito · Monitoramento</title>
+  <link rel="stylesheet" href="/estilo.css">
   <style>
-    html { background: #fff; color: #111827; }
-    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 0 1rem 2rem; }
-    .cartoes { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-    .cartao { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.75rem 1rem; }
-    .cartao small { color: #4b5563; display: block; }
-    .cartao strong { font-size: 2rem; font-variant-numeric: tabular-nums; }
-    .cartao.alerta { border-color: #dc2626; background: #fef2f2; }
-    #grafico { display: flex; align-items: flex-end; gap: 2px; height: 180px; border-bottom: 1px solid #9ca3af; }
-    #grafico div { flex: 1; background: #2563eb; min-height: 1px; border-radius: 2px 2px 0 0; }
-    #grafico div:last-child { background: #93c5fd; } /* minuto atual, ainda incompleto */
-    .eixo { display: flex; justify-content: space-between; color: #4b5563; font-size: 0.85rem; }
-    #atualizado { color: #4b5563; }
-    table { border-collapse: collapse; }
-    th, td { text-align: left; padding: 0.25rem 1rem 0.25rem 0; }
+    .cartoes { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 1rem; }
+    .cartoes .cartao { margin: 0; }
+    .cartoes small { display: block; font-size: 0.8rem; font-weight: 600; }
+    .cartoes strong { display: block; font-size: 2rem; font-variant-numeric: tabular-nums; margin: 0.25rem 0; }
+    .cartao.alerta { border-color: var(--perigo); background: var(--perigo-suave); }
+    #grafico { display: flex; align-items: flex-end; gap: 3px; height: 200px; border-bottom: 1px solid var(--borda-forte); }
+    #grafico div { flex: 1; background: var(--primaria); min-height: 1px; border-radius: 3px 3px 0 0; opacity: 0.85; }
+    #grafico div:hover { opacity: 1; }
+    #grafico div:last-child { background: #8fa7c7; } /* minuto atual, ainda incompleto */
+    .eixo { display: flex; justify-content: space-between; color: var(--texto-2); font-size: 0.8rem; margin-top: 0.35rem; }
+    #totais td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
-  <section id="login">
-    <h1>Veredito · Monitoramento</h1>
-    <input id="senha" type="password" placeholder="Senha do mesário">
-    <button id="entrar">Entrar</button>
-    <p id="erro-login"></p>
-  </section>
+  <header class="topo">
+    <div class="faixa">
+      <a class="marca" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg>
+        <span>Veredito</span>
+      </a>
+      <nav>
+        <a href="/mesario/" data-i18n="nav.painel">Painel</a>
+        <a href="/monitor/" aria-current="page" data-i18n="nav.monitor">Monitoramento</a>
+        <a href="/auditoria/" data-i18n="nav.auditoria">Auditoria</a>
+      </nav>
+      <div class="acoes"></div>
+    </div>
+  </header>
 
-  <section id="painel" hidden>
-    <h1>Monitoramento</h1>
-    <p id="atualizado"></p>
+  <main id="login" class="entrada">
+    <form id="form-login" class="cartao">
+      <h1 data-i18n="monitor.h1">Monitoramento</h1>
+      <p data-i18n="monitor.login_ajuda">Acompanhamento técnico da votação. Use a senha do mesário.</p>
+      <label class="campo">
+        <span data-i18n="comum.senha">Senha</span>
+        <input id="senha" type="password" placeholder="Senha do mesário" data-i18n-placeholder="monitor.senha"
+               autocomplete="current-password" required>
+      </label>
+      <button id="entrar" class="principal" data-i18n="comum.entrar">Entrar</button>
+      <p id="erro-login" class="erro" role="alert"></p>
+    </form>
+  </main>
+
+  <main id="painel" class="conteudo" hidden>
+    <div class="cabeca-pagina">
+      <h1 data-i18n="monitor.h1">Monitoramento</h1>
+      <p id="atualizado"></p>
+    </div>
     <div class="cartoes">
-      <div class="cartao"><small>Votos no último minuto completo</small><strong id="vpm">—</strong>
-        <small id="vpm-agora"></small></div>
-      <div class="cartao" id="cartao-urnas"><small>Urnas online</small><strong id="urnas">—</strong></div>
-      <div class="cartao"><small>Latência do voto p50 · p95</small><strong id="latencia">—</strong></div>
-      <div class="cartao"><small id="sessao">Sessão ativa</small><strong id="total">—</strong></div>
+      <div class="cartao"><small data-i18n="monitor.vpm">Votos no último minuto completo</small><strong id="vpm">—</strong>
+        <small id="vpm-agora" class="suave"></small></div>
+      <div class="cartao" id="cartao-urnas"><small data-i18n="monitor.urnas">Urnas online</small><strong id="urnas">—</strong></div>
+      <div class="cartao"><small data-i18n="monitor.latencia">Latência do voto p50 · p95</small><strong id="latencia">—</strong></div>
+      <div class="cartao"><small id="sessao" data-i18n="mesario.sessao_ativa">Sessão ativa</small><strong id="total">—</strong></div>
     </div>
 
-    <h2>Votos por minuto (últimos 30 min)</h2>
-    <div id="grafico"></div>
-    <div class="eixo"><span>−30 min</span><span>agora</span></div>
+    <div class="cartao">
+      <h2 data-i18n="monitor.grafico">Votos por minuto (últimos 30 min)</h2>
+      <div id="grafico"></div>
+      <div class="eixo"><span data-i18n="monitor.eixo_inicio">−30 min</span><span data-i18n="monitor.eixo_agora">agora</span></div>
+    </div>
 
-    <h2>Desde que o servidor subiu</h2>
-    <table><tbody id="totais"></tbody></table>
-  </section>
+    <div class="cartao">
+      <h2 data-i18n="monitor.desde">Desde que o servidor subiu</h2>
+      <table><tbody id="totais"></tbody></table>
+    </div>
+  </main>
 
+  <script src="/i18n.js"></script>
   <script src="monitor.js"></script>
 </body>
 </html>

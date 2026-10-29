@@ -4,119 +4,200 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="mesario.titulo">Veredito · Mesário</title>
+  <link rel="stylesheet" href="/estilo.css">
   <style>
-    html { background: #fff; color: #111827; }
-    body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 0 1rem 2rem; }
-    h2 { margin-top: 2rem; }
-    button { padding: 0.5rem 1rem; cursor: pointer; }
-    input { padding: 0.5rem; }
+    /* faixa fixa: o estado da sessão ativa fica sempre visível ao rolar e trocar de aba */
+    #estado-atual { position: sticky; top: 0; z-index: 2; background: var(--superficie);
+                    border-bottom: 1px solid var(--borda); box-shadow: var(--sombra); }
+    #estado-atual .faixa { max-width: 1100px; margin: 0 auto; padding: 0.85rem 1rem;
+                           display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; }
+    #estado-atual .info { flex: 1; min-width: 220px; }
+    #estado-atual small { display: block; font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+                          letter-spacing: 0.06em; }
+    #ativa { font-size: 1.1rem; }
+    .votos strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1; }
+    #acoes-estado { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
-    /* faixa fixa: o estado atual fica sempre visível sem rolar */
-    #estado-atual { position: sticky; top: 0; z-index: 1; background: #fff; padding: 0.75rem 0;
-                    border-bottom: 2px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
-    /* espaço para o botão de idioma, fixo no canto */
-    #estado-atual { padding-right: 3rem; }
-    #estado-atual .info { flex: 1; min-width: 240px; }
-    #ativa { display: block; font-size: 1.1rem; }
-    .selo { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 999px; font-weight: bold;
-            letter-spacing: 0.05em; color: #fff; background: #6b7280; }
-    .selo.AGUARDANDO { background: #6b7280; } .selo.ABERTA { background: #16a34a; }
-    .selo.ENCERRADA { background: #d97706; } .selo.REVELADA { background: #7c3aed; }
-    #total { font-size: 1.5rem; }
-    #acoes-estado { display: flex; gap: 0.5rem; }
-    .principal { background: #2563eb; color: #fff; border: none; border-radius: 0.375rem; font-weight: bold; }
+    .cabeca-secao { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: baseline;
+                    justify-content: space-between; margin-bottom: 0.75rem; }
+    .cabeca-secao label { font-weight: 400; color: var(--texto-2); }
 
-    /* ações perigosas: vermelho e separadas das rotineiras */
-    .perigo { background: #fff; color: #b91c1c; border: 1px solid #b91c1c; border-radius: 0.375rem; }
-    .perigo:hover { background: #fef2f2; }
-    .acoes-perigo { display: flex; gap: 0.5rem; padding-left: 0.75rem; margin-left: auto; border-left: 2px dashed #fca5a5; }
+    .sessao { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; padding: 0.9rem 1rem;
+              background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio);
+              margin-bottom: 0.5rem; }
+    .sessao.ativa { border-color: var(--primaria); box-shadow: inset 4px 0 0 var(--primaria); }
+    .sessao .titulo { flex: 1; min-width: 200px; font-weight: 500; display: flex; flex-wrap: wrap;
+                      align-items: center; gap: 0.35rem 0.6rem; }
+    @media (max-width: 560px) { .sessao .titulo { flex-basis: 100%; } }
+    .sessao.arquivada { opacity: 0.6; }
+    /* ações perigosas: separadas das rotineiras */
+    .acoes-perigo { display: flex; gap: 0.5rem; padding-left: 0.75rem; margin-left: auto;
+                    border-left: 1px solid var(--borda); }
 
-    .sessao { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; padding: 0.75rem;
-              border: 1px solid #ccc; border-radius: 0.5rem; margin-bottom: 0.5rem; }
-    .sessao.ativa { border-color: #2563eb; background: #eff6ff; }
-    .sessao span { flex: 1; min-width: 200px; }
-    .sessao.arquivada { opacity: 0.5; }
+    .grade { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+             margin-bottom: 1rem; }
+    .urna { background: var(--superficie); padding: 0.9rem 1rem; border-radius: var(--raio);
+            border: 1px solid var(--borda); border-top: 4px solid var(--borda-forte); box-shadow: var(--sombra); }
+    .urna > div:first-child { font-weight: 700; }
+    .urna > div { font-size: 0.9rem; }
+    .urna details { margin-top: 0.6rem; font-size: 0.85rem; }
+    .urna summary { cursor: pointer; color: var(--primaria); font-weight: 600; }
+    .urna details button { display: flex; width: 100%; margin-top: 0.4rem; }
+    .online { border-top-color: var(--sucesso); } .offline { border-top-color: var(--perigo); }
+    .nunca { border-top-color: #98a2b3; } .inativa { opacity: 0.5; }
+    .recusados { color: var(--perigo); font-weight: 700; }
+    .grade .vazio { grid-column: 1 / -1; margin: 0; }
 
-    .grade { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-    .urna { padding: 0.75rem; border-radius: 0.5rem; border: 2px solid #ccc; }
-    .urna details { margin-top: 0.5rem; font-size: 0.9rem; }
-    .urna details button { display: block; width: 100%; margin-top: 0.25rem; }
-    .online { border-color: #16a34a; } .offline { border-color: #dc2626; }
-    .nunca { border-color: #a3a3a3; } .inativa { opacity: 0.4; }
-    .recusados { color: #dc2626; font-weight: bold; }
+    .colunas { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+    .colunas > .cartao { margin-bottom: 0; }
+    #link-urna:not(:empty) { margin-bottom: 1rem; padding: 1rem; border: 1px solid #fedf89;
+                             border-radius: var(--raio); background: var(--alerta-suave); }
+    #link-urna p { margin-bottom: 0.6rem; }
+    #link-urna button { margin: 0.6rem 0.5rem 0 0; }
+    #link-urna input { width: 100%; }
+    #link-urna img { margin-top: 0.75rem; background: #fff; padding: 8px; border-radius: 8px; }
+    #resumo-importacao:not(:empty) { margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px;
+                                     background: var(--superficie-2); font-size: 0.9rem; }
+    #resumo-importacao .erro { margin: 0; }
 
-    #link-urna:not(:empty) { margin-top: 1rem; padding: 0.75rem; border: 2px solid #d97706; border-radius: 0.5rem; background: #fffbeb; }
-    #resumo-importacao:not(:empty) { padding: 0.75rem; border-radius: 0.5rem; background: #f3f4f6; }
-    #resumo-importacao .erro { color: #b91c1c; font-weight: bold; }
-    #configuracao { margin-top: 2rem; border-top: 1px solid #e5e7eb; padding-top: 1rem; }
-    #configuracao > summary { font-size: 1.25rem; font-weight: bold; cursor: pointer; }
-    #presets, .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
-    .opcao input[type=color] { padding: 0; width: 3rem; }
-    .pergunta { border: 1px solid #ccc; border-radius: 0.5rem; margin: 0 0 0.75rem; padding: 0.75rem; }
+    #presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .cartao:has(#presets:empty) { display: none; }
+    .pergunta { border: 1px solid var(--borda); border-radius: var(--raio); margin: 0 0 0.75rem; padding: 1rem;
+                background: var(--superficie-2); }
+    .pergunta legend { font-weight: 700; padding: 0 0.35rem; }
     .pergunta legend:empty { display: none; }
-    .pergunta > input { width: 100%; box-sizing: border-box; }
+    .pergunta > input { width: 100%; margin-bottom: 0.5rem; }
+    .pergunta > button { margin: 0.25rem 0.5rem 0 0; }
+    .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.4rem 0; }
+    .opcao input:not([type=color]) { flex: 1 1 160px; }
+    .links .cartao p { color: var(--texto-2); }
   </style>
 </head>
 <body>
-  <section id="login">
-    <h1 data-i18n="mesario.titulo">Veredito · Mesário</h1>
-    <input id="senha" type="password" placeholder="Senha" data-i18n-placeholder="comum.senha">
-    <button id="entrar" data-i18n="comum.entrar">Entrar</button>
-    <p id="erro-login"></p>
-  </section>
+  <header class="topo">
+    <div class="faixa">
+      <a class="marca" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg>
+        <span>Veredito</span>
+      </a>
+      <nav>
+        <a href="/mesario/" aria-current="page" data-i18n="nav.painel">Painel</a>
+        <a href="/monitor/" data-i18n="nav.monitor">Monitoramento</a>
+        <a href="/auditoria/" data-i18n="nav.auditoria">Auditoria</a>
+      </nav>
+      <div class="acoes"></div>
+    </div>
+  </header>
 
-  <section id="painel" hidden>
-    <header id="estado-atual">
-      <div class="info">
-        <small data-i18n="mesario.sessao_ativa">Sessão ativa</small>
-        <strong id="ativa" data-i18n="mesario.nenhuma">nenhuma</strong>
+  <main id="login" class="entrada">
+    <form id="form-login" class="cartao">
+      <h1 data-i18n="mesario.titulo_login">Painel do mesário</h1>
+      <p data-i18n="mesario.login_ajuda">Entre com a senha do mesário para conduzir a votação.</p>
+      <label class="campo">
+        <span data-i18n="comum.senha">Senha</span>
+        <input id="senha" type="password" placeholder="Senha" data-i18n-placeholder="comum.senha"
+               autocomplete="current-password" required>
+      </label>
+      <button id="entrar" class="principal" data-i18n="comum.entrar">Entrar</button>
+      <p id="erro-login" class="erro" role="alert"></p>
+    </form>
+  </main>
+
+  <div id="painel" hidden>
+    <section id="estado-atual">
+      <div class="faixa">
+        <div class="info">
+          <small data-i18n="mesario.sessao_ativa">Sessão ativa</small>
+          <strong id="ativa" data-i18n="mesario.nenhuma">nenhuma</strong>
+        </div>
+        <span id="selo-estado" class="selo">—</span>
+        <div class="votos"><small data-i18n="mesario.votos">Votos</small><strong id="total">0</strong></div>
+        <div id="acoes-estado"></div>
       </div>
-      <span id="selo-estado" class="selo">—</span>
-      <div><small data-i18n="mesario.votos">Votos</small> <strong id="total">0</strong></div>
-      <div id="acoes-estado"></div>
-    </header>
+    </section>
 
-    <h2 data-i18n="mesario.urnas">Urnas</h2>
-    <div id="urnas" class="grade"></div>
-    <div id="link-urna"></div>
-    <p>
-      <label><span data-i18n="mesario.recuperar">Recuperar votos de urna isolada (arquivo exportado):</span>
-        <input id="arquivo-fila" type="file" accept=".json,application/json"></label>
-    </p>
-    <div id="resumo-importacao"></div>
+    <main class="conteudo">
+      <div class="abas" role="tablist">
+        <button type="button" role="tab" data-aba="sessoes" data-i18n="mesario.aba.sessoes">Sessões</button>
+        <button type="button" role="tab" data-aba="nova" data-i18n="mesario.aba.nova">Nova sessão</button>
+        <button type="button" role="tab" data-aba="urnas" data-i18n="mesario.aba.urnas">Urnas</button>
+        <button type="button" role="tab" data-aba="telao" data-i18n="mesario.aba.telao">Telão e links</button>
+      </div>
 
-    <h2 data-i18n="mesario.sessoes">Sessões</h2>
-    <label><input id="mostrar-arquivadas" type="checkbox"> <span data-i18n="mesario.mostrar_arquivadas">mostrar arquivadas</span> <span id="total-arquivadas"></span></label>
-    <div id="sessoes"></div>
+      <section data-painel="sessoes" role="tabpanel">
+        <div class="cabeca-secao">
+          <h2 data-i18n="mesario.sessoes">Sessões</h2>
+          <label><input id="mostrar-arquivadas" type="checkbox"> <span data-i18n="mesario.mostrar_arquivadas">mostrar arquivadas</span> <span id="total-arquivadas"></span></label>
+        </div>
+        <div id="sessoes"></div>
+      </section>
 
-    <details id="configuracao">
-      <summary data-i18n="mesario.configuracao">Configuração</summary>
+      <section data-painel="nova" role="tabpanel" hidden>
+        <div class="cartao">
+          <h2 data-i18n="mesario.modelos">Modelos prontos</h2>
+          <p class="suave" data-i18n="mesario.modelos_ajuda">Temas configurados no servidor que ainda não viraram sessão.</p>
+          <div id="presets"></div>
+        </div>
+        <form id="nova-sessao" class="cartao">
+          <h2 data-i18n="mesario.criar_sessao">Criar sessão</h2>
+          <p class="suave" data-i18n="mesario.nova_ajuda">Com mais de uma pergunta, a sessão vira um questionário: cada pergunta é aberta, encerrada e revelada separadamente.</p>
+          <div id="perguntas"></div>
+          <div class="linha-form">
+            <button type="button" id="mais-pergunta" data-i18n="mesario.mais_pergunta">+ pergunta</button>
+            <button class="principal" data-i18n="mesario.criar_sessao">Criar sessão</button>
+          </div>
+        </form>
+      </section>
 
-      <h3 data-i18n="mesario.telao">Telão</h3>
-      <p data-i18n="mesario.telao_ajuda">Abra o telão por este botão para exibir o QR code do voto por celular.</p>
-      <button type="button" id="abrir-telao" data-i18n="mesario.abrir_telao">Abrir telão com QR do celular</button>
+      <section data-painel="urnas" role="tabpanel" hidden>
+        <div class="cabeca-secao">
+          <h2 data-i18n="mesario.urnas">Urnas</h2>
+          <small data-i18n="mesario.urnas_ajuda">Verde: online. Vermelho: sem sinal. Cinza: nunca conectou.</small>
+        </div>
+        <div id="urnas" class="grade"></div>
+        <div id="link-urna"></div>
+        <div class="colunas">
+          <form id="nova-urna" class="cartao">
+            <h2 data-i18n="mesario.cadastrar_urna">Cadastrar urna</h2>
+            <label class="campo"><span data-i18n="mesario.id_rotulo">Identificador</span>
+              <input id="nova-id" placeholder="id (ex: urna3)" data-i18n-placeholder="mesario.id_urna"
+                     required pattern="[a-z0-9-]{1,30}"></label>
+            <label class="campo"><span data-i18n="mesario.nome_rotulo">Nome</span>
+              <input id="nova-nome" placeholder="nome (ex: Entrada)" data-i18n-placeholder="mesario.nome_urna" required></label>
+            <div class="linha-form">
+              <label><input id="nova-reserva" type="checkbox"> <span data-i18n="mesario.reserva">reserva</span></label>
+              <button class="principal" data-i18n="mesario.cadastrar">Cadastrar</button>
+            </div>
+          </form>
+          <div class="cartao">
+            <h2 data-i18n="mesario.recuperar_titulo">Recuperar votos de urna isolada</h2>
+            <p class="suave" data-i18n="mesario.recuperar_ajuda">Envie o arquivo exportado pela urna que ficou sem rede até o fim da votação.</p>
+            <input id="arquivo-fila" type="file" accept=".json,application/json">
+            <div id="resumo-importacao"></div>
+          </div>
+        </div>
+      </section>
 
-      <h3 data-i18n="mesario.monitoramento">Monitoramento</h3>
-      <p><a href="/monitor/" target="_blank" data-i18n="mesario.abrir_monitor">Abrir painel de monitoramento</a><span data-i18n="mesario.monitor_ajuda">: votos por minuto, latência e urnas online.</span></p>
-
-      <h3 data-i18n="mesario.criar_sessao">Criar sessão</h3>
-      <div id="presets"></div>
-      <form id="nova-sessao">
-        <div id="perguntas"></div>
-        <button type="button" id="mais-pergunta" data-i18n="mesario.mais_pergunta">+ pergunta</button>
-        <button data-i18n="mesario.criar_sessao">Criar sessão</button>
-      </form>
-
-      <h3 data-i18n="mesario.cadastrar_urna">Cadastrar urna</h3>
-      <form id="nova-urna">
-        <input id="nova-id" placeholder="id (ex: urna3)" data-i18n-placeholder="mesario.id_urna" required pattern="[a-z0-9-]{1,30}">
-        <input id="nova-nome" placeholder="nome (ex: Entrada)" data-i18n-placeholder="mesario.nome_urna" required>
-        <label><input id="nova-reserva" type="checkbox"> <span data-i18n="mesario.reserva">reserva</span></label>
-        <button data-i18n="mesario.cadastrar">Cadastrar</button>
-      </form>
-    </details>
+      <section data-painel="telao" role="tabpanel" class="links colunas" hidden>
+        <div class="cartao">
+          <h2 data-i18n="mesario.telao">Telão</h2>
+          <p data-i18n="mesario.telao_ajuda">Abra o telão por este botão para exibir o QR code do voto por celular.</p>
+          <button type="button" id="abrir-telao" class="principal" data-i18n="mesario.abrir_telao">Abrir telão com QR do celular</button>
+        </div>
+        <div class="cartao">
+          <h2 data-i18n="mesario.monitoramento">Monitoramento</h2>
+          <p data-i18n="mesario.monitor_ajuda">Votos por minuto, latência e urnas online.</p>
+          <a class="botao" href="/monitor/" target="_blank" data-i18n="mesario.abrir_monitor">Abrir painel de monitoramento</a>
+        </div>
+        <div class="cartao">
+          <h2 data-i18n="mesario.auditoria">Auditoria pública</h2>
+          <p data-i18n="mesario.auditoria_ajuda">Resultado e linha do tempo das sessões reveladas, abertos a qualquer pessoa.</p>
+          <a class="botao" href="/auditoria/" target="_blank" data-i18n="mesario.abrir_auditoria">Abrir auditoria</a>
+        </div>
+      </section>
+    </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  </section>
+  </div>
 
   <script src="/i18n.js"></script>
   <script src="mesario.js"></script>

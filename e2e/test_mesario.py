@@ -45,7 +45,7 @@ def test_ciclo_completo_da_sessao(painel: Page, admin):
     assert painel.request.get(f"/api/auditoria/sessoes/{sid}").ok
 
 def test_criar_questionario_pelo_formulario(painel: Page):
-    painel.locator("#configuracao > summary").click()
+    painel.get_by_role("tab", name="Nova sessão").click()
     painel.get_by_role("button", name="+ pergunta").click()
     perguntas = painel.locator("#perguntas fieldset")
     expect(perguntas).to_have_count(2)
