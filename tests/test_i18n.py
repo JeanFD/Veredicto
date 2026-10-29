@@ -19,7 +19,8 @@ DINAMICAS = (
     + [f"urna.recusa.{m}" for m in ("sessao_encerrada", "sessao_nao_aberta", "outra")]
     + [f"celular.motivo.{m}" for m in
        ("codigo_expirado", "sessao_fechada", "sessao_inexistente", "cedula_invalida", "ja_votou", "cedula_usada")]
-    + [f"mesario.motivo.{m}" for m in ("sessao_encerrada", "sessao_nao_aberta", "sessao_inexistente", "opcao_invalida")]
+    + [f"mesario.motivo.{m}" for m in
+       ("sessao_encerrada", "sessao_nao_aberta", "sessao_inexistente", "opcao_invalida", "urna_de_teste")]
 )
 
 def textos():
