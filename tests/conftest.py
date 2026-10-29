@@ -24,6 +24,7 @@ def cliente():
         db.execute("DELETE FROM cedulas")
         db.execute("DELETE FROM eventos")
         db.execute("DELETE FROM urnas")
+        db.execute("DELETE FROM pedidos_urna")
         db.execute("DELETE FROM opcoes WHERE sessao_id > 1")
         db.execute("DELETE FROM sessoes WHERE id > 1")
         db.execute("UPDATE sessoes SET estado = 'AGUARDANDO', ativa = 0, encerrada_em = NULL, arquivada = 0, celular = 1")
