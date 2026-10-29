@@ -23,6 +23,27 @@ async function api(metodo, caminho, corpo) {
   return dados;
 }
 
+function vazio(texto) {
+  const aviso = document.createElement("p");
+  aviso.className = "vazio";
+  aviso.textContent = texto;
+  return aviso;
+}
+
+// ---------- Abas ----------
+// a aba aberta fica no endereço (#urnas): recarregar ou voltar mantém o lugar
+const ABAS = ["sessoes", "nova", "urnas", "telao"];
+
+function mostrarAba(nome) {
+  if (!ABAS.includes(nome)) nome = ABAS[0];
+  for (const b of document.querySelectorAll("[data-aba]")) b.setAttribute("aria-selected", b.dataset.aba === nome);
+  for (const p of document.querySelectorAll("[data-painel]")) p.hidden = p.dataset.painel !== nome;
+  history.replaceState(null, "", nome === ABAS[0] ? location.pathname : `#${nome}`);
+}
+
+for (const b of document.querySelectorAll("[data-aba]")) b.onclick = () => mostrarAba(b.dataset.aba);
+mostrarAba(location.hash.slice(1));
+
 function criarBotao(texto, aoClicar, classe) {
   const b = document.createElement("button");
   b.type = "button";
@@ -75,8 +96,14 @@ async function carregarSessoes() {
   for (const s of sessoes.filter((s) => mostrarArquivadas || !s.arquivada)) {
     const linha = document.createElement("div");
     linha.className = "sessao" + (s.ativa ? " ativa" : "") + (s.arquivada ? " arquivada" : "");
-    const titulo = document.createElement("span");
-    titulo.textContent = `${posicao(s)}${s.tema} · ${t(`estado.${s.estado}`)}${s.arquivada ? ` · ${t("mesario.arquivada")}` : ""}`;
+    const titulo = document.createElement("div");
+    titulo.className = "titulo";
+    const nome = document.createElement("span");
+    nome.textContent = `${posicao(s)}${s.tema}${s.arquivada ? ` · ${t("mesario.arquivada")}` : ""}`;
+    const selo = document.createElement("span");
+    selo.className = `selo ${s.estado}`;
+    selo.textContent = t(`estado.${s.estado}`);
+    titulo.append(nome, selo);
     linha.appendChild(titulo);
 
     const perigo = document.createElement("div");
@@ -105,6 +132,7 @@ async function carregarSessoes() {
     if (perigo.children.length) linha.appendChild(perigo);
     area.appendChild(linha);
   }
+  if (!area.children.length) area.appendChild(vazio(t("mesario.sem_sessoes")));
   const arquivadas = sessoes.filter((s) => s.arquivada).length;
   $("total-arquivadas").textContent = arquivadas ? `(${arquivadas})` : "";
   mostrarPresets(sessoes);
@@ -120,7 +148,9 @@ function mostrarPresets(sessoes) {
   const area = $("presets");
   area.innerHTML = "";
   for (const p of presets.filter((p) => !existentes.has(p.tema.toLowerCase()))) {
-    area.appendChild(criarBotao(t("mesario.criar_preset", { tema: p.tema }), () => criarSessao(p)));
+    area.appendChild(criarBotao(t("mesario.criar_preset", { tema: p.tema }), async () => {
+      if (await criarSessao(p)) mostrarAba("sessoes");
+    }));
   }
 }
 
@@ -205,7 +235,10 @@ $("nova-sessao").onsubmit = async (e) => {
   const criada = perguntas.length === 1
     ? await criarSessao(perguntas[0])
     : await criarSessao({ perguntas }, "/api/admin/questionarios");
-  if (criada) reiniciarFormularioSessao();
+  if (criada) {
+    reiniciarFormularioSessao();
+    mostrarAba("sessoes");
+  }
 };
 
 reiniciarFormularioSessao();
@@ -286,7 +319,8 @@ function iniciar() {
   conectarWs();
 }
 
-$("entrar").onclick = async () => {
+$("form-login").onsubmit = async (e) => {
+  e.preventDefault();
   senha = $("senha").value;
   try {
     await api("GET", "/api/admin/sessoes");
@@ -356,6 +390,7 @@ window.mostrarUrnas = (urnas) => {
     }
     area.appendChild(cartao);
   }
+  if (!urnas.length) area.appendChild(vazio(t("mesario.sem_urnas")));
 };
 
 $("nova-urna").onsubmit = async (e) => {
