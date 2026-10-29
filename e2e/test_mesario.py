@@ -10,6 +10,7 @@ def painel(page: Page):
     # confirmações do mesário (abrir, encerrar, revelar) são aceitas
     page.on("dialog", lambda d: d.accept())
     page.goto("/mesario/")
+    page.get_by_placeholder("Usuário").fill("admin")
     page.get_by_placeholder("Senha").fill(SENHA)
     page.get_by_role("button", name="Entrar").click()
     expect(page.locator("#painel")).to_be_visible()
@@ -17,9 +18,10 @@ def painel(page: Page):
 
 def test_senha_errada_nao_entra(page: Page):
     page.goto("/mesario/")
+    page.get_by_placeholder("Usuário").fill("admin")
     page.get_by_placeholder("Senha").fill("errada")
     page.get_by_role("button", name="Entrar").click()
-    expect(page.locator("#erro-login")).to_have_text("Senha incorreta")
+    expect(page.locator("#erro-login")).to_have_text("Usuário ou senha incorretos")
     expect(page.locator("#painel")).to_be_hidden()
 
 def test_ciclo_completo_da_sessao(painel: Page, admin):

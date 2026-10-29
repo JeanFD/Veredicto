@@ -5,11 +5,12 @@ from playwright.sync_api import Page, Route, expect
 
 from e2e.conftest import SENHA
 
-LOGIN = "**/api/admin/sessoes"
+LOGIN = "**/api/login"
 
 @pytest.fixture
 def login(page: Page):
     page.goto("/mesario/")
+    page.locator("#usuario").fill("admin")
     return page
 
 def responder(page: Page, status: int, cabecalhos: dict):
@@ -41,7 +42,7 @@ def test_enter_envia_e_avisa_tentativas_restantes(login: Page):
     login.locator("#senha").fill("errada")
     login.locator("#senha").press("Enter")
     expect(login.locator("#erro-login")).to_have_text(
-        "Senha incorreta. Restam 2 tentativas antes do bloqueio temporário.")
+        "Usuário ou senha incorretos. Restam 2 tentativas antes do bloqueio temporário.")
 
 def test_bloqueio_mostra_o_tempo_e_trava_o_botao(login: Page):
     responder(login, 429, {"Retry-After": "75"})
@@ -56,13 +57,18 @@ def test_sem_conexao(login: Page):
     login.get_by_role("button", name="Entrar").click()
     expect(login.locator("#erro-login")).to_contain_text("Sem conexão com o servidor")
 
-def test_sair_volta_ao_login_e_esquece_a_senha(login: Page):
+def test_sair_volta_ao_login_e_encerra_o_token(login: Page, admin):
     login.locator("#senha").fill(SENHA)
     login.get_by_role("button", name="Entrar").click()
     expect(login.locator("#painel")).to_be_visible()
+    expect(login.locator("#conta-atual")).to_have_text("Administrador · Admin")
+    token = login.evaluate("JSON.parse(sessionStorage.getItem('login')).token")
+    assert "senha" not in login.evaluate("sessionStorage.getItem('login')")
     login.get_by_role("button", name="Sair").click()
     expect(login.locator("#login")).to_be_visible()
-    assert login.evaluate("sessionStorage.getItem('senha')") is None
-    # o monitoramento, que usa a mesma senha, também pede login de novo
+    assert login.evaluate("sessionStorage.getItem('login')") is None
+    # o token foi encerrado no servidor, não só esquecido pelo navegador
+    assert admin.http.get("/api/eu", headers={"Authorization": f"Bearer {token}"}, auth=None).status_code == 401
+    # o monitoramento também pede login de novo
     login.goto("/monitor/")
     expect(login.locator("#login")).to_be_visible()
