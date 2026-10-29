@@ -13,9 +13,10 @@ a voto: **nenhum perdido, nenhum duplicado, cada um com a urna e a opção envia
 python -m scripts.carga --url https://veredicto.duckdns.org --senha "$ADMIN_SENHA" --urnas 20 --votos 50
 ```
 
-- O script cria a própria sessão (`Carga <data>`) e urnas de reserva `carga-...`,
-  que ficam desativadas ao terminar. Depois do teste, ative a sessão do júri e
-  arquive a de carga no painel do mesário.
+- O script cria a própria sessão (`Carga <data>`) e urnas `carga-...`, todas
+  marcadas como **teste**: não aparecem na auditoria pública, e o botão
+  **Limpar testes** do painel (aba Sessões) apaga tudo o que a carga criou, votos e
+  registros incluídos, e reativa a sessão real que estava ativa antes.
 - O script se recusa a rodar se houver uma votação aberta ou encerrada sem revelar.
 - Sai com código 1 e lista os votos com problema quando a conferência falha.
 - `--intervalo 0` tira a pausa entre votos: bem acima do uso real, em que cada urna
@@ -67,5 +68,5 @@ Com as urnas, o telão e os celulares de verdade, no Wi-Fi do evento.
 - [ ] Encerrar e revelar; conferir o resultado do telão com o CSV e com a auditoria pública.
 - [ ] Rodar `scripts/carga.py` pela rede do evento (de um notebook no Wi-Fi) e anotar a latência.
 - [ ] Trocar o idioma de uma tela (botão PT/EN) e voltar.
-- [ ] Zerar ou arquivar as sessões de ensaio; desativar as urnas de teste.
+- [ ] Criar as sessões e as urnas do ensaio marcadas como teste e, no fim, usar **Limpar testes**.
 - [ ] Backup do banco (`deploy/backup.sh`) depois do ensaio.
