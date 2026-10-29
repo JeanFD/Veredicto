@@ -172,3 +172,20 @@ def test_questionario_liga_todas_as_perguntas(cliente):
 def test_alternar_exige_senha_e_sessao(cliente):
     assert cliente.post("/api/admin/sessoes/1/celular", json={"ativo": True}).status_code == 401
     assert alternar(cliente, 999, True).status_code == 404
+
+# ---------- conferir a cédula guardada no celular ----------
+def conferir(cliente, cedula):
+    return cliente.post("/api/celular/cedula", json={"cedula": cedula})
+
+def test_conferir_cedula_antes_e_depois_de_votar(cliente, cedula):
+    assert conferir(cliente, cedula).json() == {"sessao_id": 1, "votou": False}
+    votar(cliente, cedula)
+    assert conferir(cliente, cedula).json() == {"sessao_id": 1, "votou": True}
+
+def test_cedula_apagada_ao_zerar_deixa_de_valer(cliente, cedula):
+    votar(cliente, cedula)
+    tema = db.execute("SELECT tema FROM sessoes WHERE id = 1").fetchone()[0]
+    cliente.post("/api/admin/sessoes/1/avancar", auth=ADMIN)
+    cliente.post("/api/admin/sessoes/1/zerar", json={"confirmacao": tema}, auth=ADMIN)
+    r = conferir(cliente, cedula)
+    assert r.status_code == 401 and r.json()["detail"]["motivo"] == "cedula_invalida"
