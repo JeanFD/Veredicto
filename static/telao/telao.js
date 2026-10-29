@@ -48,6 +48,7 @@ function mostrarEstado(m, aoVivo) {
   const revelandoAgora = aoVivo && m.resultado && sessaoAtual?.id === m.sessao?.id
     && sessaoAtual?.estado === "ENCERRADA";
   sessaoAtual = m.sessao;
+  $("faixa-teste").hidden = !m.sessao?.teste;
   $("tema").textContent = m.sessao ? m.sessao.tema : t("telao.aguardando");
   $("pergunta").hidden = !(m.sessao?.total_perguntas > 1);
   if (!$("pergunta").hidden) {

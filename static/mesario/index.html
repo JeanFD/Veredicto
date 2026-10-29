@@ -71,6 +71,11 @@
     .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.4rem 0; }
     .opcao input:not([type=color]) { flex: 1 1 160px; }
     .links .cartao p { color: var(--texto-2); }
+    .marcar-teste { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.25rem 0 1rem; padding: 0.75rem;
+                    border: 1px dashed #f5b971; border-radius: 8px; background: #fffaf2; font-weight: 400; }
+    .marcar-teste input { margin-top: 0.2rem; }
+    .marcar-teste small { display: block; }
+    .urna.de-teste { border-style: dashed; }
   </style>
 </head>
 <body>
@@ -115,6 +120,7 @@
           <strong id="ativa" data-i18n="mesario.nenhuma">nenhuma</strong>
         </div>
         <span id="selo-estado" class="selo">—</span>
+        <span id="selo-teste" class="selo teste" hidden data-i18n="mesario.selo_teste">TESTE</span>
         <div class="votos"><small data-i18n="mesario.votos">Votos</small><strong id="total">0</strong></div>
         <div id="acoes-estado"></div>
       </div>
@@ -131,7 +137,10 @@
       <section data-painel="sessoes" role="tabpanel">
         <div class="cabeca-secao">
           <h2 data-i18n="mesario.sessoes">Sessões</h2>
-          <label><input id="mostrar-arquivadas" type="checkbox"> <span data-i18n="mesario.mostrar_arquivadas">mostrar arquivadas</span> <span id="total-arquivadas"></span></label>
+          <div class="linha-form">
+            <label><input id="mostrar-arquivadas" type="checkbox"> <span data-i18n="mesario.mostrar_arquivadas">mostrar arquivadas</span> <span id="total-arquivadas"></span></label>
+            <button type="button" id="limpar-testes" class="perigo" hidden></button>
+          </div>
         </div>
         <div id="sessoes"></div>
       </section>
@@ -146,6 +155,9 @@
           <h2 data-i18n="mesario.criar_sessao">Criar sessão</h2>
           <p class="suave" data-i18n="mesario.nova_ajuda">Com mais de uma pergunta, a sessão vira um questionário: cada pergunta é aberta, encerrada e revelada separadamente.</p>
           <div id="perguntas"></div>
+          <label class="marcar-teste"><input id="nova-teste" type="checkbox">
+            <span><strong data-i18n="mesario.teste">Marcar como teste (ensaio)</strong>
+              <small data-i18n="mesario.teste_ajuda">Não aparece na auditoria pública e é apagada, com seus votos, em Limpar testes.</small></span></label>
           <div class="linha-form">
             <button type="button" id="mais-pergunta" data-i18n="mesario.mais_pergunta">+ pergunta</button>
             <button class="principal" data-i18n="mesario.criar_sessao">Criar sessão</button>
@@ -170,6 +182,7 @@
               <input id="nova-nome" placeholder="nome (ex: Entrada)" data-i18n-placeholder="mesario.nome_urna" required></label>
             <div class="linha-form">
               <label><input id="nova-reserva" type="checkbox"> <span data-i18n="mesario.reserva">reserva</span></label>
+              <label><input id="nova-urna-teste" type="checkbox"> <span data-i18n="mesario.urna_teste">urna de teste</span></label>
               <button class="principal" data-i18n="mesario.cadastrar">Cadastrar</button>
             </div>
           </form>

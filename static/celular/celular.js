@@ -75,6 +75,7 @@ async function iniciar() {
   } catch {
     return semConexao(iniciar);
   }
+  $("faixa-teste").hidden = !sessao?.teste;
   if (!sessao || sessao.id !== sessaoId || sessao.estado !== "ABERTA") {
     tela(mensagem("sessao_fechada"));
     return aguardarProxima();
