@@ -85,6 +85,7 @@ class NovaUrna(BaseModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,30}$")
     nome: str = Field(min_length=1, max_length=60)
     reserva: bool = False
+    teste: bool = False
 
 class Voto(BaseModel):
     id: uuid.UUID
@@ -118,9 +119,11 @@ class NovaSessao(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     tema: str = Field(min_length=1, max_length=200)
     opcoes: list[NovaOpcao] = Field(min_length=2, max_length=10)
+    teste: bool = False
 
 class NovoQuestionario(BaseModel):
     perguntas: list[NovaSessao] = Field(min_length=2, max_length=10)
+    teste: bool = False
 
 class ProximaCedula(BaseModel):
     cedula: str = Field(max_length=100)
@@ -138,6 +141,7 @@ def buscar_sessao_ativa():
         "id": s["id"],
         "tema": s["tema"],
         "estado": s["estado"],
+        "teste": bool(s["teste"]),
         "opcoes": [dict(o) for o in opcoes],
         **posicao_no_questionario(s),
     }
@@ -193,6 +197,8 @@ async def gravar_voto(voto: Voto, urna_id: str, sem_prazo: bool) -> bool:
         raise recusa(409, "sessao_nao_aberta")
     if not db.execute("SELECT 1 FROM opcoes WHERE sessao_id = ? AND chave = ?", (voto.sessao_id, voto.opcao)).fetchone():
         raise recusa(400, "opcao_invalida")
+    if not sessao["teste"] and db.execute("SELECT 1 FROM urnas WHERE id = ? AND teste = 1", (urna_id,)).fetchone():
+        raise recusa(409, "urna_de_teste")
 
     with db:
         cur = db.execute(
@@ -233,7 +239,7 @@ def contar_por_opcao(sid: int) -> list[dict]:
 def status_urnas() -> list[dict]:
     s = buscar_sessao_ativa()
     resultado = []
-    for u in db.execute("SELECT id, nome, ativa, reserva FROM urnas ORDER BY id"):
+    for u in db.execute("SELECT id, nome, ativa, reserva, teste FROM urnas ORDER BY id"):
         sinal = sinais.obter(u["id"])
         votos = 0
         if s:
@@ -246,6 +252,7 @@ def status_urnas() -> list[dict]:
             "nome": u["nome"],
             "ativa": bool(u["ativa"]),
             "reserva": bool(u["reserva"]),
+            "teste": bool(u["teste"]),
             "nunca_conectou": sinal is None,
             "online": sinal is not None and sinal["segundos"] < 15,
             "segundos_sem_sinal": int(sinal["segundos"]) if sinal else None,
@@ -297,6 +304,7 @@ async def listar_sessoes(arquivadas: bool = False):
         resposta.append({
             "id": l["id"], "tema": l["tema"], "estado": l["estado"], "ativa": l["ativa"],
             "arquivada": bool(l["arquivada"]),
+            "teste": bool(l["teste"]),
             **posicao_no_questionario(l),
             # pergunta encadeada só pode ser ativada depois de revelada a anterior
             "liberada": anterior is None or anterior["estado"] == "REVELADA",
@@ -350,7 +358,7 @@ async def criar_sessao(nova: NovaSessao):
     opcoes = validar_opcoes(nova)
     validar_temas_livres([nova.tema])
     with db:
-        sid = inserir_sessao(nova.tema, opcoes)
+        sid = inserir_sessao(nova.tema, opcoes, teste=nova.teste)
     registrar_evento("sessao_criada", f"sessao={sid}")
     return {"id": sid}
 
@@ -375,10 +383,10 @@ async def criar_questionario(novo: NovoQuestionario):
     opcoes = [validar_opcoes(p) for p in novo.perguntas]
     validar_temas_livres([p.tema for p in novo.perguntas])
     with db:
-        ids = [inserir_sessao(novo.perguntas[0].tema, opcoes[0])]
+        ids = [inserir_sessao(novo.perguntas[0].tema, opcoes[0], teste=novo.teste)]
         db.execute("UPDATE sessoes SET grupo_id = ? WHERE id = ?", (ids[0], ids[0]))
         for n, (p, ops) in enumerate(zip(novo.perguntas[1:], opcoes[1:]), start=2):
-            ids.append(inserir_sessao(p.tema, ops, grupo_id=ids[0], pergunta=n))
+            ids.append(inserir_sessao(p.tema, ops, grupo_id=ids[0], pergunta=n, teste=novo.teste))
     for sid in ids:
         registrar_evento("sessao_criada", f"sessao={sid} grupo={ids[0]}")
     return {"ids": ids}
@@ -412,8 +420,8 @@ async def cadastrar_urna(u: NovaUrna):
     try:
         with db:
             db.execute(
-                "INSERT INTO urnas (id, nome, token_hash, reserva, criada_em) VALUES (?, ?, ?, ?, ?)",
-                (u.id, u.nome, hash_token(token), int(u.reserva), agora()),
+                "INSERT INTO urnas (id, nome, token_hash, reserva, teste, criada_em) VALUES (?, ?, ?, ?, ?, ?)",
+                (u.id, u.nome, hash_token(token), int(u.reserva), int(u.teste), agora()),
             )
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail=msg("urna_existente"))
@@ -597,6 +605,48 @@ async def importar_votos(dados: Importacao):
     )
     return {"aceitos": aceitos, "existentes": existentes, "recusados": recusados}
 
+# ---------- Modo teste ----------
+# Sessões e urnas de teste servem para ensaiar em produção. "Limpar testes" apaga
+# tudo o que é delas (votos, cédulas, opções e eventos), deixando o banco como se
+# os testes nunca tivessem acontecido. Urna de teste não vota em sessão real.
+
+def marcados(campos: dict, sessoes: set[str], urnas: set[str]) -> bool:
+    return bool({campos.get("sessao"), campos.get("grupo")} & sessoes or campos.get("urna") in urnas)
+
+@app.post("/api/admin/testes/limpar", dependencies=[Depends(exigir_admin)])
+async def limpar_testes():
+    sessoes = [r[0] for r in db.execute("SELECT id FROM sessoes WHERE teste = 1")]
+    urnas = [r[0] for r in db.execute("SELECT id FROM urnas WHERE teste = 1")]
+    ativa = buscar_sessao_ativa()
+    em_s = ",".join("?" * len(sessoes))
+    em_u = ",".join("?" * len(urnas))
+    eventos = [
+        e["id"] for e in db.execute("SELECT id, detalhe FROM eventos")
+        if marcados(dict(p.split("=", 1) for p in e["detalhe"].split() if "=" in p),
+                    {str(s) for s in sessoes}, set(urnas))
+    ]
+    with db:
+        votos = db.execute(f"DELETE FROM votos WHERE sessao_id IN ({em_s}) OR urna_id IN ({em_u})",
+                           (*sessoes, *urnas)).rowcount
+        db.execute(f"DELETE FROM cedulas WHERE sessao_id IN ({em_s})", sessoes)
+        db.execute(f"DELETE FROM opcoes WHERE sessao_id IN ({em_s})", sessoes)
+        db.execute(f"DELETE FROM sessoes WHERE id IN ({em_s})", sessoes)
+        db.execute(f"DELETE FROM urnas WHERE id IN ({em_u})", urnas)
+        db.execute(f"DELETE FROM eventos WHERE id IN ({','.join('?' * len(eventos))})", eventos)
+        if ativa and ativa["teste"]:
+            # ativar o teste desativou a sessão real que estava ativa: ela volta
+            ultima = db.execute(
+                "SELECT detalhe FROM eventos WHERE tipo = 'sessao_ativada' ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if ultima:
+                anterior = dict(p.split("=", 1) for p in ultima["detalhe"].split() if "=" in p)["sessao"]
+                db.execute("UPDATE sessoes SET ativa = 1 WHERE id = ?", (int(anterior),))
+    # registrado só no log: um evento no banco seria justamente o resto que a limpeza evita
+    log("testes_limpos", sessoes=len(sessoes), urnas=len(urnas), votos=votos, eventos=len(eventos))
+    if ativa and ativa["teste"]:
+        await gerente.broadcast(estado_publico(), "telao", "mesario")
+    return {"sessoes": len(sessoes), "urnas": len(urnas), "votos": votos, "eventos": len(eventos)}
+
 # ---------- Auditoria pública ----------
 # Invariante: nada de uma sessão sai daqui antes de ela estar REVELADA.
 # Por urna vai só a quantidade de votos, nunca a divisão por opção: numa urna
@@ -630,7 +680,7 @@ def eventos_publicos(sid: int) -> list[dict]:
 
 @app.get("/api/auditoria/sessoes")
 async def auditoria_sessoes():
-    linhas = db.execute("SELECT * FROM sessoes WHERE estado = 'REVELADA' ORDER BY id")
+    linhas = db.execute("SELECT * FROM sessoes WHERE estado = 'REVELADA' AND teste = 0 ORDER BY id")
     return [{"id": l["id"], "tema": l["tema"], **pergunta_publica(l)} for l in linhas]
 
 def pergunta_publica(s) -> dict:
@@ -642,7 +692,7 @@ def pergunta_publica(s) -> dict:
 async def auditoria_sessao(sid: int):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     # mesma resposta para inexistente e não revelada: não confirma nada antes da hora
-    if not sessao or sessao["estado"] != "REVELADA":
+    if not sessao or sessao["estado"] != "REVELADA" or sessao["teste"]:
         raise HTTPException(404, msg("auditoria_apos_revelar"))
     nomes = {u["id"]: u["nome"] for u in db.execute("SELECT id, nome FROM urnas")}
     nomes[URNA_CELULAR] = "Voto por celular"

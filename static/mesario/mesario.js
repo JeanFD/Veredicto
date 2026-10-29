@@ -74,6 +74,7 @@ function mostrarEstado(sessao, total) {
   $("ativa").textContent = sessao ? posicao(sessao) + sessao.tema : t("mesario.nenhuma");
   $("selo-estado").textContent = sessao ? t(`estado.${sessao.estado}`) : "—";
   $("selo-estado").className = "selo " + (sessao ? sessao.estado : "");
+  $("selo-teste").hidden = !sessao?.teste;
   $("total").textContent = total;
   $("acoes-estado").innerHTML = "";
   if (sessao && PROXIMO[sessao.estado]) $("acoes-estado").appendChild(botaoAvancar(sessao));
@@ -104,6 +105,12 @@ async function carregarSessoes() {
     selo.className = `selo ${s.estado}`;
     selo.textContent = t(`estado.${s.estado}`);
     titulo.append(nome, selo);
+    if (s.teste) {
+      const marca = document.createElement("span");
+      marca.className = "selo teste";
+      marca.textContent = t("mesario.selo_teste");
+      titulo.append(marca);
+    }
     linha.appendChild(titulo);
 
     const perigo = document.createElement("div");
@@ -133,12 +140,35 @@ async function carregarSessoes() {
     area.appendChild(linha);
   }
   if (!area.children.length) area.appendChild(vazio(t("mesario.sem_sessoes")));
+  testes.sessoes = sessoes.filter((s) => s.teste).length;
+  mostrarLimparTestes();
   const arquivadas = sessoes.filter((s) => s.arquivada).length;
   $("total-arquivadas").textContent = arquivadas ? `(${arquivadas})` : "";
   mostrarPresets(sessoes);
 }
 
 $("mostrar-arquivadas").onchange = carregarSessoes;
+
+// ---------- Modo teste ----------
+const testes = { sessoes: 0, urnas: 0 };
+
+function mostrarLimparTestes() {
+  const n = testes.sessoes + testes.urnas;
+  $("limpar-testes").hidden = !n;
+  $("limpar-testes").textContent = t("mesario.limpar_testes", { n });
+}
+
+$("limpar-testes").onclick = async () => {
+  if (!confirm(t("mesario.confirmar_limpar", testes))) return;
+  try {
+    const r = await api("POST", "/api/admin/testes/limpar");
+    alert(t("mesario.testes_limpos", r));
+    await carregarSessoes();
+    window.mostrarUrnas(await api("GET", "/api/admin/urnas"));
+  } catch (e) {
+    alert(e.message);
+  }
+};
 
 // ---------- Criar sessão ----------
 let presets = [];
@@ -232,9 +262,10 @@ $("nova-sessao").onsubmit = async (e) => {
     }
     perguntas.push({ tema, opcoes });
   }
+  const teste = $("nova-teste").checked;
   const criada = perguntas.length === 1
-    ? await criarSessao(perguntas[0])
-    : await criarSessao({ perguntas }, "/api/admin/questionarios");
+    ? await criarSessao({ ...perguntas[0], teste })
+    : await criarSessao({ perguntas, teste }, "/api/admin/questionarios");
   if (criada) {
     reiniciarFormularioSessao();
     mostrarAba("sessoes");
@@ -343,8 +374,9 @@ window.mostrarUrnas = (urnas) => {
       : t("mesario.offline_ha", { s: u.segundos_sem_sinal });
 
     const cartao = document.createElement("div");
-    cartao.className = `urna ${classe}`;
-    for (const texto of [`${u.id}${u.reserva ? t("mesario.reserva_marca") : ""}`, u.nome, t("mesario.n_votos", { n: u.votos_sessao }), situacao]) {
+    cartao.className = `urna ${classe}${u.teste ? " de-teste" : ""}`;
+    const marcas = (u.reserva ? t("mesario.reserva_marca") : "") + (u.teste ? t("mesario.teste_marca") : "");
+    for (const texto of [`${u.id}${marcas}`, u.nome, t("mesario.n_votos", { n: u.votos_sessao }), situacao]) {
       const linha = document.createElement("div");
       linha.textContent = texto;
       cartao.appendChild(linha);
@@ -385,6 +417,8 @@ window.mostrarUrnas = (urnas) => {
     area.appendChild(cartao);
   }
   if (!urnas.length) area.appendChild(vazio(t("mesario.sem_urnas")));
+  testes.urnas = urnas.filter((u) => u.teste).length;
+  mostrarLimparTestes();
 };
 
 $("nova-urna").onsubmit = async (e) => {
@@ -394,6 +428,7 @@ $("nova-urna").onsubmit = async (e) => {
       id: $("nova-id").value,
       nome: $("nova-nome").value,
       reserva: $("nova-reserva").checked,
+      teste: $("nova-urna-teste").checked,
     });
     prepararLink(id, token);
     e.target.reset();
@@ -416,7 +451,7 @@ $("abrir-telao").onclick = async () => {
 };
 
 // ---------- Importar fila ----------
-const MOTIVOS = ["sessao_encerrada", "sessao_nao_aberta", "sessao_inexistente", "opcao_invalida"];
+const MOTIVOS = ["sessao_encerrada", "sessao_nao_aberta", "sessao_inexistente", "opcao_invalida", "urna_de_teste"];
 
 function resumirImportacao(linhas, erro = false) {
   const area = $("resumo-importacao");

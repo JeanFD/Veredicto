@@ -1,10 +1,11 @@
 """Carga: N urnas votando ao mesmo tempo, com reenvios, e conferência voto a voto.
 
-Cria uma sessão própria ("Carga ..."), cadastra as urnas como reserva, abre a
+Cria uma sessão de teste própria ("Carga ..."), cadastra urnas de teste, abre a
 votação e faz cada urna votar como a de verdade: repete o envio até o servidor
 aceitar e, de vez em quando, reenvia um voto já aceito (resposta perdida no
 caminho). No fim encerra, revela, baixa o CSV e confere que cada voto enviado
-está lá exatamente uma vez. As urnas de carga são desativadas ao terminar.
+está lá exatamente uma vez. As urnas de carga são desativadas ao terminar, e
+"Limpar testes" no painel do mesário apaga tudo o que a carga criou.
 
     python -m scripts.carga --url http://127.0.0.1:8000 --senha SENHA --urnas 20 --votos 50
 
@@ -146,12 +147,12 @@ async def executar(http: httpx.AsyncClient, urnas=10, votos=30, reenvio=0.2, int
 
     marca = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4]
     sid = (await pedir(http, "POST", "/api/admin/sessoes",
-                       json={"tema": f"Carga {marca}", "opcoes": OPCOES})).json()["id"]
+                       json={"tema": f"Carga {marca}", "opcoes": OPCOES, "teste": True})).json()["id"]
     cadastradas = []
     for i in range(urnas):
         uid = f"carga-{marca[-4:]}-{i:03d}"
         token = (await pedir(http, "POST", "/api/admin/urnas",
-                             json={"id": uid, "nome": f"Carga {i}", "reserva": True})).json()["token"]
+                             json={"id": uid, "nome": f"Carga {i}", "reserva": True, "teste": True})).json()["token"]
         cadastradas.append((uid, token))
     try:
         await pedir(http, "POST", f"/api/admin/sessoes/{sid}/ativar")

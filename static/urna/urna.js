@@ -52,6 +52,7 @@ function sinalizar(classe, duracao) {
 }
 
 function renderizar() {
+  $("faixa-teste").hidden = !sessao?.teste;
   if (ocupada) return;
   limpar();
   const questionario = sessao?.total_perguntas > 1;

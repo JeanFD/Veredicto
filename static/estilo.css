@@ -110,6 +110,8 @@ label { font-weight: 500; }
 .selo.ABERTA { background: var(--sucesso-suave); color: var(--sucesso); }
 .selo.ENCERRADA { background: var(--alerta-suave); color: var(--alerta); }
 .selo.REVELADA { background: #f2effa; color: var(--revelada); }
+.selo.teste { background: #fff4e5; color: #b54708; border: 1px dashed #f5b971; }
+.selo.teste::before { display: none; }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th { text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;

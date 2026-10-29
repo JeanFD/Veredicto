@@ -31,6 +31,10 @@ there is a PT/EN switch in the corner of every screen).
 - A questionnaire is a chain of questions: each one is opened and revealed on its
   own, and the poll worker releases the next one after revealing the previous.
 - Each vote has a client-generated UUID, so resending is idempotent.
+- Test mode: sessions and ballot boxes can be created as *test*. They are hidden
+  from the public audit, a test ballot box cannot vote in a real session, and
+  **Clear tests** in the panel deletes everything they produced (votes, ballots,
+  events), leaving the database as it was. The load and chaos scripts use it.
 
 ## Running locally
 

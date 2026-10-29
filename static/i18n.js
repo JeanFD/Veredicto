@@ -215,7 +215,17 @@ const TEXTOS = /* textos:inicio */ {
     "login.entrando": "Entrando…",
     "login.restantes": "Senha incorreta. Restam {n} tentativas antes do bloqueio temporário.",
     "login.bloqueado": "Muitas tentativas erradas. Tente de novo em {tempo}.",
-    "login.sem_conexao": "Sem conexão com o servidor. Confira a rede e tente de novo."
+    "login.sem_conexao": "Sem conexão com o servidor. Confira a rede e tente de novo.",
+    "mesario.teste": "Marcar como teste (ensaio)",
+    "mesario.teste_ajuda": "Não aparece na auditoria pública e é apagada, com seus votos, em Limpar testes.",
+    "mesario.urna_teste": "urna de teste",
+    "mesario.selo_teste": "TESTE",
+    "mesario.teste_marca": " (teste)",
+    "mesario.limpar_testes": "Limpar testes ({n})",
+    "mesario.confirmar_limpar": "Apagar {sessoes} sessões de teste e {urnas} urnas de teste, com todos os votos e registros delas?\n\nNada do que é real é tocado.",
+    "mesario.testes_limpos": "Testes apagados: {sessoes} sessões, {urnas} urnas e {votos} votos.",
+    "mesario.motivo.urna_de_teste": "urna de teste votando em sessão real",
+    "comum.faixa_teste": "Sessão de teste · os votos serão apagados"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -424,7 +434,17 @@ const TEXTOS = /* textos:inicio */ {
     "login.entrando": "Signing in…",
     "login.restantes": "Wrong password. {n} attempts left before a temporary lock.",
     "login.bloqueado": "Too many wrong attempts. Try again in {tempo}.",
-    "login.sem_conexao": "No connection to the server. Check the network and try again."
+    "login.sem_conexao": "No connection to the server. Check the network and try again.",
+    "mesario.teste": "Mark as test (rehearsal)",
+    "mesario.teste_ajuda": "Hidden from the public audit and deleted, with its votes, by Clear tests.",
+    "mesario.urna_teste": "test ballot box",
+    "mesario.selo_teste": "TEST",
+    "mesario.teste_marca": " (test)",
+    "mesario.limpar_testes": "Clear tests ({n})",
+    "mesario.confirmar_limpar": "Delete {sessoes} test sessions and {urnas} test ballot boxes, with all their votes and records?\n\nNothing real is touched.",
+    "mesario.testes_limpos": "Tests deleted: {sessoes} sessions, {urnas} ballot boxes and {votos} votes.",
+    "mesario.motivo.urna_de_teste": "test ballot box voting in a real session",
+    "comum.faixa_teste": "Test session · votes will be deleted"
   }
 } /* textos:fim */;
 
