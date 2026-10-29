@@ -93,6 +93,8 @@ def test_bloqueio_de_login_somado_entre_processos(servidor):
     assert um.bloqueado("1.2.3.4") and outro.bloqueado("1.2.3.4")
     assert not um.bloqueado("5.6.7.8")
     assert 0 < cliente_sync(servidor).ttl("veredicto:falhas:1.2.3.4") <= 300
+    assert um.restantes("1.2.3.4") == 0 and outro.restantes("5.6.7.8") == MAX_FALHAS
+    assert 0 < outro.espera("1.2.3.4") <= 300 and um.espera("5.6.7.8") == 0
 
 def test_metricas_somadas_entre_processos(servidor):
     um, outro = MetricasRedis(cliente_sync(servidor)), MetricasRedis(cliente_sync(servidor))
