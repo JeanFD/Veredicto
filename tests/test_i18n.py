@@ -73,8 +73,8 @@ def test_nenhuma_chave_sobrando():
 @pytest.mark.parametrize("tela", TELAS)
 def test_tela_carrega_as_traducoes_antes_do_proprio_script(tela):
     html = (STATIC / tela / "index.html").read_text(encoding="utf-8")
-    proprio = re.search(r'<script src="(\w+)\.js"></script>', html)
-    assert '<script src="/i18n.js"></script>' in html
+    proprio = re.search(r'<script src="(\w+)\.js\?v=\d+"></script>', html)
+    assert re.search(r'<script src="/i18n\.js\?v=\d+"></script>', html)
     if proprio:  # a página inicial não tem script próprio
         assert html.index("/i18n.js") < proprio.start()
 
