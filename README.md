@@ -12,7 +12,7 @@ there is a PT/EN switch in the corner of every screen).
 
 | Path | Who uses it | What it does |
 |---|---|---|
-| `/urna/` | voters | Ballot box. Configured by a link/QR from the panel; installable as an app (PWA); queues votes offline. |
+| `/urna/` | voters | Ballot box. Open it on the device and tap "Request to become a ballot box": it shows a 4-letter code that the poll worker approves in the panel (or configure it with a link/QR from the panel). Installable as an app (PWA); queues votes offline. |
 | `/telao/` | the room | Big screen: topic, live vote count, 3·2·1 reveal with the result bars, QR code for phone voting. |
 | `/celular/` | voters | Phone voting, opened from the QR code on the big screen; one vote per phone per question. Off by default: the mesário turns it on per session ("Allow phone voting", or the switch on the active-session bar). |
 | `/mesario/` | poll worker | Password-protected panel: create sessions and questionnaires, open/close/reveal, register ballot boxes, watch their status, import an offline queue. |
@@ -46,8 +46,8 @@ python -m venv .venv
 ADMIN_SENHA=secret .venv/bin/uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000/mesario/, sign in with the password, register a ballot
-box and open its link. The database (`veredicto.db`) is created and migrated on
+Open http://127.0.0.1:8000/mesario/, sign in with the password, open /urna/ in another
+tab, request it and approve the code in the Ballot boxes tab. The database (`veredicto.db`) is created and migrated on
 startup. In Docker the variables come from `.env` (see [.env.example](.env.example)).
 
 ### Configuration
