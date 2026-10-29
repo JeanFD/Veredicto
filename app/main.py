@@ -836,4 +836,14 @@ async def gravar_voto_celular(v: VotoCelular) -> tuple[int, bool]:
 
 
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+class Estaticos(StaticFiles):
+    """Sem Cache-Control, o navegador guarda os arquivos por heurística e mistura,
+    depois de um deploy, HTML novo com JS antigo. no-cache faz revalidar sempre:
+    sem mudança, a resposta é um 304 sem corpo."""
+
+    def file_response(self, *args, **kwargs):
+        resposta = super().file_response(*args, **kwargs)
+        resposta.headers["Cache-Control"] = "no-cache"
+        return resposta
+
+app.mount("/", Estaticos(directory="static", html=True), name="static")
