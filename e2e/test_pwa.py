@@ -27,19 +27,19 @@ def test_com_rede_carrega_a_versao_do_servidor(page: Page, urna):
     abrir_urna(page, urna)
     esperar_service_worker(page)
     page.evaluate("""async () => {
-        const c = await caches.open("urna-v2");
+        const c = await caches.open("urna-v3");
         await c.put("/urna/urna.css", new Response("/* versão antiga */"));
     }""")
     page.reload()
     esperar_service_worker(page)
     guardado = page.evaluate("""async () =>
-        (await (await caches.open("urna-v2")).match("/urna/urna.css")).text()""")
+        (await (await caches.open("urna-v3")).match("/urna/urna.css")).text()""")
     assert "versão antiga" not in guardado
 
 def test_api_nao_passa_pelo_cache(page: Page, urna):
     abrir_urna(page, urna)
     esperar_service_worker(page)
     chaves = page.evaluate("""async () =>
-        (await (await caches.open("urna-v2")).keys()).map((r) => new URL(r.url).pathname)""")
+        (await (await caches.open("urna-v3")).keys()).map((r) => new URL(r.url).pathname)""")
     # só os arquivos da urna e as traduções; nada de /api/
     assert chaves and all(c.startswith("/urna/") or c == "/i18n.js" for c in chaves)
