@@ -9,7 +9,7 @@ from app.i18n import IDIOMAS, MENSAGENS, idioma_do_cabecalho
 from tests.auxiliares import ADMIN, novo_voto
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
-TELAS = ["urna", "telao", "celular", "mesario"]
+TELAS = ["urna", "telao", "celular", "mesario", "auditoria", "monitor", "."]
 ESTADOS = ["AGUARDANDO", "ABERTA", "ENCERRADA", "REVELADA"]
 
 # chaves montadas em tempo de execução (t(`estado.${...}`) etc.)
@@ -36,7 +36,8 @@ def chaves_usadas(citadas=False):
     usadas = set()
     for tela in TELAS:
         for arquivo in (STATIC / tela).glob("*.*"):
-            if arquivo.suffix not in (".js", ".html"):
+            # o próprio dicionário não conta: nele toda chave aparece entre aspas
+            if arquivo.suffix not in (".js", ".html") or arquivo.name == "i18n.js":
                 continue
             fonte = arquivo.read_text(encoding="utf-8")
             usadas |= set(re.findall(r'\bt\(\s*"([\w.]+)"', fonte))
@@ -73,7 +74,8 @@ def test_tela_carrega_as_traducoes_antes_do_proprio_script(tela):
     html = (STATIC / tela / "index.html").read_text(encoding="utf-8")
     proprio = re.search(r'<script src="(\w+)\.js"></script>', html)
     assert '<script src="/i18n.js"></script>' in html
-    assert html.index("/i18n.js") < proprio.start()
+    if proprio:  # a página inicial não tem script próprio
+        assert html.index("/i18n.js") < proprio.start()
 
 # ---------- backend ----------
 def test_mensagens_do_servidor_nos_dois_idiomas():

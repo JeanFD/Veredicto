@@ -52,17 +52,28 @@ def test_mesario_em_ingles_sem_texto_em_portugues(pagina_en: Page, sessao_aberta
     pagina_en.goto("/mesario/")
     pagina_en.get_by_placeholder("Password").fill(SENHA)
     pagina_en.get_by_role("button", name="Sign in").click()
-    expect(pagina_en.get_by_role("heading", name="Ballot boxes")).to_be_visible()
+    expect(pagina_en.get_by_role("heading", name="Sessions")).to_be_visible()
     expect(pagina_en.locator("#selo-estado")).to_have_text("OPEN")
-    pagina_en.locator("#configuracao summary").click()
+    sem_portugues(pagina_en)
+    # cada aba, já que as escondidas não entram no texto da tela
+    for aba in ("New session", "Ballot boxes", "Display and links"):
+        pagina_en.get_by_role("tab", name=aba).click()
+        sem_portugues(pagina_en)
+    pagina_en.get_by_role("tab", name="New session").click()
     expect(pagina_en.locator(".opcao input:not([type=color])").first).to_have_value("Prosecution")
+
+@pytest.mark.parametrize("caminho", ["/", "/auditoria/", "/monitor/"])
+def test_paginas_gerais_em_ingles(pagina_en: Page, caminho):
+    pagina_en.goto(caminho)
+    expect(pagina_en.locator("html")).to_have_attribute("lang", "en")
+    expect(pagina_en.get_by_role("link", name="Audit", exact=True)).to_be_visible()
     sem_portugues(pagina_en)
 
 def test_mensagem_do_servidor_no_idioma_da_tela(pagina_en: Page, sessao_aberta):
     pagina_en.goto("/mesario/")
     pagina_en.get_by_placeholder("Password").fill(SENHA)
     pagina_en.get_by_role("button", name="Sign in").click()
-    pagina_en.locator("#configuracao summary").click()
+    pagina_en.get_by_role("tab", name="New session").click()
     # um tema que já existe: o servidor recusa e o alerta vem em inglês
     tema = pagina_en.locator("#ativa").inner_text()
     pagina_en.locator(".pergunta > input").fill(tema)
