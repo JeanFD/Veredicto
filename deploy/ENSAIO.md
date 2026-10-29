@@ -62,7 +62,8 @@ Com as urnas, o telão e os celulares de verdade, no Wi-Fi do evento.
 - [ ] Cadastrar as urnas pelo painel e abrir cada uma pelo QR code; conferir "online" na grade.
 - [ ] Instalar a urna como app (PWA) em cada tablet; fechar e abrir de novo sem rede.
 - [ ] Telão aberto pelo botão do mesário; QR do celular legível do fundo da sala.
-- [ ] Sessão de ensaio: votar em todas as urnas e em alguns celulares; total do telão bate com a grade.
+- [ ] Sessão de ensaio com "Permitir voto por celular" marcado: votar em todas as urnas e em alguns celulares; total do telão bate com a grade.
+- [ ] Desligar o voto por celular na barra da sessão ativa: o QR some do telão e o celular avisa para votar na urna.
 - [ ] Tirar o Wi-Fi de uma urna, votar 3 vezes, devolver o Wi-Fi: os 3 votos chegam e a fila zera.
 - [ ] Urna sem rede até o fim: exportar a fila e importar no painel.
 - [ ] Encerrar e revelar; conferir o resultado do telão com o CSV e com a auditoria pública.

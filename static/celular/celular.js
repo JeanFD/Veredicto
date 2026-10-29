@@ -38,7 +38,8 @@ function botao(texto, cor, aoClicar, classe) {
   $("opcoes").appendChild(b);
 }
 
-const MOTIVOS = ["codigo_expirado", "sessao_fechada", "sessao_inexistente", "cedula_invalida", "ja_votou", "cedula_usada"];
+const MOTIVOS = ["codigo_expirado", "sessao_fechada", "sessao_inexistente", "cedula_invalida", "ja_votou", "cedula_usada",
+  "celular_desligado"];
 const mensagem = (motivo, padrao) => (MOTIVOS.includes(motivo) ? t(`celular.motivo.${motivo}`) : t(padrao));
 
 async function enviar(caminho, corpo) {
@@ -76,6 +77,7 @@ async function iniciar() {
     return semConexao(iniciar);
   }
   $("faixa-teste").hidden = !sessao?.teste;
+  if (sessao?.id === sessaoId && !sessao.celular) return tela(mensagem("celular_desligado"));
   if (!sessao || sessao.id !== sessaoId || sessao.estado !== "ABERTA") {
     tela(mensagem("sessao_fechada"));
     return aguardarProxima();
@@ -118,6 +120,7 @@ async function votar(op) {
     return aguardarProxima();
   }
   if (r.motivo === "sessao_fechada") return tela(t("celular.encerrada"), "recusa");
+  if (r.motivo === "celular_desligado") return tela(mensagem(r.motivo), "recusa");
   tela(mensagem(r.motivo, "celular.nao_computado"), "recusa");
 }
 
