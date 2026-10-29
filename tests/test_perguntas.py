@@ -7,7 +7,7 @@ OPCOES = [{"rotulo": "Sim", "cor": "#16a34a"}, {"rotulo": "Não", "cor": "#dc262
 
 def questionario(cliente, *temas):
     perguntas = [{"tema": t, "opcoes": OPCOES} for t in temas]
-    return cliente.post("/api/admin/questionarios", json={"perguntas": perguntas}, auth=ADMIN)
+    return cliente.post("/api/admin/questionarios", json={"perguntas": perguntas, "celular": True}, auth=ADMIN)
 
 def ativar(cliente, sid):
     return cliente.post(f"/api/admin/sessoes/{sid}/ativar", auth=ADMIN)
