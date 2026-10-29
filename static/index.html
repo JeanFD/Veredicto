@@ -1,12 +1,93 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><title>Veredito</title></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="inicio.titulo">Veredito</title>
+  <link rel="stylesheet" href="/estilo.css">
+  <style>
+    .capa { background: var(--primaria); color: #fff; padding: 2.5rem 0 4.5rem; }
+    .capa .conteudo { padding-top: 0; padding-bottom: 0; }
+    .capa h1 { font-size: 2.1rem; margin-bottom: 0.5rem; }
+    .capa p { color: rgba(255, 255, 255, 0.82); font-size: 1.1rem; max-width: 60ch; margin: 0; }
+    .telas { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+             margin-top: -3rem; }
+    .telas .cartao { display: flex; flex-direction: column; margin: 0; }
+    .telas .cartao p { color: var(--texto-2); flex: 1; }
+    .telas .icone { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+                    background: var(--primaria-suave); color: var(--primaria); margin-bottom: 0.75rem; }
+    .telas .icone svg { width: 22px; height: 22px; }
+    .telas .botao { align-self: flex-start; }
+    .passos { counter-reset: passo; list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+    .passos li { counter-increment: passo; display: flex; gap: 0.75rem; align-items: flex-start; }
+    .passos li::before { content: counter(passo); flex: none; width: 1.8rem; height: 1.8rem; border-radius: 50%;
+                         display: grid; place-items: center; background: var(--primaria); color: #fff;
+                         font-weight: 700; font-size: 0.85rem; }
+    h2.secao { margin: 2rem 0 1rem; }
+  </style>
+</head>
 <body>
-  <h1>Veredito</h1>
-  <ul>
-    <li><a href="/mesario/">Mesário</a></li>
-    <li><a href="/telao/">Telão</a></li>
-    <li><a href="/auditoria/">Auditoria</a></li>
-  </ul>
+  <header class="topo">
+    <div class="faixa">
+      <a class="marca" href="/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg>
+        <span>Veredito</span>
+      </a>
+      <nav>
+        <a href="/mesario/" data-i18n="nav.painel">Painel</a>
+        <a href="/monitor/" data-i18n="nav.monitor">Monitoramento</a>
+        <a href="/auditoria/" data-i18n="nav.auditoria">Auditoria</a>
+      </nav>
+      <div class="acoes"></div>
+    </div>
+  </header>
+
+  <section class="capa">
+    <div class="conteudo">
+      <h1 data-i18n="inicio.titulo">Veredito</h1>
+      <p data-i18n="inicio.subtitulo">Votação ao vivo para júri simulado: urnas de toque, voto pelo celular e revelação no telão.</p>
+    </div>
+  </section>
+
+  <main class="conteudo">
+    <div class="telas">
+      <div class="cartao">
+        <div class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg></div>
+        <h2 data-i18n="inicio.painel">Painel do mesário</h2>
+        <p data-i18n="inicio.painel_ajuda">Crie sessões, cadastre urnas e conduza a votação: abrir, encerrar e revelar.</p>
+        <a class="botao principal" href="/mesario/" data-i18n="inicio.abrir">Abrir</a>
+      </div>
+      <div class="cartao">
+        <div class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+        <h2 data-i18n="inicio.telao">Telão</h2>
+        <p data-i18n="inicio.telao_ajuda">Total ao vivo e revelação do resultado. Abra pelo painel para exibir o QR code do celular.</p>
+        <a class="botao" href="/telao/" data-i18n="inicio.abrir">Abrir</a>
+      </div>
+      <div class="cartao">
+        <div class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></div>
+        <h2 data-i18n="mesario.auditoria">Auditoria pública</h2>
+        <p data-i18n="inicio.auditoria_ajuda">Resultados das sessões já reveladas, com a contagem por urna e a linha do tempo.</p>
+        <a class="botao" href="/auditoria/" data-i18n="inicio.abrir">Abrir</a>
+      </div>
+      <div class="cartao">
+        <div class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
+        <h2 data-i18n="mesario.monitoramento">Monitoramento</h2>
+        <p data-i18n="inicio.monitor_ajuda">Acompanhamento técnico durante a votação. Pede a senha do mesário.</p>
+        <a class="botao" href="/monitor/" data-i18n="inicio.abrir">Abrir</a>
+      </div>
+    </div>
+
+    <h2 class="secao" data-i18n="inicio.como">Como funciona</h2>
+    <div class="cartao">
+      <ol class="passos">
+        <li data-i18n="inicio.passo1">O mesário cria a sessão e cadastra as urnas no painel.</li>
+        <li data-i18n="inicio.passo2">Cada urna é aberta pelo link ou QR code gerado no painel; funciona mesmo sem rede.</li>
+        <li data-i18n="inicio.passo3">Com a votação aberta, o público vota nas urnas ou pelo celular, pelo QR code do telão.</li>
+        <li data-i18n="inicio.passo4">O mesário encerra e revela: o telão mostra o resultado e a auditoria fica pública.</li>
+      </ol>
+    </div>
+  </main>
+
+  <script src="/i18n.js"></script>
 </body>
 </html>
