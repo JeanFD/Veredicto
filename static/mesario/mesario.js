@@ -309,8 +309,10 @@ function sair() {
 }
 
 function iniciar() {
+  senha = sessionStorage.getItem("senha");
   $("login").hidden = true;
   $("painel").hidden = false;
+  mostrarSair(sair);
   api("GET", "/api/admin/presets")
     .then((p) => { presets = p; }, () => {})
     .finally(carregarSessoes);
@@ -319,17 +321,9 @@ function iniciar() {
   conectarWs();
 }
 
-$("form-login").onsubmit = async (e) => {
-  e.preventDefault();
-  senha = $("senha").value;
-  try {
-    await api("GET", "/api/admin/sessoes");
-    sessionStorage.setItem("senha", senha);
-    iniciar();
-  } catch {
-    $("erro-login").textContent = t("comum.senha_incorreta");
-  }
-};
+prepararLogin((tentativa) => fetch("/api/admin/sessoes", {
+  headers: { Authorization: "Basic " + btoa("mesario:" + tentativa) },
+}), iniciar);
 
 if (senha) iniciar();
 
