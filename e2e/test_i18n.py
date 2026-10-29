@@ -50,6 +50,7 @@ def test_telao_em_ingles(pagina_en: Page, sessao_aberta):
 
 def test_mesario_em_ingles_sem_texto_em_portugues(pagina_en: Page, sessao_aberta):
     pagina_en.goto("/mesario/")
+    pagina_en.get_by_placeholder("Username").fill("admin")
     pagina_en.get_by_placeholder("Password").fill(SENHA)
     pagina_en.get_by_role("button", name="Sign in").click()
     expect(pagina_en.get_by_role("heading", name="Sessions")).to_be_visible()
@@ -71,6 +72,7 @@ def test_paginas_gerais_em_ingles(pagina_en: Page, caminho):
 
 def test_mensagem_do_servidor_no_idioma_da_tela(pagina_en: Page, sessao_aberta):
     pagina_en.goto("/mesario/")
+    pagina_en.get_by_placeholder("Username").fill("admin")
     pagina_en.get_by_placeholder("Password").fill(SENHA)
     pagina_en.get_by_role("button", name="Sign in").click()
     pagina_en.get_by_role("tab", name="New session").click()

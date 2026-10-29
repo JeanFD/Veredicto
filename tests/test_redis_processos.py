@@ -58,7 +58,7 @@ def processos(tmp_path):
         processo.wait(timeout=10)
 
 def admin(url, metodo, caminho, **kwargs):
-    r = httpx.request(metodo, f"{url}{caminho}", auth=("mesario", SENHA), timeout=10, **kwargs)
+    r = httpx.request(metodo, f"{url}{caminho}", auth=("admin", SENHA), timeout=10, **kwargs)
     r.raise_for_status()
     return r.json()
 

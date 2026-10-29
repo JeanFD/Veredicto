@@ -189,7 +189,7 @@ def argumentos(parser: argparse.ArgumentParser):
 
 def cliente(url: str, senha: str) -> httpx.AsyncClient:
     limites = httpx.Limits(max_connections=200, max_keepalive_connections=200)
-    return httpx.AsyncClient(base_url=url, auth=("mesario", senha), timeout=10, limits=limites)
+    return httpx.AsyncClient(base_url=url, auth=("admin", senha), timeout=10, limits=limites)
 
 
 async def principal(args) -> int:
@@ -202,6 +202,6 @@ async def principal(args) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--url", required=True, help="endereço do Veredicto, ex.: https://veredicto.exemplo")
-    parser.add_argument("--senha", required=True, help="senha do mesário")
+    parser.add_argument("--senha", required=True, help="senha da conta admin")
     argumentos(parser)
     sys.exit(asyncio.run(principal(parser.parse_args())))

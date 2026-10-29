@@ -90,6 +90,15 @@ MENSAGENS = {
     # autenticação
     "muitas_tentativas": {"pt": "Muitas tentativas. Aguarde alguns minutos.", "en": "Too many attempts. Wait a few minutes."},
     "nao_autorizado": {"pt": "Não autorizado", "en": "Unauthorized"},
+    "login_expirado": {"pt": "Login expirado. Entre de novo.", "en": "Session expired. Please sign in again."},
+    "sem_permissao": {"pt": "Sua conta não tem permissão para isso", "en": "Your account is not allowed to do this"},
+    "senha_atual_errada": {"pt": "A senha atual não confere", "en": "The current password is wrong"},
+    "conta_existente": {"pt": "Já existe uma conta com esse usuário", "en": "An account with this username already exists"},
+    "conta_inexistente": {"pt": "Conta inexistente", "en": "Account not found"},
+    "nao_rebaixe_a_si": {"pt": "Você não pode tirar o próprio acesso de admin",
+                         "en": "You cannot remove your own admin access"},
+    "ultimo_admin": {"pt": "É preciso manter pelo menos um admin ativo",
+                     "en": "At least one active admin is required"},
     "telao_nao_autorizado": {"pt": "Telão não autorizado", "en": "Display not authorized"},
     "urna_nao_autorizada": {"pt": "Urna não autorizada", "en": "Ballot box not authorized"},
 }

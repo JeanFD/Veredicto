@@ -17,13 +17,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
-from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets
+from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets, responsavel
 from app.ws import gerente
 from app.config import EM_PRODUCAO
 from app.compartilhado import sinais
 from app.observabilidade import formato_prometheus, log, metricas
 from app.i18n import idioma_atual, idioma_do_cabecalho, msg
-from app.seguranca import exigir_admin, hash_token, exigir_urna, senha_correta, bloqueado, registrar_falha
+from app.seguranca import exigir_admin, exigir_mesario, exigir_monitor, hash_token, exigir_urna, conta_com_senha
+from app.contas import (
+    PAPEIS, SENHA_MINIMA, abrir_login, admins_ativos, confere, conta_do_token, criar_conta,
+    encerrar_login, encerrar_logins, trocar_senha,
+)
 from app.seguranca import (
     JANELA_CODIGO, chave_telao, codigo_celular, codigo_valido, exigir_telao, janela_atual,
 )
@@ -60,6 +64,7 @@ ROTAS_DE_VOTO = {"/api/votos", "/api/celular/votar"}
 @app.middleware("http")
 async def medir_latencia(request: Request, proximo):
     idioma_atual.set(idioma_do_cabecalho(request.headers.get("accept-language")))
+    responsavel.set(None)  # a conexão é reaproveitada entre pedidos: começa sem ninguém
     inicio = time.perf_counter()
     resposta = await proximo(request)
     if request.method == "POST" and request.url.path in ROTAS_DE_VOTO:
@@ -303,7 +308,7 @@ def aceita_voto(sessao, votado_em: datetime, sem_prazo: bool = False) -> bool:
 async def sessao_ativa():
     return{"sessao": buscar_sessao_ativa()}
 
-@app.get("/api/admin/sessoes", dependencies=[Depends(exigir_admin)])
+@app.get("/api/admin/sessoes", dependencies=[Depends(exigir_mesario)])
 async def listar_sessoes(arquivadas: bool = False):
     linhas = db.execute(
         "SELECT * FROM sessoes WHERE arquivada = 0 OR ? ORDER BY id", (arquivadas,),
@@ -322,7 +327,7 @@ async def listar_sessoes(arquivadas: bool = False):
         })
     return resposta
 
-@app.post("/api/admin/sessoes/{sid}/arquivar", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/sessoes/{sid}/arquivar", dependencies=[Depends(exigir_mesario)])
 async def arquivar_sessao(sid: int):
     sessao = db.execute("SELECT ativa FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
@@ -334,7 +339,7 @@ async def arquivar_sessao(sid: int):
     registrar_evento("sessao_arquivada", f"sessao={sid}")
     return {"ok": True}
 
-@app.post("/api/admin/sessoes/{sid}/celular", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/sessoes/{sid}/celular", dependencies=[Depends(exigir_mesario)])
 async def alternar_celular(sid: int, c: Celular):
     """Liga ou desliga o voto por celular; num questionário vale para todas as perguntas."""
     sessao = db.execute("SELECT id, grupo_id FROM sessoes WHERE id = ?", (sid,)).fetchone()
@@ -347,8 +352,8 @@ async def alternar_celular(sid: int, c: Celular):
     await gerente.broadcast(estado_publico(), "telao", "mesario")
     return {"celular": c.ativo}
 
-@app.post("/api/admin/sessoes/{sid}/zerar")
-async def zerar_sessao(sid: int, dados: Zerar, responsavel: str = Depends(exigir_admin)):
+@app.post("/api/admin/sessoes/{sid}/zerar", dependencies=[Depends(exigir_admin)])
+async def zerar_sessao(sid: int, dados: Zerar):
     sessao = db.execute("SELECT tema, estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
         raise HTTPException(404, msg("sessao_inexistente"))
@@ -360,11 +365,11 @@ async def zerar_sessao(sid: int, dados: Zerar, responsavel: str = Depends(exigir
         apagados = db.execute("DELETE FROM votos WHERE sessao_id = ?", (sid,)).rowcount
         db.execute("DELETE FROM cedulas WHERE sessao_id = ?", (sid,))
         db.execute("UPDATE sessoes SET estado = 'AGUARDANDO', encerrada_em = NULL WHERE id = ?", (sid,))
-    registrar_evento("sessao_zerada", f"sessao={sid} votos={apagados} por={responsavel}")
+    registrar_evento("sessao_zerada", f"sessao={sid} votos={apagados}")
     await gerente.broadcast(estado_publico(), "telao", "mesario")
     return {"apagados": apagados}
 
-@app.post("/api/admin/sessoes/{sid}/desarquivar", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/sessoes/{sid}/desarquivar", dependencies=[Depends(exigir_mesario)])
 async def desarquivar_sessao(sid: int):
     with db:
         cur = db.execute("UPDATE sessoes SET arquivada = 0 WHERE id = ?", (sid,))
@@ -377,7 +382,7 @@ def gerar_chave(rotulo: str) -> str:
     sem_acento = unicodedata.normalize("NFKD", rotulo).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "_", sem_acento.lower()).strip("_")[:30] or "opcao"
 
-@app.post("/api/admin/sessoes", status_code=201, dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/sessoes", status_code=201, dependencies=[Depends(exigir_mesario)])
 async def criar_sessao(nova: NovaSessao):
     opcoes = validar_opcoes(nova)
     validar_temas_livres([nova.tema])
@@ -402,7 +407,7 @@ def validar_temas_livres(temas: list[str]):
     if any(t.casefold() in existentes for t in temas):
         raise HTTPException(409, msg("tema_existente"))
 
-@app.post("/api/admin/questionarios", status_code=201, dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/questionarios", status_code=201, dependencies=[Depends(exigir_mesario)])
 async def criar_questionario(novo: NovoQuestionario):
     opcoes = [validar_opcoes(p) for p in novo.perguntas]
     validar_temas_livres([p.tema for p in novo.perguntas])
@@ -416,11 +421,11 @@ async def criar_questionario(novo: NovoQuestionario):
         registrar_evento("sessao_criada", f"sessao={sid} grupo={ids[0]}")
     return {"ids": ids}
 
-@app.get("/api/admin/presets", dependencies=[Depends(exigir_admin)])
+@app.get("/api/admin/presets", dependencies=[Depends(exigir_mesario)])
 async def listar_presets():
     return ler_presets()
 
-@app.post("/api/admin/sessoes/{sid}/ativar", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/sessoes/{sid}/ativar", dependencies=[Depends(exigir_mesario)])
 async def ativar_sessao(sid: int):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
@@ -451,7 +456,7 @@ def inserir_urna(u: NovaUrna) -> str:
         raise HTTPException(status_code=409, detail=msg("urna_existente"))
     return token
 
-@app.post("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/urnas", dependencies=[Depends(exigir_mesario)])
 async def cadastrar_urna(u: NovaUrna):
     with db:
         token = inserir_urna(u)
@@ -509,11 +514,11 @@ async def situacao_pedido(p: PedidoUrna):
         db.execute("DELETE FROM pedidos_urna WHERE segredo_hash = ?", (pedido["segredo_hash"],))
     return {"aprovado": True, "id": pedido["urna_id"], "token": pedido["token"]}
 
-@app.get("/api/admin/pedidos", dependencies=[Depends(exigir_admin)])
+@app.get("/api/admin/pedidos", dependencies=[Depends(exigir_mesario)])
 async def listar_pedidos():
     return pedidos_pendentes()
 
-@app.post("/api/admin/pedidos/{codigo}/aprovar", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/pedidos/{codigo}/aprovar", dependencies=[Depends(exigir_mesario)])
 async def aprovar_pedido(codigo: str, u: NovaUrna):
     apagar_pedidos_vencidos()
     codigo = codigo.upper()
@@ -526,7 +531,7 @@ async def aprovar_pedido(codigo: str, u: NovaUrna):
     await gerente.broadcast({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, "mesario")
     return {"id": u.id}
 
-@app.delete("/api/admin/pedidos/{codigo}", dependencies=[Depends(exigir_admin)])
+@app.delete("/api/admin/pedidos/{codigo}", dependencies=[Depends(exigir_mesario)])
 async def recusar_pedido(codigo: str):
     with db:
         cur = db.execute("DELETE FROM pedidos_urna WHERE codigo = ? AND urna_id IS NULL", (codigo.upper(),))
@@ -535,7 +540,7 @@ async def recusar_pedido(codigo: str):
     await gerente.broadcast({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, "mesario")
     return {"ok": True}
 
-@app.post("/api/admin/urnas/{uid}/novo-token", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/urnas/{uid}/novo-token", dependencies=[Depends(exigir_mesario)])
 async def reemitir_token(uid: str):
     # só o hash fica no banco: para mostrar o link de novo é preciso trocar o token
     urna = db.execute("SELECT ativa FROM urnas WHERE id = ?", (uid,)).fetchone()
@@ -549,7 +554,7 @@ async def reemitir_token(uid: str):
     registrar_evento("urna_token_reemitido", f"urna={uid}")
     return {"id": uid, "token": token}
 
-@app.post("/api/admin/urnas/{uid}/desativar", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/urnas/{uid}/desativar", dependencies=[Depends(exigir_mesario)])
 async def desativar_urna(uid: str):
     with db:
         cur = db.execute("UPDATE urnas SET ativa = 0 WHERE id = ?", (uid,))
@@ -574,7 +579,7 @@ async def ws_telao(ws: WebSocket):
     except WebSocketDisconnect:
         gerente.remover(ws)
 
-@app.post("/api/admin/sessoes/{sid}/avancar", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/sessoes/{sid}/avancar", dependencies=[Depends(exigir_mesario)])
 async def avancar_sessao(sid: int, forcar: bool = False):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
@@ -610,18 +615,14 @@ async def avancar_sessao(sid: int, forcar: bool = False):
 
 @app.websocket("/ws/mesario")
 async def ws_mesario(ws: WebSocket):
-    ip = ws.client.host
     await ws.accept()
-    if bloqueado(ip):
-        await ws.close(code=4429)
-        return
     try:
         auth = await asyncio.wait_for(ws.receive_json(), timeout=5)
     except Exception:
         await ws.close(code=4401)
         return
-    if not senha_correta(str(auth.get("senha", ""))):
-        registrar_falha(ip)
+    conta = conta_do_token(str(auth.get("token", "")))
+    if not conta or PAPEIS[conta["papel"]] < PAPEIS["mesario"]:
         await ws.close(code=4401)
         return
 
@@ -633,12 +634,115 @@ async def ws_mesario(ws: WebSocket):
     except WebSocketDisconnect:
         gerente.remover(ws)
 
+# ---------- Contas e login ----------
+# ver app/contas.py: papéis, senha com scrypt e token de login de 12 horas
+USUARIO = r"^[a-z0-9._-]{2,30}$"
+
+class Login(BaseModel):
+    usuario: str = Field(max_length=60)
+    senha: str = Field(max_length=200)
+
+class NovaSenha(BaseModel):
+    atual: str = Field(max_length=200)
+    nova: str = Field(min_length=SENHA_MINIMA, max_length=200)
+
+class SenhaRedefinida(BaseModel):
+    nova: str = Field(min_length=SENHA_MINIMA, max_length=200)
+
+class NovaConta(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    usuario: str = Field(pattern=USUARIO)
+    nome: str = Field(min_length=1, max_length=60)
+    papel: str = Field(pattern="^(admin|mesario|monitor)$")
+    senha: str = Field(min_length=SENHA_MINIMA, max_length=200)
+
+class ContaAlterada(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    nome: str | None = Field(None, min_length=1, max_length=60)
+    papel: str | None = Field(None, pattern="^(admin|mesario|monitor)$")
+    ativa: bool | None = None
+
+def conta_publica(c) -> dict:
+    return {"usuario": c["usuario"], "nome": c["nome"], "papel": c["papel"], "ativa": bool(c["ativa"])}
+
+def token_do_pedido(request: Request) -> str:
+    return request.headers.get("Authorization", "").removeprefix("Bearer ")
+
+@app.post("/api/login")
+async def entrar(dados: Login, request: Request):
+    conta = conta_com_senha(request.client.host, dados.usuario, dados.senha)
+    token, expira = abrir_login(conta["usuario"])
+    log("login", usuario=conta["usuario"], ip=request.client.host)
+    return {"token": token, "expira_em": expira, **conta_publica(conta)}
+
+@app.post("/api/logout")
+async def sair(request: Request):
+    encerrar_login(token_do_pedido(request))
+    return {"ok": True}
+
+@app.get("/api/eu")
+async def quem_sou(conta=Depends(exigir_monitor)):
+    return conta_publica(conta)
+
+@app.post("/api/eu/senha")
+async def trocar_minha_senha(dados: NovaSenha, request: Request, conta=Depends(exigir_monitor)):
+    if not confere(dados.atual, conta["senha_hash"]):
+        raise HTTPException(400, msg("senha_atual_errada"))
+    trocar_senha(conta["usuario"], dados.nova, exceto=token_do_pedido(request))
+    registrar_evento("senha_trocada", f"conta={conta['usuario']}")
+    return {"ok": True}
+
+@app.get("/api/admin/contas", dependencies=[Depends(exigir_admin)])
+async def listar_contas():
+    return [conta_publica(c) for c in db.execute("SELECT * FROM contas ORDER BY usuario")]
+
+@app.post("/api/admin/contas", status_code=201, dependencies=[Depends(exigir_admin)])
+async def nova_conta(c: NovaConta):
+    try:
+        criar_conta(c.usuario, c.nome, c.papel, c.senha)
+    except sqlite3.IntegrityError:
+        raise HTTPException(409, msg("conta_existente"))
+    registrar_evento("conta_criada", f"conta={c.usuario} papel={c.papel}")
+    return {"usuario": c.usuario}
+
+def buscar_conta(usuario: str):
+    conta = db.execute("SELECT * FROM contas WHERE usuario = ?", (usuario,)).fetchone()
+    if not conta:
+        raise HTTPException(404, msg("conta_inexistente"))
+    return conta
+
+@app.patch("/api/admin/contas/{usuario}")
+async def alterar_conta(usuario: str, mudanca: ContaAlterada, quem=Depends(exigir_admin)):
+    conta = buscar_conta(usuario)
+    perde_admin = conta["papel"] == "admin" and conta["ativa"] and (
+        mudanca.ativa is False or (mudanca.papel and mudanca.papel != "admin"))
+    if perde_admin and usuario == quem["usuario"]:
+        raise HTTPException(409, msg("nao_rebaixe_a_si"))
+    if perde_admin and admins_ativos() <= 1:
+        raise HTTPException(409, msg("ultimo_admin"))
+    campos = mudanca.model_dump(exclude_none=True)
+    if campos:
+        with db:
+            db.execute(f"UPDATE contas SET {', '.join(f'{k} = ?' for k in campos)} WHERE usuario = ?",
+                       (*(int(v) if isinstance(v, bool) else v for v in campos.values()), usuario))
+    if mudanca.ativa is False or mudanca.papel:
+        encerrar_logins(usuario)  # o novo papel (ou o bloqueio) vale já, não no próximo login
+    registrar_evento("conta_alterada", f"conta={usuario} " + " ".join(f"{k}={v}" for k, v in campos.items()))
+    return conta_publica(buscar_conta(usuario))
+
+@app.post("/api/admin/contas/{usuario}/senha", dependencies=[Depends(exigir_admin)])
+async def redefinir_senha(usuario: str, dados: SenhaRedefinida):
+    buscar_conta(usuario)
+    trocar_senha(usuario, dados.nova)
+    registrar_evento("senha_redefinida", f"conta={usuario}")
+    return {"ok": True}
+
 @app.post("/api/urnas/heartbeat")
 async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
     sinais.registrar(urna_id, hb.pendentes, hb.recusados)
     return {"sessao": buscar_sessao_ativa()}
 
-@app.get("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
+@app.get("/api/admin/urnas", dependencies=[Depends(exigir_monitor)])
 async def listar_urnas():
     return status_urnas()
 
@@ -648,7 +752,7 @@ def contar_urnas() -> tuple[int, int]:
     ativas = [u for u in status_urnas() if u["ativa"] and not (u["reserva"] and u["nunca_conectou"])]
     return sum(u["online"] for u in ativas), len(ativas)
 
-@app.get("/api/admin/metricas", dependencies=[Depends(exigir_admin)])
+@app.get("/api/admin/metricas", dependencies=[Depends(exigir_monitor)])
 async def ver_metricas():
     online, ativas = contar_urnas()
     s = buscar_sessao_ativa()
@@ -661,15 +765,15 @@ async def ver_metricas():
         "recusados_total": dict(metricas.recusados_total),
     }
 
-@app.get("/metrics", dependencies=[Depends(exigir_admin)])
+@app.get("/metrics", dependencies=[Depends(exigir_monitor)])
 async def metricas_prometheus():
     return Response(formato_prometheus(*contar_urnas()), media_type="text/plain; version=0.0.4")
 
-@app.get("/api/admin/eventos", dependencies=[Depends(exigir_admin)])
+@app.get("/api/admin/eventos", dependencies=[Depends(exigir_mesario)])
 async def listar_eventos():
     return [dict(e) for e in db.execute("SELECT * FROM eventos ORDER BY id")]
 
-@app.get("/api/admin/sessoes/{sid}/votos.csv", dependencies=[Depends(exigir_admin)])
+@app.get("/api/admin/sessoes/{sid}/votos.csv", dependencies=[Depends(exigir_mesario)])
 async def exportar_votos(sid: int):
     sessao = db.execute("SELECT estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
@@ -693,7 +797,7 @@ async def exportar_votos(sid: int):
         headers={"Content-Disposition": f'attachment; filename="sessao-{sid}-votos.csv"'},
     )
 
-@app.post("/api/admin/importar", dependencies=[Depends(exigir_admin)])
+@app.post("/api/admin/importar", dependencies=[Depends(exigir_mesario)])
 async def importar_votos(dados: Importacao):
     if not db.execute("SELECT 1 FROM urnas WHERE id = ?", (dados.urna_id,)).fetchone():
         raise HTTPException(404, msg("urna_inexistente"))
@@ -835,7 +939,7 @@ def sessao_aberta(sid: int):
     if not sessao["ativa"] or sessao["estado"] != "ABERTA":
         raise recusa(409, "sessao_fechada")
 
-@app.get("/api/admin/telao", dependencies=[Depends(exigir_admin)])
+@app.get("/api/admin/telao", dependencies=[Depends(exigir_mesario)])
 async def link_telao():
     return {"chave": chave_telao()}
 

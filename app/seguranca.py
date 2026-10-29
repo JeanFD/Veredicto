@@ -9,18 +9,10 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from app.i18n import msg
 from app.compartilhado import falhas
 from app.config import ADMIN_SENHA
-from app.db import db
+from app.contas import PAPEIS, conta_do_token, conta_por_senha, hash_token  # noqa: F401 (hash_token reexportado)
+from app.db import db, responsavel
 
 basic = HTTPBasic(auto_error=False)
-
-
-
-def hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-def senha_correta(senha: str) -> bool:
-    return secrets.compare_digest(senha.encode(), ADMIN_SENHA.encode())
 
 
 def bloqueado(ip: str) -> bool:
@@ -31,19 +23,49 @@ def registrar_falha(ip: str):
     falhas.registrar(ip)
 
 
-async def exigir_admin(request: Request, cred: HTTPBasicCredentials | None = Depends(basic)) -> str:
-    ip = request.client.host
+def recusar_senha(ip: str):
+    """Senha errada: conta para o bloqueio. A tela de login avisa quantas tentativas
+    faltam e, ao bloquear, por quanto tempo."""
+    registrar_falha(ip)
+    cabecalhos = {"X-Tentativas-Restantes": str(falhas.restantes(ip))}
+    if falhas.bloqueado(ip):
+        cabecalhos["Retry-After"] = str(falhas.espera(ip))
+    raise HTTPException(401, msg("nao_autorizado"), headers=cabecalhos)
+
+
+def conta_com_senha(ip: str, usuario: str, senha: str):
     if bloqueado(ip):
         raise HTTPException(429, msg("muitas_tentativas"), headers={"Retry-After": str(falhas.espera(ip))})
-    if cred is None or not senha_correta(cred.password):
-        registrar_falha(ip)
-        # a tela de login avisa quantas tentativas faltam e, ao bloquear, por quanto tempo
-        cabecalhos = {"X-Tentativas-Restantes": str(falhas.restantes(ip))}
-        if falhas.bloqueado(ip):
-            cabecalhos["Retry-After"] = str(falhas.espera(ip))
-        raise HTTPException(401, msg("nao_autorizado"), headers=cabecalhos)
-    # a senha é compartilhada: o IP é o que distingue quem agiu na auditoria
-    return f"{cred.username}@{ip}"
+    conta = conta_por_senha(usuario, senha)
+    if not conta:
+        recusar_senha(ip)
+    return conta
+
+
+def exigir(papel: str):
+    """Acesso a partir do papel dado. O navegador manda o token do login (Bearer);
+    scripts podem mandar usuário e senha (HTTP Basic). Token vencido não conta para o
+    bloqueio: uma aba esquecida aberta não pode trancar o IP de todo mundo."""
+    async def checar(request: Request, cred: HTTPBasicCredentials | None = Depends(basic)):
+        cabecalho = request.headers.get("Authorization", "")
+        if cabecalho.startswith("Bearer "):
+            conta = conta_do_token(cabecalho.removeprefix("Bearer "))
+            if not conta:
+                raise HTTPException(401, msg("login_expirado"))
+        elif cred:
+            conta = conta_com_senha(request.client.host, cred.username, cred.password)
+        else:
+            raise HTTPException(401, msg("nao_autorizado"))
+        if PAPEIS[conta["papel"]] < PAPEIS[papel]:
+            raise HTTPException(403, msg("sem_permissao"))
+        responsavel.set(conta["usuario"])
+        return conta
+    return checar
+
+
+exigir_monitor = exigir("monitor")
+exigir_mesario = exigir("mesario")
+exigir_admin = exigir("admin")
 
 
 # ---------- Voto por celular ----------

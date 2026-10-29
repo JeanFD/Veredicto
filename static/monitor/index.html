@@ -38,11 +38,16 @@
   <main id="login" class="entrada">
     <form id="form-login" class="cartao">
       <h1 data-i18n="monitor.h1">Monitoramento</h1>
-      <p data-i18n="monitor.login_ajuda">Acompanhamento técnico da votação. Use a senha do mesário.</p>
+      <p data-i18n="monitor.login_ajuda">Acompanhamento técnico da votação. Entre com a sua conta.</p>
+      <div class="campo">
+        <label for="usuario" data-i18n="login.usuario">Usuário</label>
+        <input id="usuario" placeholder="Usuário" data-i18n-placeholder="login.usuario"
+               autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
       <div class="campo">
         <label for="senha" data-i18n="comum.senha">Senha</label>
         <div class="senha-campo">
-          <input id="senha" type="password" placeholder="Senha do mesário" data-i18n-placeholder="monitor.senha"
+          <input id="senha" type="password" placeholder="Senha" data-i18n-placeholder="comum.senha"
                  autocomplete="current-password" required>
           <button type="button" id="ver-senha" class="fantasma" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
@@ -70,6 +75,11 @@
       <h2 data-i18n="monitor.grafico">Votos por minuto (últimos 30 min)</h2>
       <div id="grafico"></div>
       <div class="eixo"><span data-i18n="monitor.eixo_inicio">−30 min</span><span data-i18n="monitor.eixo_agora">agora</span></div>
+    </div>
+
+    <div class="cartao">
+      <h2 data-i18n="mesario.urnas">Urnas</h2>
+      <div id="grade-urnas" class="grade"></div>
     </div>
 
     <div class="cartao">

@@ -115,6 +115,19 @@ label { font-weight: 500; }
 .selo.celular { background: #eef4ff; color: var(--primaria); }
 .selo.celular::before { display: none; }
 
+/* grade de status das urnas (painel e monitoramento) */
+.grade { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+         margin-bottom: 1rem; }
+.urna { background: var(--superficie); padding: 0.9rem 1rem; border-radius: var(--raio);
+        border: 1px solid var(--borda); border-top: 4px solid var(--borda-forte); box-shadow: var(--sombra); }
+.urna > div:first-child { font-weight: 700; }
+.urna > div { font-size: 0.9rem; }
+.online { border-top-color: var(--sucesso); } .offline { border-top-color: var(--perigo); }
+.nunca { border-top-color: #98a2b3; } .inativa { opacity: 0.5; }
+.recusados { color: var(--perigo); font-weight: 700; }
+.grade .vazio { grid-column: 1 / -1; margin: 0; }
+.conta-atual { color: rgba(255, 255, 255, 0.85); font-size: 0.85rem; }
+
 /* chave liga/desliga */
 .chave { display: inline-flex; gap: 0.5rem; align-items: center; font-weight: 500; cursor: pointer; }
 .chave input { appearance: none; width: 2.4rem; height: 1.35rem; margin: 0; border-radius: 999px; cursor: pointer;

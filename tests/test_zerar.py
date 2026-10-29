@@ -30,7 +30,7 @@ def test_zerar_registra_auditoria(cliente, urna, sessao_aberta):
     ultimo = cliente.get("/api/admin/eventos", auth=ADMIN).json()[-1]
     assert ultimo["tipo"] == "sessao_zerada"
     assert "votos=3" in ultimo["detalhe"]
-    assert "por=mesario@" in ultimo["detalhe"]
+    assert "por=admin" in ultimo["detalhe"]
 
 def test_confirmacao_errada_nao_zera(cliente, urna, sessao_aberta):
     votar(cliente, urna)

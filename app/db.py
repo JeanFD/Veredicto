@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from contextvars import ContextVar
 from datetime import datetime, timezone
 
 from app.config import DB_PATH, SESSOES_PATH
@@ -13,6 +14,10 @@ if DB_PATH != ":memory:":
 
 # o esquema vem das migrações em app/migracoes; ver app/migrar.py
 migrar(db)
+
+# conta que fez o pedido em andamento (posta pela checagem de acesso; vazia em rotas
+# públicas): todo evento registrado por ela leva "por=usuario" na auditoria interna
+responsavel: ContextVar[str | None] = ContextVar("responsavel", default=None)
 
 def agora() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -44,6 +49,8 @@ def carregar_sessoes():
             inserir_sessao(s["tema"], s["opcoes"])
 
 def registrar_evento(tipo: str, detalhe: str = ""):
+    if responsavel.get():
+        detalhe = f"{detalhe} por={responsavel.get()}".strip()
     with db:
         db.execute("INSERT INTO eventos (tipo, detalhe, em) VALUES (?, ?, ?)",
                    (tipo, detalhe, agora()))

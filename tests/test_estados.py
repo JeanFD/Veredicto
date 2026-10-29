@@ -28,9 +28,9 @@ def test_resultado_so_apos_revelar(cliente, urna):
     assert resultado == {"acusacao": 0, "defesa": 1}
 
 
-def test_mesario_senha_errada_desconecta(cliente):
+def test_mesario_token_errado_desconecta(cliente):
     with cliente.websocket_connect("/ws/mesario") as ws:
-        ws.send_json({"senha": "errada"})
+        ws.send_json({"token": "errado"})
         mensagem = ws.receive()
         assert mensagem["type"] == "websocket.close"
         assert mensagem["code"] == 4401
