@@ -3,7 +3,7 @@ import time
 
 import app.main
 from app.db import db
-from tests.auxiliares import ADMIN, novo_voto
+from tests.auxiliares import ADMIN, login, novo_voto
 
 def pedir(cliente):
     r = cliente.post("/api/urnas/pedido")
@@ -67,7 +67,7 @@ def test_limite_de_pedidos_pendentes(cliente, monkeypatch):
 
 def test_painel_recebe_o_pedido_na_hora(cliente):
     with cliente.websocket_connect("/ws/mesario") as ws:
-        ws.send_json({"senha": ADMIN[1]})
+        ws.send_json({"token": login(cliente)})
         ws.receive_json()  # snapshot
         p = pedir(cliente)
         m = ws.receive_json()

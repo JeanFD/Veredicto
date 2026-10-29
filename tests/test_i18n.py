@@ -117,4 +117,4 @@ def test_pendencias_traduzidas_e_auditoria_em_portugues(cliente, urna):
 
     assert cliente.post("/api/admin/sessoes/1/avancar?forcar=true", auth=ADMIN, headers=en).status_code == 200
     [detalhe] = db.execute("SELECT detalhe FROM eventos WHERE tipo = 'revelacao_forcada'").fetchone()
-    assert detalhe.endswith(": 2 votos pendentes")
+    assert detalhe.endswith(": 2 votos pendentes por=admin")

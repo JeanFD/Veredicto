@@ -1,7 +1,11 @@
 import uuid
 from datetime import datetime, timezone
 
-ADMIN = ("mesario", "senha-teste")
+ADMIN = ("admin", "senha-teste")
+
+def login(cliente, usuario="admin", senha="senha-teste") -> str:
+    """Token de login, como o navegador recebe."""
+    return cliente.post("/api/login", json={"usuario": usuario, "senha": senha}).json()["token"]
 
 def novo_voto(opcao="defesa", sessao_id=1, votado_em=None):
     return {

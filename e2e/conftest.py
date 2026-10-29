@@ -63,7 +63,7 @@ class Admin:
     """Atalhos do mesário pela API, para preparar o cenário de cada teste."""
 
     def __init__(self, url):
-        self.http = httpx.Client(base_url=url, auth=("mesario", SENHA), timeout=10)
+        self.http = httpx.Client(base_url=url, auth=("admin", SENHA), timeout=10)
 
     def post(self, caminho, **kwargs):
         r = self.http.post(caminho, **kwargs)
