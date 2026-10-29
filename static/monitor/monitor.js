@@ -60,22 +60,16 @@ function sair() {
 }
 
 function iniciar() {
+  senha = sessionStorage.getItem("senha");
   $("login").hidden = true;
   $("painel").hidden = false;
+  mostrarSair(sair);
   atualizar();
   setInterval(atualizar, 5000);
 }
 
-$("form-login").onsubmit = async (e) => {
-  e.preventDefault();
-  senha = $("senha").value;
-  try {
-    await buscar();
-    sessionStorage.setItem("senha", senha);
-    iniciar();
-  } catch {
-    $("erro-login").textContent = t("comum.senha_incorreta");
-  }
-};
+prepararLogin((tentativa) => fetch("/api/admin/metricas", {
+  headers: { Authorization: "Basic " + btoa("mesario:" + tentativa) },
+}), iniciar);
 
 if (senha) iniciar();

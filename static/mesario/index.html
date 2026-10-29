@@ -93,11 +93,15 @@
     <form id="form-login" class="cartao">
       <h1 data-i18n="mesario.titulo_login">Painel do mesário</h1>
       <p data-i18n="mesario.login_ajuda">Entre com a senha do mesário para conduzir a votação.</p>
-      <label class="campo">
-        <span data-i18n="comum.senha">Senha</span>
-        <input id="senha" type="password" placeholder="Senha" data-i18n-placeholder="comum.senha"
-               autocomplete="current-password" required>
-      </label>
+      <div class="campo">
+        <label for="senha" data-i18n="comum.senha">Senha</label>
+        <div class="senha-campo">
+          <input id="senha" type="password" placeholder="Senha" data-i18n-placeholder="comum.senha"
+                 autocomplete="current-password" required>
+          <button type="button" id="ver-senha" class="fantasma" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <small id="caps" class="aviso-caps" role="status" hidden data-i18n="login.caps">Caps Lock está ligado</small>
+      </div>
       <button id="entrar" class="principal" data-i18n="comum.entrar">Entrar</button>
       <p id="erro-login" class="erro" role="alert"></p>
     </form>
@@ -200,6 +204,7 @@
   </div>
 
   <script src="/i18n.js"></script>
+  <script src="/login.js"></script>
   <script src="mesario.js"></script>
 </body>
 </html>

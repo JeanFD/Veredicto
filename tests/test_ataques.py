@@ -33,3 +33,17 @@ def test_urna_nao_escolhe_identidade(cliente, urna, sessao_aberta):
     cliente.post("/api/votos", json=voto, headers=urna)
     urnas = cliente.get("/api/admin/urnas", auth=ADMIN).json()
     assert urnas[0]["id"] == "urna-teste" and urnas[0]["votos_sessao"] == 1
+
+def test_login_informa_tentativas_restantes_e_tempo_de_bloqueio(cliente):
+    from app.compartilhado import JANELA_SEGUNDOS, MAX_FALHAS
+    r = cliente.get("/api/admin/sessoes", auth=("x", "errada"))
+    assert r.headers["X-Tentativas-Restantes"] == str(MAX_FALHAS - 1)
+    assert "Retry-After" not in r.headers
+    for _ in range(MAX_FALHAS - 2):
+        cliente.get("/api/admin/sessoes", auth=("x", "errada"))
+    ultima = cliente.get("/api/admin/sessoes", auth=("x", "errada"))
+    assert ultima.status_code == 401 and ultima.headers["X-Tentativas-Restantes"] == "0"
+    assert 0 < int(ultima.headers["Retry-After"]) <= JANELA_SEGUNDOS
+    bloqueada = cliente.get("/api/admin/sessoes", auth=ADMIN)
+    assert bloqueada.status_code == 429
+    assert 0 < int(bloqueada.headers["Retry-After"]) <= JANELA_SEGUNDOS

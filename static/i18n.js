@@ -207,7 +207,15 @@ const TEXTOS = /* textos:inicio */ {
     "monitor.atualizado": "Atualizado às {hora} · a cada 5s",
     "monitor.sem_conexao": "Sem conexão com o servidor ({hora})",
     "monitor.barra_atual": "{n} votos · minuto atual",
-    "monitor.barra_ha": "{n} votos · há {min} min"
+    "monitor.barra_ha": "{n} votos · há {min} min",
+    "comum.sair": "Sair",
+    "login.mostrar": "Mostrar senha",
+    "login.ocultar": "Ocultar senha",
+    "login.caps": "Caps Lock está ligado",
+    "login.entrando": "Entrando…",
+    "login.restantes": "Senha incorreta. Restam {n} tentativas antes do bloqueio temporário.",
+    "login.bloqueado": "Muitas tentativas erradas. Tente de novo em {tempo}.",
+    "login.sem_conexao": "Sem conexão com o servidor. Confira a rede e tente de novo."
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -408,7 +416,15 @@ const TEXTOS = /* textos:inicio */ {
     "monitor.atualizado": "Updated at {hora} · every 5s",
     "monitor.sem_conexao": "No connection to the server ({hora})",
     "monitor.barra_atual": "{n} votes · current minute",
-    "monitor.barra_ha": "{n} votes · {min} min ago"
+    "monitor.barra_ha": "{n} votes · {min} min ago",
+    "comum.sair": "Sign out",
+    "login.mostrar": "Show password",
+    "login.ocultar": "Hide password",
+    "login.caps": "Caps Lock is on",
+    "login.entrando": "Signing in…",
+    "login.restantes": "Wrong password. {n} attempts left before a temporary lock.",
+    "login.bloqueado": "Too many wrong attempts. Try again in {tempo}.",
+    "login.sem_conexao": "No connection to the server. Check the network and try again."
   }
 } /* textos:fim */;
 

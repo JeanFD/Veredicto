@@ -134,5 +134,15 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .entrada .cartao { width: 100%; max-width: 380px; padding: 2rem; }
 .entrada h1 { font-size: 1.35rem; }
 .entrada p { color: var(--texto-2); }
+.entrada p.erro { color: var(--perigo); }
 .entrada button.principal { width: 100%; padding: 0.7rem; }
-.erro { color: var(--perigo); font-weight: 500; min-height: 1.5em; margin: 0.5rem 0 0; }
+.erro { color: var(--perigo); font-weight: 500; min-height: 1.5em; margin: 0.75rem 0 0; }
+.campo > label { font-size: 0.85rem; font-weight: 600; }
+.senha-campo { position: relative; }
+.senha-campo input { width: 100%; padding-right: 2.75rem; }
+.senha-campo button { position: absolute; right: 0.25rem; top: 50%; transform: translateY(-50%);
+                      padding: 0.4rem; color: var(--texto-2); }
+.senha-campo button svg { width: 20px; height: 20px; }
+.senha-campo button[aria-pressed="true"] { color: var(--primaria); }
+.aviso-caps { color: var(--alerta); font-weight: 600; }
+.aviso-caps::before { content: "⇪ "; }

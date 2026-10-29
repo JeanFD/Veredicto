@@ -6,6 +6,7 @@ Redis pub/sub (app/ws.py) e o estado abaixo fica no Redis, para que qualquer
 processo veja o mesmo heartbeat de urna, o mesmo bloqueio de login e as mesmas
 métricas. O estado das sessões já é compartilhado: fica no SQLite.
 """
+import math
 import time
 from collections import defaultdict
 
@@ -70,10 +71,24 @@ class FalhasMemoria:
     def __init__(self):
         self.falhas: dict[str, list[float]] = defaultdict(list)
 
-    def bloqueado(self, ip: str) -> bool:
+    def recentes(self, ip: str) -> list[float]:
         agora = time.monotonic()
         self.falhas[ip] = [t for t in self.falhas[ip] if agora - t < JANELA_SEGUNDOS]
-        return len(self.falhas[ip]) >= MAX_FALHAS
+        return self.falhas[ip]
+
+    def bloqueado(self, ip: str) -> bool:
+        return len(self.recentes(ip)) >= MAX_FALHAS
+
+    def restantes(self, ip: str) -> int:
+        return max(0, MAX_FALHAS - len(self.recentes(ip)))
+
+    def espera(self, ip: str) -> int:
+        """Segundos até o IP voltar a poder tentar (janela deslizante)."""
+        recentes = self.recentes(ip)
+        if len(recentes) < MAX_FALHAS:
+            return 0
+        libera = recentes[len(recentes) - MAX_FALHAS]
+        return math.ceil(JANELA_SEGUNDOS - (time.monotonic() - libera))
 
     def registrar(self, ip: str):
         self.falhas[ip].append(time.monotonic())
@@ -89,6 +104,12 @@ class FalhasRedis:
 
     def bloqueado(self, ip: str) -> bool:
         return int(self.r.get(f"{PREFIXO}falhas:{ip}") or 0) >= MAX_FALHAS
+
+    def restantes(self, ip: str) -> int:
+        return max(0, MAX_FALHAS - int(self.r.get(f"{PREFIXO}falhas:{ip}") or 0))
+
+    def espera(self, ip: str) -> int:
+        return max(0, self.r.ttl(f"{PREFIXO}falhas:{ip}")) if self.bloqueado(ip) else 0
 
     def registrar(self, ip: str):
         chave = f"{PREFIXO}falhas:{ip}"

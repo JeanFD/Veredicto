@@ -34,10 +34,14 @@ def registrar_falha(ip: str):
 async def exigir_admin(request: Request, cred: HTTPBasicCredentials | None = Depends(basic)) -> str:
     ip = request.client.host
     if bloqueado(ip):
-        raise HTTPException(429, msg("muitas_tentativas"))
+        raise HTTPException(429, msg("muitas_tentativas"), headers={"Retry-After": str(falhas.espera(ip))})
     if cred is None or not senha_correta(cred.password):
         registrar_falha(ip)
-        raise HTTPException(401, msg("nao_autorizado"))
+        # a tela de login avisa quantas tentativas faltam e, ao bloquear, por quanto tempo
+        cabecalhos = {"X-Tentativas-Restantes": str(falhas.restantes(ip))}
+        if falhas.bloqueado(ip):
+            cabecalhos["Retry-After"] = str(falhas.espera(ip))
+        raise HTTPException(401, msg("nao_autorizado"), headers=cabecalhos)
     # a senha é compartilhada: o IP é o que distingue quem agiu na auditoria
     return f"{cred.username}@{ip}"
 
