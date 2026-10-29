@@ -778,6 +778,16 @@ async def entrar_celular(e: EntradaCelular):
         )
     return {"cedula": cedula, "sessao": buscar_sessao_ativa()}
 
+@app.post("/api/celular/cedula")
+async def conferir_cedula(p: ProximaCedula):
+    """O celular confere a cédula guardada: zerar a contagem, limpar testes ou um banco
+    novo apagam cédulas, e o número da sessão pode ter sido reaproveitado."""
+    cedula = db.execute("SELECT sessao_id, voto_id FROM cedulas WHERE token_hash = ?",
+                        (hash_token(p.cedula),)).fetchone()
+    if not cedula:
+        raise recusa(401, "cedula_invalida")
+    return {"sessao_id": cedula["sessao_id"], "votou": cedula["voto_id"] is not None}
+
 @app.post("/api/celular/proxima")
 async def proxima_cedula(p: ProximaCedula):
     """Troca a cédula de uma pergunta pela da pergunta seguinte do mesmo questionário.
