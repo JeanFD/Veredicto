@@ -230,7 +230,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.permitir_celular": "Permitir voto por celular",
     "mesario.celular_ajuda": "O telão mostra um QR code para a plateia votar pelo celular. Sem marcar, só as urnas votam.",
     "mesario.selo_celular": "CELULAR",
-    "celular.motivo.celular_desligado": "O voto por celular está desligado nesta votação. Vote na urna."
+    "celular.motivo.celular_desligado": "O voto por celular está desligado nesta votação. Vote na urna.",
+    "celular.nova_votacao": "Nova votação aberta. Escaneie o QR code do telão para votar."
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -454,7 +455,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.permitir_celular": "Allow phone voting",
     "mesario.celular_ajuda": "The display shows a QR code so the audience can vote by phone. Unchecked, only ballot boxes vote.",
     "mesario.selo_celular": "PHONE",
-    "celular.motivo.celular_desligado": "Phone voting is turned off for this vote. Please use a ballot box."
+    "celular.motivo.celular_desligado": "Phone voting is turned off for this vote. Please use a ballot box.",
+    "celular.nova_votacao": "A new vote is open. Scan the QR code on the display to vote."
   }
 } /* textos:fim */;
 

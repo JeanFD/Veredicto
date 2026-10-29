@@ -14,6 +14,25 @@ const codigo = hash.get("c");
 const cedulas = () => ler("cedulas", {});
 const minhaCedula = () => cedulas()[sessaoId];
 const guardarCedula = (dados) => gravar("cedulas", { ...cedulas(), [sessaoId]: { ...minhaCedula(), ...dados } });
+const esquecerCedula = () => {
+  const todas = cedulas();
+  delete todas[sessaoId];
+  gravar("cedulas", todas);
+};
+
+// A cópia local pode ser de uma cédula que o servidor apagou (contagem zerada,
+// testes limpos, banco novo, número de sessão reaproveitado): quem decide é o servidor.
+async function conferirCedula() {
+  const minha = minhaCedula();
+  if (!minha?.cedula) return;
+  try {
+    const r = await enviar("/api/celular/cedula", { cedula: minha.cedula });
+    if (r.motivo === "cedula_invalida" || (r.ok && r.dados.sessao_id !== sessaoId)) esquecerCedula();
+    else if (r.ok && !r.dados.votou) guardarCedula({ votou: false });
+  } catch {
+    // sem rede: vale a cópia local
+  }
+}
 
 // ---------- Tela ----------
 function tela(texto, classe) {
@@ -57,6 +76,7 @@ async function enviar(caminho, corpo) {
 async function iniciar() {
   if (!sessaoId) return tela(t("celular.escaneie"));
   gravar("ultima_sessao", sessaoId);
+  await conferirCedula();
   if (minhaCedula()?.votou) {
     tela(mensagem("ja_votou"), "sucesso");
     return aguardarProxima();
@@ -130,7 +150,7 @@ let esperando = null;
 
 function aguardarProxima() {
   const minha = minhaCedula();
-  if (!minha?.grupo_id || esperando) return;
+  if (esperando) return;
   esperando = setInterval(async () => {
     let ativa;
     try {
@@ -138,7 +158,13 @@ function aguardarProxima() {
     } catch {
       return; // sem rede: tenta na próxima volta
     }
-    if (!ativa || ativa.grupo_id !== minha.grupo_id || ativa.pergunta <= minha.pergunta
+    const outra = ativa && ativa.id !== sessaoId && ativa.estado === "ABERTA" && ativa.celular;
+    if (outra && (!minha?.grupo_id || ativa.grupo_id !== minha.grupo_id)) {
+      clearInterval(esperando);
+      esperando = null;
+      return tela(t("celular.nova_votacao"));
+    }
+    if (!minha?.grupo_id || !ativa || ativa.grupo_id !== minha.grupo_id || ativa.pergunta <= minha.pergunta
         || ativa.estado !== "ABERTA") return;
     clearInterval(esperando);
     esperando = null;
