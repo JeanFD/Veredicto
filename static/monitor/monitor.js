@@ -1,10 +1,37 @@
 const $ = (id) => document.getElementById(id);
-let senha = sessionStorage.getItem("senha");
 
-async function buscar() {
-  const r = await fetch("/api/admin/metricas", { headers: { Authorization: "Basic " + btoa("mesario:" + senha) } });
+async function buscar(caminho) {
+  const r = await fetch(caminho, { headers: autorizacao() });
   if (r.status === 401) throw new Error("senha");
   return r.json();
+}
+
+function mostrarUrnas(urnas) {
+  $("grade-urnas").replaceChildren(...urnas.filter((u) => u.ativa).map((u) => {
+    const cartao = document.createElement("div");
+    cartao.className = `urna ${u.nunca_conectou ? "nunca" : u.online ? "online" : "offline"}`;
+    const situacao = u.nunca_conectou ? t("mesario.nunca_conectou")
+      : u.online ? t("mesario.n_pendentes", { n: u.pendentes })
+      : t("mesario.offline_ha", { s: u.segundos_sem_sinal });
+    for (const texto of [u.id, u.nome, t("mesario.n_votos", { n: u.votos_sessao }), situacao]) {
+      const linha = document.createElement("div");
+      linha.textContent = texto;
+      cartao.appendChild(linha);
+    }
+    if (u.recusados) {
+      const alerta = document.createElement("div");
+      alerta.className = "recusados";
+      alerta.textContent = t("mesario.n_recusados", { n: u.recusados });
+      cartao.appendChild(alerta);
+    }
+    return cartao;
+  }));
+  if (!$("grade-urnas").children.length) {
+    const aviso = document.createElement("p");
+    aviso.className = "vazio";
+    aviso.textContent = t("mesario.sem_urnas");
+    $("grade-urnas").appendChild(aviso);
+  }
 }
 
 function linha(rotulo, valor) {
@@ -47,7 +74,9 @@ function mostrar(m) {
 
 async function atualizar() {
   try {
-    mostrar(await buscar());
+    const [metricas, urnas] = await Promise.all([buscar("/api/admin/metricas"), buscar("/api/admin/urnas")]);
+    mostrar(metricas);
+    mostrarUrnas(urnas);
   } catch (e) {
     if (e.message === "senha") return sair();
     $("atualizado").textContent = t("monitor.sem_conexao", { hora: new Date().toLocaleTimeString(document.documentElement.lang) });
@@ -55,12 +84,11 @@ async function atualizar() {
 }
 
 function sair() {
-  sessionStorage.removeItem("senha");
+  sessionStorage.removeItem("login");
   location.reload();
 }
 
 function iniciar() {
-  senha = sessionStorage.getItem("senha");
   $("login").hidden = true;
   $("painel").hidden = false;
   mostrarSair(sair);
@@ -68,8 +96,6 @@ function iniciar() {
   setInterval(atualizar, 5000);
 }
 
-prepararLogin((tentativa) => fetch("/api/admin/metricas", {
-  headers: { Authorization: "Basic " + btoa("mesario:" + tentativa) },
-}), iniciar);
+prepararLogin(iniciar);
 
-if (senha) iniciar();
+if (lerLogin()) iniciar();

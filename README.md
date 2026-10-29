@@ -15,7 +15,7 @@ there is a PT/EN switch in the corner of every screen).
 | `/urna/` | voters | Ballot box. Open it on the device and tap "Request to become a ballot box": it shows a 4-letter code that the poll worker approves in the panel (or configure it with a link/QR from the panel). Installable as an app (PWA); queues votes offline. |
 | `/telao/` | the room | Big screen: topic, live vote count, 3·2·1 reveal with the result bars, QR code for phone voting. |
 | `/celular/` | voters | Phone voting, opened from the QR code on the big screen; one vote per phone per question. Off by default: the mesário turns it on per session ("Allow phone voting", or the switch on the active-session bar). |
-| `/mesario/` | poll worker | Password-protected panel: create sessions and questionnaires, open/close/reveal, register ballot boxes, watch their status, import an offline queue. |
+| `/mesario/` | poll worker | Panel behind individual accounts: create sessions and questionnaires, open/close/reveal, register ballot boxes, watch their status, import an offline queue, manage accounts. |
 | `/monitor/` | poll worker | Votes per minute, vote latency (p50/p95) and ballot boxes online. |
 | `/auditoria/` | anyone | Public audit of revealed sessions: per-box counts and the event log. |
 
@@ -46,7 +46,7 @@ python -m venv .venv
 ADMIN_SENHA=secret .venv/bin/uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000/mesario/, sign in with the password, open /urna/ in another
+Open http://127.0.0.1:8000/mesario/, sign in as `admin` with that password, open /urna/ in another
 tab, request it and approve the code in the Ballot boxes tab. The database (`veredicto.db`) is created and migrated on
 startup. In Docker the variables come from `.env` (see [.env.example](.env.example)).
 
@@ -54,10 +54,22 @@ startup. In Docker the variables come from `.env` (see [.env.example](.env.examp
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ADMIN_SENHA` | (required) | Poll-worker password (user `mesario`). |
+| `ADMIN_SENHA` | (required) | Password of the first `admin` account, created when there are no accounts yet (change it later in the panel). Also signs the big-screen key and the phone codes. |
 | `AMBIENTE` | `desenvolvimento` | `producao` hides `/docs` and the OpenAPI schema. |
 | `DB_PATH` | `veredicto.db` | SQLite file. |
 | `SESSOES_PATH` | `sessoes.json` | Session presets shown in the panel. |
+
+### Accounts
+
+Each person signs in with their own username and password; the browser keeps only a
+12-hour token, never the password. Roles: **admin** (everything, including accounts,
+resetting a count and clearing tests), **mesário** (runs sessions, registers ballot
+boxes) and **monitor** (only `/monitor/`: ballot box status and metrics). The internal
+audit (`/api/admin/eventos`) records who did each action. Forgot the admin password?
+
+```bash
+docker compose exec veredicto python -m app.contas redefinir admin
+```
 | `REDIS_URL` | (empty) | Enables several processes sharing state through Redis ([deploy/ESCALA.md](deploy/ESCALA.md)). |
 | `WORKERS` | `1` | Uvicorn workers in the container; more than one only with `REDIS_URL`. |
 

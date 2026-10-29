@@ -2,6 +2,9 @@
 
 Três etapas, nesta ordem. Cada uma só começa se a anterior passou.
 
+Os scripts entram com a conta `admin`: `SENHA_ADMIN` é a senha atual dela (no
+começo, a `ADMIN_SENHA` do `.env`; depois, a que foi trocada no painel).
+
 ## 1. Carga (`scripts/carga.py`)
 
 N urnas votando ao mesmo tempo, como as de verdade: cada voto é repetido até o
@@ -10,7 +13,7 @@ se perde no caminho). No fim o script revela a sessão, baixa o CSV e confere vo
 a voto: **nenhum perdido, nenhum duplicado, cada um com a urna e a opção enviadas**.
 
 ```bash
-python -m scripts.carga --url https://veredicto.duckdns.org --senha "$ADMIN_SENHA" --urnas 20 --votos 50
+python -m scripts.carga --url https://veredicto.duckdns.org --senha "$SENHA_ADMIN" --urnas 20 --votos 50
 ```
 
 - O script cria a própria sessão (`Carga <data>`) e urnas `carga-...`, todas
@@ -38,7 +41,7 @@ Na VPS, o comando que derruba o servidor é seu. `--vigiar` checa a cada segundo
 outros serviços da máquina (os do `deploy/Caddyfile`):
 
 ```bash
-python -m scripts.caos --url https://veredicto.duckdns.org --senha "$ADMIN_SENHA" \
+python -m scripts.caos --url https://veredicto.duckdns.org --senha "$SENHA_ADMIN" \
   --falha "ssh vps 'cd /opt/veredicto && docker compose kill veredicto && docker compose up -d veredicto'" \
   --vigiar https://despertar-das-raizes.duckdns.org --vigiar https://vibemetrics.duckdns.org
 ```

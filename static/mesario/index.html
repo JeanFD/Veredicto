@@ -34,19 +34,9 @@
     .acoes-perigo { display: flex; gap: 0.5rem; padding-left: 0.75rem; margin-left: auto;
                     border-left: 1px solid var(--borda); }
 
-    .grade { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-             margin-bottom: 1rem; }
-    .urna { background: var(--superficie); padding: 0.9rem 1rem; border-radius: var(--raio);
-            border: 1px solid var(--borda); border-top: 4px solid var(--borda-forte); box-shadow: var(--sombra); }
-    .urna > div:first-child { font-weight: 700; }
-    .urna > div { font-size: 0.9rem; }
     .urna details { margin-top: 0.6rem; font-size: 0.85rem; }
     .urna summary { cursor: pointer; color: var(--primaria); font-weight: 600; }
     .urna details button { display: flex; width: 100%; margin-top: 0.4rem; }
-    .online { border-top-color: var(--sucesso); } .offline { border-top-color: var(--perigo); }
-    .nunca { border-top-color: #98a2b3; } .inativa { opacity: 0.5; }
-    .recusados { color: var(--perigo); font-weight: 700; }
-    .grade .vazio { grid-column: 1 / -1; margin: 0; }
 
     .colunas { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
     .colunas > .cartao { margin-bottom: 0; }
@@ -71,6 +61,11 @@
     .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.4rem 0; }
     .opcao input:not([type=color]) { flex: 1 1 160px; }
     .links .cartao p { color: var(--texto-2); }
+    [data-papel="mesario"] .so-admin { display: none !important; }
+    table.contas { width: 100%; border-collapse: collapse; }
+    table.contas th, table.contas td { text-align: left; padding: 0.5rem; border-top: 1px solid var(--borda); }
+    table.contas td:last-child { text-align: right; white-space: nowrap; }
+    table.contas select { width: auto; }
     #pedidos { margin-bottom: 1rem; border-color: var(--primaria); }
     .pedido { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; padding: 0.6rem 0;
               border-top: 1px solid var(--borda); }
@@ -103,7 +98,12 @@
   <main id="login" class="entrada">
     <form id="form-login" class="cartao">
       <h1 data-i18n="mesario.titulo_login">Painel do mesário</h1>
-      <p data-i18n="mesario.login_ajuda">Entre com a senha do mesário para conduzir a votação.</p>
+      <p data-i18n="mesario.login_ajuda">Entre com a sua conta para conduzir a votação.</p>
+      <div class="campo">
+        <label for="usuario" data-i18n="login.usuario">Usuário</label>
+        <input id="usuario" placeholder="Usuário" data-i18n-placeholder="login.usuario"
+               autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
       <div class="campo">
         <label for="senha" data-i18n="comum.senha">Senha</label>
         <div class="senha-campo">
@@ -140,6 +140,7 @@
         <button type="button" role="tab" data-aba="nova" data-i18n="mesario.aba.nova">Nova sessão</button>
         <button type="button" role="tab" data-aba="urnas" data-i18n="mesario.aba.urnas">Urnas</button>
         <button type="button" role="tab" data-aba="telao" data-i18n="mesario.aba.telao">Telão e links</button>
+        <button type="button" role="tab" data-aba="contas" data-i18n="mesario.aba.contas">Contas</button>
       </div>
 
       <section data-painel="sessoes" role="tabpanel">
@@ -147,7 +148,7 @@
           <h2 data-i18n="mesario.sessoes">Sessões</h2>
           <div class="linha-form">
             <label><input id="mostrar-arquivadas" type="checkbox"> <span data-i18n="mesario.mostrar_arquivadas">mostrar arquivadas</span> <span id="total-arquivadas"></span></label>
-            <button type="button" id="limpar-testes" class="perigo" hidden></button>
+            <button type="button" id="limpar-testes" class="perigo so-admin" hidden></button>
           </div>
         </div>
         <div id="sessoes"></div>
@@ -209,6 +210,47 @@
             <input id="arquivo-fila" type="file" accept=".json,application/json">
             <div id="resumo-importacao"></div>
           </div>
+        </div>
+      </section>
+
+      <section data-painel="contas" role="tabpanel" hidden>
+        <div class="cartao so-admin">
+          <div class="cabeca-secao">
+            <h2 data-i18n="mesario.contas_titulo">Contas</h2>
+            <small data-i18n="mesario.contas_ajuda">Admin: tudo, inclusive contas, zerar e limpar testes. Mesário: conduz as sessões e cadastra urnas. Monitor: só acompanha as urnas.</small>
+          </div>
+          <table class="contas">
+            <thead><tr><th data-i18n="login.usuario">Usuário</th><th data-i18n="mesario.nome_rotulo">Nome</th>
+              <th data-i18n="mesario.papel">Papel</th><th></th></tr></thead>
+            <tbody id="lista-contas"></tbody>
+          </table>
+        </div>
+        <div class="colunas">
+          <form id="nova-conta" class="cartao so-admin">
+            <h2 data-i18n="mesario.nova_conta">Nova conta</h2>
+            <label class="campo"><span data-i18n="login.usuario">Usuário</span>
+              <input id="conta-usuario" required pattern="[a-z0-9._\-]{2,30}" autocomplete="off" autocapitalize="none"
+                     placeholder="ex: maria" data-i18n-placeholder="mesario.usuario_exemplo"></label>
+            <label class="campo"><span data-i18n="mesario.nome_rotulo">Nome</span>
+              <input id="conta-nome" required maxlength="60"></label>
+            <label class="campo"><span data-i18n="mesario.papel">Papel</span>
+              <select id="conta-papel">
+                <option value="mesario" data-i18n="papel.mesario">Mesário</option>
+                <option value="monitor" data-i18n="papel.monitor">Monitor</option>
+                <option value="admin" data-i18n="papel.admin">Admin</option>
+              </select></label>
+            <label class="campo"><span data-i18n="mesario.senha_inicial">Senha inicial (mín. 8)</span>
+              <input id="conta-senha" type="text" required minlength="8" autocomplete="off"></label>
+            <button class="principal" data-i18n="mesario.criar_conta">Criar conta</button>
+          </form>
+          <form id="minha-senha" class="cartao">
+            <h2 data-i18n="mesario.minha_senha">Trocar minha senha</h2>
+            <label class="campo"><span data-i18n="mesario.senha_atual">Senha atual</span>
+              <input id="senha-atual" type="password" required autocomplete="current-password"></label>
+            <label class="campo"><span data-i18n="mesario.senha_nova">Nova senha (mín. 8)</span>
+              <input id="senha-nova" type="password" required minlength="8" autocomplete="new-password"></label>
+            <button class="principal" data-i18n="mesario.trocar_senha">Trocar senha</button>
+          </form>
         </div>
       </section>
 

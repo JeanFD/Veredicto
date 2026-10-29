@@ -1,14 +1,10 @@
 const $ = (id) => document.getElementById(id);
-let senha = sessionStorage.getItem("senha");
 
 // ---------- API ----------
 async function api(metodo, caminho, corpo) {
   const r = await fetch(caminho, {
     method: metodo,
-    headers: {
-      Authorization: "Basic " + btoa("mesario:" + senha),
-      "Content-Type": "application/json",
-    },
+    headers: { ...autorizacao(), "Content-Type": "application/json" },
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
   const dados = await r.json().catch(() => ({}));
@@ -32,7 +28,7 @@ function vazio(texto) {
 
 // ---------- Abas ----------
 // a aba aberta fica no endereço (#urnas): recarregar ou voltar mantém o lugar
-const ABAS = ["sessoes", "nova", "urnas", "telao"];
+const ABAS = ["sessoes", "nova", "urnas", "telao", "contas"];
 
 function mostrarAba(nome) {
   if (!ABAS.includes(nome)) nome = ABAS[0];
@@ -151,7 +147,7 @@ async function carregarSessoes() {
       (PERIGOSO.has(s.estado) ? perigo : linha).appendChild(botaoAvancar(s));
     }
     if (!s.arquivada && s.estado !== "REVELADA") {
-      perigo.appendChild(criarBotao(t("mesario.zerar"), () => zerar(s), "perigo"));
+      perigo.appendChild(criarBotao(t("mesario.zerar"), () => zerar(s), "perigo so-admin"));
     }
     if (perigo.children.length) linha.appendChild(perigo);
     area.appendChild(linha);
@@ -335,7 +331,7 @@ async function avancar(id, estado) {
 function conectarWs() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws/mesario`);
-  ws.onopen = () => ws.send(JSON.stringify({ senha }));
+  ws.onopen = () => ws.send(JSON.stringify({ token: lerLogin()?.token }));
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (m.tipo === "snapshot" || m.tipo === "estado") {
@@ -354,12 +350,15 @@ function conectarWs() {
 
 // ---------- Login ----------
 function sair() {
-  sessionStorage.removeItem("senha");
+  sessionStorage.removeItem("login");
   location.reload();
 }
 
 function iniciar() {
-  senha = sessionStorage.getItem("senha");
+  const conta = lerLogin();
+  // monitor só acompanha: o lugar dele é o monitoramento
+  if (conta.papel === "monitor") return location.replace("/monitor/");
+  document.body.dataset.papel = conta.papel;
   $("login").hidden = true;
   $("painel").hidden = false;
   mostrarSair(sair);
@@ -369,14 +368,13 @@ function iniciar() {
   // a grade chega pelo WebSocket a cada 5s; busca já para não abrir vazia
   api("GET", "/api/admin/urnas").then((u) => window.mostrarUrnas(u), () => {});
   api("GET", "/api/admin/pedidos").then(mostrarPedidos, () => {});
+  if (conta.papel === "admin") carregarContas();
   conectarWs();
 }
 
-prepararLogin((tentativa) => fetch("/api/admin/sessoes", {
-  headers: { Authorization: "Basic " + btoa("mesario:" + tentativa) },
-}), iniciar);
+prepararLogin(iniciar);
 
-if (senha) iniciar();
+if (lerLogin()) iniciar();
 
 
 // ---------- Urnas ----------
@@ -537,6 +535,86 @@ function linhaPedido(p) {
     aprovar, recusar);
   return linha;
 }
+
+// ---------- Contas ----------
+const PAPEIS = ["admin", "mesario", "monitor"];
+
+async function alterarConta(usuario, mudanca) {
+  try {
+    await api("PATCH", `/api/admin/contas/${usuario}`, mudanca);
+  } catch (e) {
+    alert(e.message);
+  }
+  carregarContas();
+}
+
+async function carregarContas() {
+  const contas = await api("GET", "/api/admin/contas");
+  const eu = lerLogin().usuario;
+  $("lista-contas").replaceChildren(...contas.map((c) => {
+    const linha = document.createElement("tr");
+    if (!c.ativa) linha.className = "inativa";
+    const celula = (conteudo) => {
+      const td = document.createElement("td");
+      td.append(conteudo);
+      linha.appendChild(td);
+      return td;
+    };
+    celula(c.usuario + (c.usuario === eu ? t("mesario.voce") : ""));
+    celula(c.nome);
+    const papel = document.createElement("select");
+    papel.setAttribute("aria-label", t("mesario.papel"));
+    for (const p of PAPEIS) papel.add(new Option(t(`papel.${p}`), p, false, p === c.papel));
+    papel.disabled = c.usuario === eu;
+    papel.onchange = () => alterarConta(c.usuario, { papel: papel.value });
+    celula(papel);
+    const acoes = celula("");
+    if (c.usuario !== eu) {
+      acoes.append(criarBotao(t("mesario.redefinir_senha"), async () => {
+        const nova = prompt(t("mesario.pedir_nova_senha", { usuario: c.usuario }));
+        if (nova === null) return;
+        try {
+          await api("POST", `/api/admin/contas/${c.usuario}/senha`, { nova });
+          alert(t("mesario.senha_redefinida", { usuario: c.usuario }));
+        } catch (e) {
+          alert(e.status === 422 ? t("mesario.senha_curta") : e.message);
+        }
+      }), " ", c.ativa
+        ? criarBotao(t("mesario.desativar"), () => {
+          if (confirm(t("mesario.confirmar_desativar_conta", { usuario: c.usuario }))) alterarConta(c.usuario, { ativa: false });
+        }, "perigo")
+        : criarBotao(t("mesario.reativar"), () => alterarConta(c.usuario, { ativa: true })));
+    }
+    return linha;
+  }));
+}
+
+$("nova-conta").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api("POST", "/api/admin/contas", {
+      usuario: $("conta-usuario").value.trim().toLowerCase(),
+      nome: $("conta-nome").value,
+      papel: $("conta-papel").value,
+      senha: $("conta-senha").value,
+    });
+    e.target.reset();
+    carregarContas();
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+$("minha-senha").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api("POST", "/api/eu/senha", { atual: $("senha-atual").value, nova: $("senha-nova").value });
+    e.target.reset();
+    alert(t("mesario.senha_trocada"));
+  } catch (err) {
+    alert(err.message);
+  }
+};
 
 // ---------- Telão ----------
 $("abrir-telao").onclick = async () => {
