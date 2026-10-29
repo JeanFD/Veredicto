@@ -225,7 +225,12 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.confirmar_limpar": "Apagar {sessoes} sessões de teste e {urnas} urnas de teste, com todos os votos e registros delas?\n\nNada do que é real é tocado.",
     "mesario.testes_limpos": "Testes apagados: {sessoes} sessões, {urnas} urnas e {votos} votos.",
     "mesario.motivo.urna_de_teste": "urna de teste votando em sessão real",
-    "comum.faixa_teste": "Sessão de teste · os votos serão apagados"
+    "comum.faixa_teste": "Sessão de teste · os votos serão apagados",
+    "mesario.voto_celular": "Voto por celular",
+    "mesario.permitir_celular": "Permitir voto por celular",
+    "mesario.celular_ajuda": "O telão mostra um QR code para a plateia votar pelo celular. Sem marcar, só as urnas votam.",
+    "mesario.selo_celular": "CELULAR",
+    "celular.motivo.celular_desligado": "O voto por celular está desligado nesta votação. Vote na urna."
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -444,7 +449,12 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.confirmar_limpar": "Delete {sessoes} test sessions and {urnas} test ballot boxes, with all their votes and records?\n\nNothing real is touched.",
     "mesario.testes_limpos": "Tests deleted: {sessoes} sessions, {urnas} ballot boxes and {votos} votes.",
     "mesario.motivo.urna_de_teste": "test ballot box voting in a real session",
-    "comum.faixa_teste": "Test session · votes will be deleted"
+    "comum.faixa_teste": "Test session · votes will be deleted",
+    "mesario.voto_celular": "Phone voting",
+    "mesario.permitir_celular": "Allow phone voting",
+    "mesario.celular_ajuda": "The display shows a QR code so the audience can vote by phone. Unchecked, only ballot boxes vote.",
+    "mesario.selo_celular": "PHONE",
+    "celular.motivo.celular_desligado": "Phone voting is turned off for this vote. Please use a ballot box."
   }
 } /* textos:fim */;
 

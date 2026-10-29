@@ -71,10 +71,11 @@
     .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.4rem 0; }
     .opcao input:not([type=color]) { flex: 1 1 160px; }
     .links .cartao p { color: var(--texto-2); }
-    .marcar-teste { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.25rem 0 1rem; padding: 0.75rem;
-                    border: 1px dashed #f5b971; border-radius: 8px; background: #fffaf2; font-weight: 400; }
-    .marcar-teste input { margin-top: 0.2rem; }
-    .marcar-teste small { display: block; }
+    .marcar { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.25rem 0 0.75rem; padding: 0.75rem;
+              border: 1px solid var(--borda); border-radius: 8px; font-weight: 400; }
+    .marcar input { margin-top: 0.2rem; }
+    .marcar small { display: block; }
+    .marcar-teste { border: 1px dashed #f5b971; background: #fffaf2; margin-bottom: 1rem; }
     .urna.de-teste { border-style: dashed; }
   </style>
 </head>
@@ -121,6 +122,8 @@
         </div>
         <span id="selo-estado" class="selo">—</span>
         <span id="selo-teste" class="selo teste" hidden data-i18n="mesario.selo_teste">TESTE</span>
+        <label id="chave-celular" class="chave" hidden><input id="alternar-celular" type="checkbox">
+          <span data-i18n="mesario.voto_celular">Voto por celular</span></label>
         <div class="votos"><small data-i18n="mesario.votos">Votos</small><strong id="total">0</strong></div>
         <div id="acoes-estado"></div>
       </div>
@@ -155,7 +158,10 @@
           <h2 data-i18n="mesario.criar_sessao">Criar sessão</h2>
           <p class="suave" data-i18n="mesario.nova_ajuda">Com mais de uma pergunta, a sessão vira um questionário: cada pergunta é aberta, encerrada e revelada separadamente.</p>
           <div id="perguntas"></div>
-          <label class="marcar-teste"><input id="nova-teste" type="checkbox">
+          <label class="marcar"><input id="nova-celular" type="checkbox">
+            <span><strong data-i18n="mesario.permitir_celular">Permitir voto por celular</strong>
+              <small data-i18n="mesario.celular_ajuda">O telão mostra um QR code para a plateia votar pelo celular. Sem marcar, só as urnas votam.</small></span></label>
+          <label class="marcar marcar-teste"><input id="nova-teste" type="checkbox">
             <span><strong data-i18n="mesario.teste">Marcar como teste (ensaio)</strong>
               <small data-i18n="mesario.teste_ajuda">Não aparece na auditoria pública e é apagada, com seus votos, em Limpar testes.</small></span></label>
           <div class="linha-form">

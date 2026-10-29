@@ -75,6 +75,17 @@ function mostrarEstado(sessao, total) {
   $("selo-estado").textContent = sessao ? t(`estado.${sessao.estado}`) : "—";
   $("selo-estado").className = "selo " + (sessao ? sessao.estado : "");
   $("selo-teste").hidden = !sessao?.teste;
+  $("chave-celular").hidden = !sessao;
+  $("alternar-celular").checked = !!sessao?.celular;
+  $("alternar-celular").onchange = async (e) => {
+    try {
+      await api("POST", `/api/admin/sessoes/${sessao.id}/celular`, { ativo: e.target.checked });
+      await carregarSessoes();
+    } catch (erro) {
+      e.target.checked = !e.target.checked;
+      alert(erro.message);
+    }
+  };
   $("total").textContent = total;
   $("acoes-estado").innerHTML = "";
   if (sessao && PROXIMO[sessao.estado]) $("acoes-estado").appendChild(botaoAvancar(sessao));
@@ -109,6 +120,12 @@ async function carregarSessoes() {
       const marca = document.createElement("span");
       marca.className = "selo teste";
       marca.textContent = t("mesario.selo_teste");
+      titulo.append(marca);
+    }
+    if (s.celular) {
+      const marca = document.createElement("span");
+      marca.className = "selo celular";
+      marca.textContent = t("mesario.selo_celular");
       titulo.append(marca);
     }
     linha.appendChild(titulo);
@@ -263,9 +280,10 @@ $("nova-sessao").onsubmit = async (e) => {
     perguntas.push({ tema, opcoes });
   }
   const teste = $("nova-teste").checked;
+  const celular = $("nova-celular").checked;
   const criada = perguntas.length === 1
-    ? await criarSessao({ ...perguntas[0], teste })
-    : await criarSessao({ perguntas, teste }, "/api/admin/questionarios");
+    ? await criarSessao({ ...perguntas[0], teste, celular })
+    : await criarSessao({ perguntas, teste, celular }, "/api/admin/questionarios");
   if (criada) {
     reiniciarFormularioSessao();
     mostrarAba("sessoes");

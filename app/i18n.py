@@ -33,6 +33,10 @@ MENSAGENS = {
     },
     "ja_votou": {"pt": "Este celular já votou nesta sessão", "en": "This phone has already voted in this session"},
     "voto_repetido": {"pt": "Voto repetido", "en": "Duplicate vote"},
+    "celular_desligado": {
+        "pt": "O voto por celular está desligado nesta sessão",
+        "en": "Phone voting is turned off for this session",
+    },
     "urna_de_teste": {
         "pt": "Urna de teste não vota em sessão de verdade",
         "en": "A test ballot box cannot vote in a real session",

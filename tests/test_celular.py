@@ -123,3 +123,52 @@ def test_zerar_libera_cedulas(cliente, cedula):
     votar(cliente, cedula)
     cliente.post("/api/admin/sessoes/1/zerar", json={"confirmacao": "Sessão de teste"}, auth=ADMIN)
     assert db.execute("SELECT COUNT(*) FROM cedulas").fetchone()[0] == 0
+
+# ---------- celular ligado ou desligado por sessão ----------
+OPCOES = [{"rotulo": "Sim", "cor": "#16a34a"}, {"rotulo": "Não", "cor": "#dc2626"}]
+
+def alternar(cliente, sid, ativo):
+    return cliente.post(f"/api/admin/sessoes/{sid}/celular", json={"ativo": ativo}, auth=ADMIN)
+
+def test_sessao_nova_e_so_pelas_urnas(cliente):
+    sid = cliente.post("/api/admin/sessoes", json={"tema": "Só urnas", "opcoes": OPCOES}, auth=ADMIN).json()["id"]
+    cliente.post(f"/api/admin/sessoes/{sid}/ativar", auth=ADMIN)
+    cliente.post(f"/api/admin/sessoes/{sid}/avancar", auth=ADMIN)
+    assert cliente.get("/api/sessao/ativa").json()["sessao"]["celular"] is False
+    assert cliente.get("/api/telao/codigo", headers=TELAO).json() == {"sessao_id": None, "codigo": None}
+    codigo = codigo_celular(sid, janela_atual())
+    r = entrar(cliente, codigo, sessao_id=sid)
+    assert r.status_code == 409 and r.json()["detail"]["motivo"] == "celular_desligado"
+
+def test_sessao_criada_com_celular(cliente):
+    sid = cliente.post("/api/admin/sessoes", auth=ADMIN,
+                       json={"tema": "Com celular", "opcoes": OPCOES, "celular": True}).json()["id"]
+    assert {s["id"]: s["celular"] for s in cliente.get("/api/admin/sessoes", auth=ADMIN).json()}[sid] is True
+
+def test_desligar_no_meio_tira_o_qr_e_recusa_o_voto(cliente, cedula):
+    assert alternar(cliente, 1, False).json() == {"celular": False}
+    assert codigo_do_telao(cliente) is None
+    r = votar(cliente, cedula)
+    assert r.status_code == 409 and r.json()["detail"]["motivo"] == "celular_desligado"
+    assert contar_votos() == 0
+    alternar(cliente, 1, True)
+    assert votar(cliente, cedula).status_code == 200
+
+def test_alternar_avisa_telao_e_fica_na_auditoria(cliente, sessao_aberta):
+    with cliente.websocket_connect("/ws/telao") as ws:
+        ws.receive_json()
+        alternar(cliente, 1, False)
+        assert ws.receive_json()["sessao"]["celular"] is False
+    tipos = [e[0] for e in db.execute("SELECT tipo FROM eventos")]
+    assert "celular_desligado" in tipos
+
+def test_questionario_liga_todas_as_perguntas(cliente):
+    ids = cliente.post("/api/admin/questionarios", auth=ADMIN, json={"perguntas": [
+        {"tema": "Q1", "opcoes": OPCOES}, {"tema": "Q2", "opcoes": OPCOES}]}).json()["ids"]
+    alternar(cliente, ids[1], True)
+    marcadas = {s["id"]: s["celular"] for s in cliente.get("/api/admin/sessoes", auth=ADMIN).json()}
+    assert [marcadas[i] for i in ids] == [True, True]
+
+def test_alternar_exige_senha_e_sessao(cliente):
+    assert cliente.post("/api/admin/sessoes/1/celular", json={"ativo": True}).status_code == 401
+    assert alternar(cliente, 999, True).status_code == 404

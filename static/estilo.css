@@ -112,6 +112,18 @@ label { font-weight: 500; }
 .selo.REVELADA { background: #f2effa; color: var(--revelada); }
 .selo.teste { background: #fff4e5; color: #b54708; border: 1px dashed #f5b971; }
 .selo.teste::before { display: none; }
+.selo.celular { background: #eef4ff; color: var(--primaria); }
+.selo.celular::before { display: none; }
+
+/* chave liga/desliga */
+.chave { display: inline-flex; gap: 0.5rem; align-items: center; font-weight: 500; cursor: pointer; }
+.chave input { appearance: none; width: 2.4rem; height: 1.35rem; margin: 0; border-radius: 999px; cursor: pointer;
+               background: var(--borda); position: relative; transition: background 0.15s; }
+.chave input::after { content: ""; position: absolute; top: 0.15rem; left: 0.15rem; width: 1.05rem; height: 1.05rem;
+                      border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 0.3); transition: left 0.15s; }
+.chave input:checked { background: var(--primaria); }
+.chave input:checked::after { left: 1.2rem; }
+.chave input:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th { text-align: left; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
