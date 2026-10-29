@@ -120,10 +120,15 @@ class NovaSessao(BaseModel):
     tema: str = Field(min_length=1, max_length=200)
     opcoes: list[NovaOpcao] = Field(min_length=2, max_length=10)
     teste: bool = False
+    celular: bool = False
 
 class NovoQuestionario(BaseModel):
     perguntas: list[NovaSessao] = Field(min_length=2, max_length=10)
     teste: bool = False
+    celular: bool = False
+
+class Celular(BaseModel):
+    ativo: bool
 
 class ProximaCedula(BaseModel):
     cedula: str = Field(max_length=100)
@@ -142,6 +147,7 @@ def buscar_sessao_ativa():
         "tema": s["tema"],
         "estado": s["estado"],
         "teste": bool(s["teste"]),
+        "celular": bool(s["celular"]),
         "opcoes": [dict(o) for o in opcoes],
         **posicao_no_questionario(s),
     }
@@ -305,6 +311,7 @@ async def listar_sessoes(arquivadas: bool = False):
             "id": l["id"], "tema": l["tema"], "estado": l["estado"], "ativa": l["ativa"],
             "arquivada": bool(l["arquivada"]),
             "teste": bool(l["teste"]),
+            "celular": bool(l["celular"]),
             **posicao_no_questionario(l),
             # pergunta encadeada só pode ser ativada depois de revelada a anterior
             "liberada": anterior is None or anterior["estado"] == "REVELADA",
@@ -322,6 +329,19 @@ async def arquivar_sessao(sid: int):
         db.execute("UPDATE sessoes SET arquivada = 1 WHERE id = ?", (sid,))
     registrar_evento("sessao_arquivada", f"sessao={sid}")
     return {"ok": True}
+
+@app.post("/api/admin/sessoes/{sid}/celular", dependencies=[Depends(exigir_admin)])
+async def alternar_celular(sid: int, c: Celular):
+    """Liga ou desliga o voto por celular; num questionário vale para todas as perguntas."""
+    sessao = db.execute("SELECT id, grupo_id FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, msg("sessao_inexistente"))
+    grupo = sessao["grupo_id"] or sessao["id"]
+    with db:
+        db.execute("UPDATE sessoes SET celular = ? WHERE id = ? OR grupo_id = ?", (int(c.ativo), grupo, grupo))
+    registrar_evento("celular_ligado" if c.ativo else "celular_desligado", f"sessao={sid}")
+    await gerente.broadcast(estado_publico(), "telao", "mesario")
+    return {"celular": c.ativo}
 
 @app.post("/api/admin/sessoes/{sid}/zerar")
 async def zerar_sessao(sid: int, dados: Zerar, responsavel: str = Depends(exigir_admin)):
@@ -358,7 +378,7 @@ async def criar_sessao(nova: NovaSessao):
     opcoes = validar_opcoes(nova)
     validar_temas_livres([nova.tema])
     with db:
-        sid = inserir_sessao(nova.tema, opcoes, teste=nova.teste)
+        sid = inserir_sessao(nova.tema, opcoes, teste=nova.teste, celular=nova.celular)
     registrar_evento("sessao_criada", f"sessao={sid}")
     return {"id": sid}
 
@@ -383,10 +403,11 @@ async def criar_questionario(novo: NovoQuestionario):
     opcoes = [validar_opcoes(p) for p in novo.perguntas]
     validar_temas_livres([p.tema for p in novo.perguntas])
     with db:
-        ids = [inserir_sessao(novo.perguntas[0].tema, opcoes[0], teste=novo.teste)]
+        ids = [inserir_sessao(novo.perguntas[0].tema, opcoes[0], teste=novo.teste, celular=novo.celular)]
         db.execute("UPDATE sessoes SET grupo_id = ? WHERE id = ?", (ids[0], ids[0]))
         for n, (p, ops) in enumerate(zip(novo.perguntas[1:], opcoes[1:]), start=2):
-            ids.append(inserir_sessao(p.tema, ops, grupo_id=ids[0], pergunta=n, teste=novo.teste))
+            ids.append(inserir_sessao(p.tema, ops, grupo_id=ids[0], pergunta=n, teste=novo.teste,
+                                      celular=novo.celular))
     for sid in ids:
         registrar_evento("sessao_criada", f"sessao={sid} grupo={ids[0]}")
     return {"ids": ids}
@@ -665,6 +686,10 @@ def descrever_evento(tipo: str, campos: dict) -> str | None:
         return "Revelação forçada com pendências nas urnas"
     if tipo == "votos_exportados":
         return "Votos exportados pelo mesário"
+    if tipo == "celular_ligado":
+        return "Voto por celular ligado"
+    if tipo == "celular_desligado":
+        return "Voto por celular desligado"
     return None
 
 def eventos_publicos(sid: int) -> list[dict]:
@@ -716,9 +741,11 @@ async def auditoria_sessao(sid: int):
 
 # ---------- Voto por celular ----------
 def sessao_aberta(sid: int):
-    sessao = db.execute("SELECT estado, ativa FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    sessao = db.execute("SELECT estado, ativa, celular FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
         raise recusa(404, "sessao_inexistente")
+    if not sessao["celular"]:
+        raise recusa(409, "celular_desligado")
     if not sessao["ativa"] or sessao["estado"] != "ABERTA":
         raise recusa(409, "sessao_fechada")
 
@@ -729,7 +756,7 @@ async def link_telao():
 @app.get("/api/telao/codigo", dependencies=[Depends(exigir_telao)])
 async def codigo_telao():
     s = buscar_sessao_ativa()
-    if not s or s["estado"] != "ABERTA":
+    if not s or s["estado"] != "ABERTA" or not s["celular"]:
         return {"sessao_id": None, "codigo": None}
     janela = janela_atual()
     return {
