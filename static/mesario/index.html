@@ -71,6 +71,11 @@
     .opcao { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.4rem 0; }
     .opcao input:not([type=color]) { flex: 1 1 160px; }
     .links .cartao p { color: var(--texto-2); }
+    #pedidos { margin-bottom: 1rem; border-color: var(--primaria); }
+    .pedido { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; padding: 0.6rem 0;
+              border-top: 1px solid var(--borda); }
+    .pedido .codigo { font: 700 1.5rem/1 ui-monospace, monospace; letter-spacing: 0.15em; min-width: 5.5ch; }
+    .pedido input[type=text] { width: 9rem; }
     .marcar { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.25rem 0 0.75rem; padding: 0.75rem;
               border: 1px solid var(--borda); border-radius: 8px; font-weight: 400; }
     .marcar input { margin-top: 0.2rem; }
@@ -176,11 +181,17 @@
           <h2 data-i18n="mesario.urnas">Urnas</h2>
           <small data-i18n="mesario.urnas_ajuda">Verde: online. Vermelho: sem sinal. Cinza: nunca conectou.</small>
         </div>
+        <div id="pedidos" class="cartao" hidden>
+          <h2 data-i18n="mesario.pedidos_titulo">Urnas pedindo cadastro</h2>
+          <p class="suave" data-i18n="mesario.pedidos_ajuda">Confira se o código é o mesmo da tela da urna antes de aprovar.</p>
+          <div id="lista-pedidos"></div>
+        </div>
         <div id="urnas" class="grade"></div>
         <div id="link-urna"></div>
         <div class="colunas">
           <form id="nova-urna" class="cartao">
             <h2 data-i18n="mesario.cadastrar_urna">Cadastrar urna</h2>
+            <p class="suave" data-i18n="mesario.cadastrar_ajuda">Mais fácil: abra o endereço /urna/ no dispositivo e aprove aqui o código que aparecer na tela. Ou cadastre abaixo e leve o link até a urna.</p>
             <label class="campo"><span data-i18n="mesario.id_rotulo">Identificador</span>
               <input id="nova-id" placeholder="id (ex: urna3)" data-i18n-placeholder="mesario.id_urna"
                      required pattern="[a-z0-9-]{1,30}"></label>

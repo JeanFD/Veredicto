@@ -14,7 +14,7 @@ const ler = (chave, padrao) => JSON.parse(localStorage.getItem(chave)) ?? padrao
 const gravar = (chave, valor) => localStorage.setItem(chave, JSON.stringify(valor));
 
 if (!URNA_ID || !TOKEN) {
-  $("tema").textContent = t("urna.nao_configurada");
+  parear();
   throw new Error("urna sem configuração");
 }
 $("urna-id").textContent = URNA_ID;

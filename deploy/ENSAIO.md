@@ -59,7 +59,7 @@ todos os domínios juntos por alguns segundos, e o `--vigiar` vai acusar isso.
 
 Com as urnas, o telão e os celulares de verdade, no Wi-Fi do evento.
 
-- [ ] Cadastrar as urnas pelo painel e abrir cada uma pelo QR code; conferir "online" na grade.
+- [ ] Abrir /urna/ em cada dispositivo, pedir para virar urna e aprovar o código no painel (aba Urnas); conferir "online" na grade.
 - [ ] Instalar a urna como app (PWA) em cada tablet; fechar e abrir de novo sem rede.
 - [ ] Telão aberto pelo botão do mesário; QR do celular legível do fundo da sala.
 - [ ] Sessão de ensaio com "Permitir voto por celular" marcado: votar em todas as urnas e em alguns celulares; total do telão bate com a grade.

@@ -344,6 +344,7 @@ function conectarWs() {
     }
     if (m.tipo === "total") $("total").textContent = m.total;
     if (m.tipo === "urnas" && window.mostrarUrnas) window.mostrarUrnas(m.urnas);
+    if (m.tipo === "pedidos") mostrarPedidos(m.pedidos);
   };
   ws.onclose = (e) => {
     if (e.code === 4401) return sair();
@@ -367,6 +368,7 @@ function iniciar() {
     .finally(carregarSessoes);
   // a grade chega pelo WebSocket a cada 5s; busca já para não abrir vazia
   api("GET", "/api/admin/urnas").then((u) => window.mostrarUrnas(u), () => {});
+  api("GET", "/api/admin/pedidos").then(mostrarPedidos, () => {});
   conectarWs();
 }
 
@@ -381,7 +383,10 @@ if (senha) iniciar();
 // a grade é redesenhada a cada 5s: lembra quais menus de ações estavam abertos
 const urnasComAcoesAbertas = new Set();
 
+let idsDeUrnas = new Set();
+
 window.mostrarUrnas = (urnas) => {
+  idsDeUrnas = new Set(urnas.map((u) => u.id));
   const area = $("urnas");
   area.innerHTML = "";
   for (const u of urnas) {
@@ -454,6 +459,84 @@ $("nova-urna").onsubmit = async (e) => {
     alert(err.message);
   }
 };
+
+// ---------- Pedidos de cadastro de urna ----------
+// a lista chega a cada 5s: as linhas já desenhadas ficam, para não apagar o que o mesário digita
+function mostrarPedidos(pedidos) {
+  const lista = $("lista-pedidos");
+  const codigos = new Set(pedidos.map((p) => p.codigo));
+  for (const linha of [...lista.children]) if (!codigos.has(linha.dataset.codigo)) linha.remove();
+  const desenhados = new Set([...lista.children].map((l) => l.dataset.codigo));
+  for (const p of pedidos) if (!desenhados.has(p.codigo)) lista.appendChild(linhaPedido(p));
+  $("pedidos").hidden = !pedidos.length;
+}
+
+// primeiro "urnaN" livre, contando também os sugeridos nos outros pedidos abertos
+function sugerirUrna() {
+  const usados = new Set([...idsDeUrnas, ...[...document.querySelectorAll(".pedido .id-urna")].map((c) => c.value)]);
+  let n = 1;
+  while (usados.has(`urna${n}`)) n++;
+  return n;
+}
+
+function campo(tipo, rotulo, valor) {
+  const c = document.createElement("input");
+  c.type = tipo;
+  c.setAttribute("aria-label", rotulo);
+  if (tipo === "checkbox") c.checked = valor;
+  else c.value = valor;
+  return c;
+}
+
+function linhaPedido(p) {
+  const n = sugerirUrna();
+  const linha = document.createElement("form");
+  linha.className = "pedido";
+  linha.dataset.codigo = p.codigo;
+  const codigo = document.createElement("span");
+  codigo.className = "codigo";
+  codigo.textContent = p.codigo;
+  const id = campo("text", t("mesario.id_rotulo"), `urna${n}`);
+  id.className = "id-urna";
+  id.required = true;
+  id.pattern = "[a-z0-9-]{1,30}";
+  const nome = campo("text", t("mesario.nome_rotulo"), t("mesario.nome_sugerido", { n }));
+  nome.required = true;
+  const reserva = campo("checkbox", t("mesario.reserva"), false);
+  const teste = campo("checkbox", t("mesario.urna_teste"), false);
+  const rotulado = (caixa, texto) => {
+    const l = document.createElement("label");
+    l.append(caixa, ` ${texto}`);
+    return l;
+  };
+  const aprovar = criarBotao(t("mesario.aprovar"), null, "principal");
+  aprovar.type = "submit";
+  const recusar = criarBotao(t("mesario.recusar"), async () => {
+    try {
+      await api("DELETE", `/api/admin/pedidos/${p.codigo}`);
+      linha.remove();
+      $("pedidos").hidden = !$("lista-pedidos").children.length;
+    } catch (e) {
+      alert(e.message);
+    }
+  }, "perigo");
+  linha.onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("POST", `/api/admin/pedidos/${p.codigo}/aprovar`, {
+        id: id.value, nome: nome.value, reserva: reserva.checked, teste: teste.checked,
+      });
+      linha.remove();
+      $("pedidos").hidden = !$("lista-pedidos").children.length;
+      window.mostrarUrnas(await api("GET", "/api/admin/urnas"));
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+  linha.append(codigo, id, nome, rotulado(reserva, t("mesario.reserva")), rotulado(teste, t("mesario.urna_teste")),
+    aprovar, recusar);
+  return linha;
+}
 
 // ---------- Telão ----------
 $("abrir-telao").onclick = async () => {

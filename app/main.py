@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
             # cada processo calcula a grade a partir do estado compartilhado e entrega
             # só aos seus clientes: publicar no Redis repetiria a grade N vezes
             await gerente.entregar({"tipo": "urnas", "urnas": status_urnas()}, ["mesario"])
+            await gerente.entregar({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, ["mesario"])
             await asyncio.sleep(5)
 
     tarefas = [asyncio.create_task(vigiar_urnas())]
@@ -129,6 +130,9 @@ class NovoQuestionario(BaseModel):
 
 class Celular(BaseModel):
     ativo: bool
+
+class PedidoUrna(BaseModel):
+    segredo: str = Field(max_length=100)
 
 class ProximaCedula(BaseModel):
     cedula: str = Field(max_length=100)
@@ -433,21 +437,103 @@ async def ativar_sessao(sid: int):
     registrar_evento("sessao_ativada", f"sessao={sid}")
     return {"sessao": buscar_sessao_ativa()}
 
-@app.post("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
-async def cadastrar_urna(u: NovaUrna):
+def inserir_urna(u: NovaUrna) -> str:
+    """Cadastra a urna (dentro da transação de quem chama) e devolve o token, que só existe aqui."""
     if u.id.lower() == URNA_CELULAR:
         raise HTTPException(409, msg("id_reservado"))
     token = secrets.token_urlsafe(32)
     try:
-        with db:
-            db.execute(
-                "INSERT INTO urnas (id, nome, token_hash, reserva, teste, criada_em) VALUES (?, ?, ?, ?, ?, ?)",
-                (u.id, u.nome, hash_token(token), int(u.reserva), int(u.teste), agora()),
-            )
+        db.execute(
+            "INSERT INTO urnas (id, nome, token_hash, reserva, teste, criada_em) VALUES (?, ?, ?, ?, ?, ?)",
+            (u.id, u.nome, hash_token(token), int(u.reserva), int(u.teste), agora()),
+        )
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail=msg("urna_existente"))
+    return token
+
+@app.post("/api/admin/urnas", dependencies=[Depends(exigir_admin)])
+async def cadastrar_urna(u: NovaUrna):
+    with db:
+        token = inserir_urna(u)
     registrar_evento("urna_cadastrada", f"urna={u.id}")
     return {"id": u.id, "token": token}
+
+# ---------- Pedido de cadastro de urna ----------
+# A urna sem configuração pede um código curto e o mostra na tela; o mesário confere
+# o código no painel e aprova, e a urna recebe id e token sem precisar de link.
+# O segredo do pedido fica só na urna (aqui, o hash); o token da urna aprovada fica
+# guardado até a urna buscá-lo, no máximo até o pedido expirar.
+VALIDADE_PEDIDO = 15 * 60
+MAX_PEDIDOS = 20
+LETRAS_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # sem 0/O e 1/I, que se confundem na tela
+
+def apagar_pedidos_vencidos():
+    with db:
+        db.execute("DELETE FROM pedidos_urna WHERE criado_em < ?", (time.time() - VALIDADE_PEDIDO,))
+
+def pedidos_pendentes() -> list[dict]:
+    apagar_pedidos_vencidos()
+    return [
+        {"codigo": p["codigo"], "segundos": int(time.time() - p["criado_em"])}
+        for p in db.execute("SELECT codigo, criado_em FROM pedidos_urna WHERE urna_id IS NULL ORDER BY criado_em")
+    ]
+
+@app.post("/api/urnas/pedido", status_code=201)
+async def pedir_cadastro():
+    apagar_pedidos_vencidos()
+    if db.execute("SELECT COUNT(*) FROM pedidos_urna WHERE urna_id IS NULL").fetchone()[0] >= MAX_PEDIDOS:
+        raise recusa(429, "muitos_pedidos")
+    segredo = secrets.token_urlsafe(32)
+    while True:
+        codigo = "".join(secrets.choice(LETRAS_CODIGO) for _ in range(4))
+        try:
+            with db:
+                db.execute("INSERT INTO pedidos_urna (segredo_hash, codigo, criado_em) VALUES (?, ?, ?)",
+                           (hash_token(segredo), codigo, time.time()))
+            break
+        except sqlite3.IntegrityError:
+            continue  # código já em uso por outro pedido: sorteia outro
+    await gerente.broadcast({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, "mesario")
+    return {"codigo": codigo, "segredo": segredo, "validade": VALIDADE_PEDIDO}
+
+@app.post("/api/urnas/pedido/situacao")
+async def situacao_pedido(p: PedidoUrna):
+    apagar_pedidos_vencidos()
+    pedido = db.execute("SELECT * FROM pedidos_urna WHERE segredo_hash = ?", (hash_token(p.segredo),)).fetchone()
+    if not pedido:
+        raise recusa(404, "pedido_expirado")
+    if not pedido["urna_id"]:
+        return {"aprovado": False, "codigo": pedido["codigo"]}
+    # o token é entregue uma única vez
+    with db:
+        db.execute("DELETE FROM pedidos_urna WHERE segredo_hash = ?", (pedido["segredo_hash"],))
+    return {"aprovado": True, "id": pedido["urna_id"], "token": pedido["token"]}
+
+@app.get("/api/admin/pedidos", dependencies=[Depends(exigir_admin)])
+async def listar_pedidos():
+    return pedidos_pendentes()
+
+@app.post("/api/admin/pedidos/{codigo}/aprovar", dependencies=[Depends(exigir_admin)])
+async def aprovar_pedido(codigo: str, u: NovaUrna):
+    apagar_pedidos_vencidos()
+    codigo = codigo.upper()
+    with db:
+        if not db.execute("SELECT 1 FROM pedidos_urna WHERE codigo = ? AND urna_id IS NULL", (codigo,)).fetchone():
+            raise HTTPException(404, msg("pedido_inexistente"))
+        token = inserir_urna(u)
+        db.execute("UPDATE pedidos_urna SET urna_id = ?, token = ? WHERE codigo = ?", (u.id, token, codigo))
+    registrar_evento("urna_cadastrada", f"urna={u.id} pedido={codigo}")
+    await gerente.broadcast({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, "mesario")
+    return {"id": u.id}
+
+@app.delete("/api/admin/pedidos/{codigo}", dependencies=[Depends(exigir_admin)])
+async def recusar_pedido(codigo: str):
+    with db:
+        cur = db.execute("DELETE FROM pedidos_urna WHERE codigo = ? AND urna_id IS NULL", (codigo.upper(),))
+    if not cur.rowcount:
+        raise HTTPException(404, msg("pedido_inexistente"))
+    await gerente.broadcast({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, "mesario")
+    return {"ok": True}
 
 @app.post("/api/admin/urnas/{uid}/novo-token", dependencies=[Depends(exigir_admin)])
 async def reemitir_token(uid: str):

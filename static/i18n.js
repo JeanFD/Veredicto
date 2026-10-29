@@ -25,7 +25,6 @@ const TEXTOS = /* textos:inicio */ {
     "estado.ENCERRADA": "ENCERRADA",
     "estado.REVELADA": "REVELADA",
     "urna.titulo": "Veredito · Urna",
-    "urna.nao_configurada": "Urna não configurada",
     "urna.fechada": "Votação fechada",
     "urna.aguarde_proxima": "Aguarde a próxima pergunta",
     "urna.sem_conexao": "Sem conexão: voto guardado, será enviado quando a rede voltar",
@@ -231,7 +230,19 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.celular_ajuda": "O telão mostra um QR code para a plateia votar pelo celular. Sem marcar, só as urnas votam.",
     "mesario.selo_celular": "CELULAR",
     "celular.motivo.celular_desligado": "O voto por celular está desligado nesta votação. Vote na urna.",
-    "celular.nova_votacao": "Nova votação aberta. Escaneie o QR code do telão para votar."
+    "celular.nova_votacao": "Nova votação aberta. Escaneie o QR code do telão para votar.",
+    "urna.parear_titulo": "Esta tela ainda não é uma urna",
+    "urna.parear_pedir": "Pedir para virar urna",
+    "urna.parear_aguarde": "Informe este código ao mesário. A urna se configura sozinha quando ele aprovar.",
+    "urna.parear_recusado": "O pedido foi recusado ou expirou. Peça de novo.",
+    "urna.parear_erro": "Sem conexão com o servidor. Tente de novo.",
+    "urna.parear_cancelar": "Cancelar pedido",
+    "mesario.pedidos_titulo": "Urnas pedindo cadastro",
+    "mesario.pedidos_ajuda": "Confira se o código é o mesmo da tela da urna antes de aprovar.",
+    "mesario.cadastrar_ajuda": "Mais fácil: abra o endereço /urna/ no dispositivo e aprove aqui o código que aparecer na tela. Ou cadastre abaixo e leve o link até a urna.",
+    "mesario.nome_sugerido": "Urna {n}",
+    "mesario.aprovar": "Aprovar",
+    "mesario.recusar": "Recusar"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -250,7 +261,6 @@ const TEXTOS = /* textos:inicio */ {
     "estado.ENCERRADA": "CLOSED",
     "estado.REVELADA": "REVEALED",
     "urna.titulo": "Veredito · Ballot box",
-    "urna.nao_configurada": "Ballot box not set up",
     "urna.fechada": "Voting closed",
     "urna.aguarde_proxima": "Wait for the next question",
     "urna.sem_conexao": "No connection: vote saved, it will be sent when the network is back",
@@ -456,7 +466,19 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.celular_ajuda": "The display shows a QR code so the audience can vote by phone. Unchecked, only ballot boxes vote.",
     "mesario.selo_celular": "PHONE",
     "celular.motivo.celular_desligado": "Phone voting is turned off for this vote. Please use a ballot box.",
-    "celular.nova_votacao": "A new vote is open. Scan the QR code on the display to vote."
+    "celular.nova_votacao": "A new vote is open. Scan the QR code on the display to vote.",
+    "urna.parear_titulo": "This screen is not a ballot box yet",
+    "urna.parear_pedir": "Request to become a ballot box",
+    "urna.parear_aguarde": "Tell this code to the poll worker. The ballot box sets itself up once they approve.",
+    "urna.parear_recusado": "The request was declined or expired. Please request again.",
+    "urna.parear_erro": "No connection to the server. Try again.",
+    "urna.parear_cancelar": "Cancel request",
+    "mesario.pedidos_titulo": "Ballot boxes requesting setup",
+    "mesario.pedidos_ajuda": "Check that the code matches the ballot box screen before approving.",
+    "mesario.cadastrar_ajuda": "Easier: open /urna/ on the device and approve here the code it shows. Or register below and take the link to the ballot box.",
+    "mesario.nome_sugerido": "Ballot box {n}",
+    "mesario.aprovar": "Approve",
+    "mesario.recusar": "Decline"
   }
 } /* textos:fim */;
 
