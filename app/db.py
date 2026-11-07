@@ -28,10 +28,10 @@ def ler_presets() -> list[dict]:
         return json.load(f)
 
 def inserir_sessao(tema: str, opcoes: list[dict], grupo_id: int | None = None, pergunta: int = 1,
-                   teste: bool = False, celular: bool = False) -> int:
+                   teste: bool = False, celular: bool = False, peso_celular: int = 1) -> int:
     cur = db.execute(
-        "INSERT INTO sessoes (tema, grupo_id, pergunta, teste, celular) VALUES (?, ?, ?, ?, ?)",
-        (tema, grupo_id, pergunta, int(teste), int(celular)),
+        "INSERT INTO sessoes (tema, grupo_id, pergunta, teste, celular, peso_celular) VALUES (?, ?, ?, ?, ?, ?)",
+        (tema, grupo_id, pergunta, int(teste), int(celular), peso_celular),
     )
     for ordem, op in enumerate(opcoes):
         db.execute(
