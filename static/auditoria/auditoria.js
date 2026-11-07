@@ -55,7 +55,9 @@ async function mostrar() {
   $("tema").textContent = rotulo(a);
   $("total").textContent = a.total;
 
-  const soma = a.total || 1;
+  // barras pelos pontos (soma dos pesos); com pesos diferentes, o número de votos embaixo
+  const soma = a.resultado.reduce((s, o) => s + o.pontos, 0) || 1;
+  const ponderado = a.resultado.some((o) => o.pontos !== o.votos);
   $("resultado").innerHTML = "";
   for (const o of a.resultado) {
     const barra = document.createElement("div");
@@ -65,17 +67,26 @@ async function mostrar() {
     const trilho = document.createElement("div");
     trilho.className = "trilho";
     const preenchimento = document.createElement("div");
-    preenchimento.style.width = `${(o.votos / soma) * 100}%`;
+    preenchimento.style.width = `${(o.pontos / soma) * 100}%`;
     preenchimento.style.background = o.cor;
     trilho.appendChild(preenchimento);
-    const numero = document.createElement("strong");
-    numero.textContent = o.votos;
+    const numero = document.createElement("div");
+    numero.className = "numero";
+    const pontos = document.createElement("strong");
+    pontos.textContent = o.pontos;
+    numero.appendChild(pontos);
+    if (ponderado) {
+      const votos = document.createElement("small");
+      votos.textContent = t("comum.pontos_e_votos", { n: o.votos });
+      numero.appendChild(votos);
+    }
     barra.append(rotulo, trilho, numero);
     $("resultado").appendChild(barra);
   }
 
   $("urnas").replaceChildren(...a.por_urna.map((u) =>
-    linha(celula(u.urna), celula(u.votos, "num"), celula(hora(u.primeiro_voto)), celula(hora(u.ultimo_voto)))));
+    linha(celula(u.urna), celula(u.votos, "num"), celula(u.peso, "num"), celula(u.pontos, "num"),
+      celula(hora(u.primeiro_voto)), celula(hora(u.ultimo_voto)))));
   $("eventos").replaceChildren(...a.eventos.map((e) => linha(celula(hora(e.em)), celula(e.evento))));
   $("detalhe").hidden = false;
 }

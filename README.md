@@ -13,7 +13,7 @@ there is a PT/EN switch in the corner of every screen).
 | Path | Who uses it | What it does |
 |---|---|---|
 | `/urna/` | voters | Ballot box. Open it on the device and tap "Request to become a ballot box": it shows a 4-letter code that the poll worker approves in the panel (or configure it with a link/QR from the panel). Installable as an app (PWA); queues votes offline. |
-| `/telao/` | the room | Big screen: topic, live vote count, 3·2·1 reveal with the result bars, QR code for phone voting. |
+| `/telao/` | the room | Big screen: topic, live vote count, 3·2·1 reveal with the result bars, QR code for phone voting. With vote weights (1 to 10 per ballot box, and per session for phones), bars and winner follow the points and each option also shows its number of votes. |
 | `/celular/` | voters | Phone voting, opened from the QR code on the big screen; one vote per phone per question. Off by default: the mesário turns it on per session ("Allow phone voting", or the switch on the active-session bar). |
 | `/mesario/` | poll worker | Panel behind individual accounts: create sessions and questionnaires, open/close/reveal, register ballot boxes, watch their status, import an offline queue, manage accounts. |
 | `/monitor/` | poll worker | Votes per minute, vote latency (p50/p95) and ballot boxes online. |

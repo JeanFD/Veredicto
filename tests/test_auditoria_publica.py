@@ -48,7 +48,7 @@ def test_total_por_urna_sem_divisao_por_opcao(cliente, revelada):
     assert {o["chave"]: o["votos"] for o in a["resultado"]} == {"acusacao": 0, "defesa": 2}
     [urna] = a["por_urna"]
     assert urna["urna"] == "Teste" and urna["votos"] == 2
-    assert set(urna) == {"urna", "votos", "primeiro_voto", "ultimo_voto"}
+    assert set(urna) == {"urna", "votos", "pontos", "peso", "primeiro_voto", "ultimo_voto"}
 
 def test_linha_do_tempo_publica_sem_ip(cliente, revelada):
     r = cliente.get("/api/auditoria/sessoes/1")

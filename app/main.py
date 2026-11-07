@@ -92,6 +92,10 @@ class NovaUrna(BaseModel):
     nome: str = Field(min_length=1, max_length=60)
     reserva: bool = False
     teste: bool = False
+    peso: int = Field(1, ge=1, le=10)
+
+class Peso(BaseModel):
+    peso: int = Field(ge=1, le=10)
 
 class Voto(BaseModel):
     id: uuid.UUID
@@ -127,11 +131,13 @@ class NovaSessao(BaseModel):
     opcoes: list[NovaOpcao] = Field(min_length=2, max_length=10)
     teste: bool = False
     celular: bool = False
+    peso_celular: int = Field(1, ge=1, le=10)
 
 class NovoQuestionario(BaseModel):
     perguntas: list[NovaSessao] = Field(min_length=2, max_length=10)
     teste: bool = False
     celular: bool = False
+    peso_celular: int = Field(1, ge=1, le=10)
 
 class Celular(BaseModel):
     ativo: bool
@@ -157,6 +163,7 @@ def buscar_sessao_ativa():
         "estado": s["estado"],
         "teste": bool(s["teste"]),
         "celular": bool(s["celular"]),
+        "peso_celular": s["peso_celular"],
         "opcoes": [dict(o) for o in opcoes],
         **posicao_no_questionario(s),
     }
@@ -218,10 +225,10 @@ async def gravar_voto(voto: Voto, urna_id: str, sem_prazo: bool) -> bool:
     with db:
         cur = db.execute(
             "INSERT OR IGNORE INTO votos "
-            "(id, sessao_id, urna_id, opcao_chave, votado_em, recebido_em) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "(id, sessao_id, urna_id, opcao_chave, votado_em, recebido_em, peso) "
+            "VALUES (?, ?, ?, ?, ?, ?, (SELECT peso FROM urnas WHERE id = ?))",
             (str(voto.id), voto.sessao_id, urna_id, voto.opcao,
-             voto.votado_em.isoformat(), agora()),
+             voto.votado_em.isoformat(), agora(), urna_id),
         )
     if cur.rowcount:
         # a opção votada fica de fora do log de propósito: sigilo do voto
@@ -242,7 +249,7 @@ def estado_publico(tipo: str = "estado") -> dict:
 
 def contar_por_opcao(sid: int) -> list[dict]:
     linhas = db.execute("""
-        SELECT o.chave, o.rotulo, o.cor, COUNT(v.id) AS votos
+        SELECT o.chave, o.rotulo, o.cor, COUNT(v.id) AS votos, COALESCE(SUM(v.peso), 0) AS pontos
         FROM opcoes o
         LEFT JOIN votos v ON v.sessao_id = o.sessao_id AND v.opcao_chave = o.chave
         WHERE o.sessao_id = ?
@@ -254,7 +261,7 @@ def contar_por_opcao(sid: int) -> list[dict]:
 def status_urnas() -> list[dict]:
     s = buscar_sessao_ativa()
     resultado = []
-    for u in db.execute("SELECT id, nome, ativa, reserva, teste FROM urnas ORDER BY id"):
+    for u in db.execute("SELECT id, nome, ativa, reserva, teste, peso FROM urnas ORDER BY id"):
         sinal = sinais.obter(u["id"])
         votos = 0
         if s:
@@ -267,6 +274,7 @@ def status_urnas() -> list[dict]:
             "nome": u["nome"],
             "ativa": bool(u["ativa"]),
             "reserva": bool(u["reserva"]),
+            "peso": u["peso"],
             "teste": bool(u["teste"]),
             "nunca_conectou": sinal is None,
             "online": sinal is not None and sinal["segundos"] < 15,
@@ -321,6 +329,7 @@ async def listar_sessoes(arquivadas: bool = False):
             "arquivada": bool(l["arquivada"]),
             "teste": bool(l["teste"]),
             "celular": bool(l["celular"]),
+            "peso_celular": l["peso_celular"],
             **posicao_no_questionario(l),
             # pergunta encadeada só pode ser ativada depois de revelada a anterior
             "liberada": anterior is None or anterior["estado"] == "REVELADA",
@@ -351,6 +360,22 @@ async def alternar_celular(sid: int, c: Celular):
     registrar_evento("celular_ligado" if c.ativo else "celular_desligado", f"sessao={sid}")
     await gerente.broadcast(estado_publico(), "telao", "mesario")
     return {"celular": c.ativo}
+
+@app.post("/api/admin/sessoes/{sid}/peso-celular", dependencies=[Depends(exigir_mesario)])
+async def mudar_peso_celular(sid: int, p: Peso):
+    """Num questionário vale para todas as perguntas, como ligar e desligar o celular."""
+    sessao = db.execute("SELECT id, grupo_id FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, msg("sessao_inexistente"))
+    grupo = sessao["grupo_id"] or sessao["id"]
+    ids = [r[0] for r in db.execute("SELECT id FROM sessoes WHERE id = ? OR grupo_id = ?", (grupo, grupo))]
+    if tem_votos_em_andamento(URNA_CELULAR, ids):
+        raise HTTPException(409, msg("peso_com_votos"))
+    with db:
+        db.execute(f"UPDATE sessoes SET peso_celular = ? WHERE id IN ({','.join('?' * len(ids))})", (p.peso, *ids))
+    registrar_evento("celular_peso_alterado", f"sessao={sid} peso={p.peso}")
+    await gerente.broadcast(estado_publico(), "telao", "mesario")
+    return {"peso_celular": p.peso}
 
 @app.post("/api/admin/sessoes/{sid}/zerar", dependencies=[Depends(exigir_admin)])
 async def zerar_sessao(sid: int, dados: Zerar):
@@ -387,7 +412,8 @@ async def criar_sessao(nova: NovaSessao):
     opcoes = validar_opcoes(nova)
     validar_temas_livres([nova.tema])
     with db:
-        sid = inserir_sessao(nova.tema, opcoes, teste=nova.teste, celular=nova.celular)
+        sid = inserir_sessao(nova.tema, opcoes, teste=nova.teste, celular=nova.celular,
+                             peso_celular=nova.peso_celular)
     registrar_evento("sessao_criada", f"sessao={sid}")
     return {"id": sid}
 
@@ -412,11 +438,12 @@ async def criar_questionario(novo: NovoQuestionario):
     opcoes = [validar_opcoes(p) for p in novo.perguntas]
     validar_temas_livres([p.tema for p in novo.perguntas])
     with db:
-        ids = [inserir_sessao(novo.perguntas[0].tema, opcoes[0], teste=novo.teste, celular=novo.celular)]
+        ids = [inserir_sessao(novo.perguntas[0].tema, opcoes[0], teste=novo.teste, celular=novo.celular,
+                              peso_celular=novo.peso_celular)]
         db.execute("UPDATE sessoes SET grupo_id = ? WHERE id = ?", (ids[0], ids[0]))
         for n, (p, ops) in enumerate(zip(novo.perguntas[1:], opcoes[1:]), start=2):
             ids.append(inserir_sessao(p.tema, ops, grupo_id=ids[0], pergunta=n, teste=novo.teste,
-                                      celular=novo.celular))
+                                      celular=novo.celular, peso_celular=novo.peso_celular))
     for sid in ids:
         registrar_evento("sessao_criada", f"sessao={sid} grupo={ids[0]}")
     return {"ids": ids}
@@ -449,8 +476,8 @@ def inserir_urna(u: NovaUrna) -> str:
     token = secrets.token_urlsafe(32)
     try:
         db.execute(
-            "INSERT INTO urnas (id, nome, token_hash, reserva, teste, criada_em) VALUES (?, ?, ?, ?, ?, ?)",
-            (u.id, u.nome, hash_token(token), int(u.reserva), int(u.teste), agora()),
+            "INSERT INTO urnas (id, nome, token_hash, reserva, teste, peso, criada_em) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (u.id, u.nome, hash_token(token), int(u.reserva), int(u.teste), u.peso, agora()),
         )
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail=msg("urna_existente"))
@@ -460,8 +487,29 @@ def inserir_urna(u: NovaUrna) -> str:
 async def cadastrar_urna(u: NovaUrna):
     with db:
         token = inserir_urna(u)
-    registrar_evento("urna_cadastrada", f"urna={u.id}")
+    registrar_evento("urna_cadastrada", f"urna={u.id} peso={u.peso}")
     return {"id": u.id, "token": token}
+
+# Peso: cada voto guarda o peso com que foi recebido. Mudar o peso de quem já tem
+# votos numa sessão em andamento misturaria dois pesos na mesma votação: é recusado.
+def tem_votos_em_andamento(urna_id: str, sessoes: list[int] | None = None) -> bool:
+    filtro = f" AND s.id IN ({','.join('?' * len(sessoes))})" if sessoes else ""
+    return db.execute(
+        "SELECT 1 FROM votos v JOIN sessoes s ON s.id = v.sessao_id "
+        f"WHERE v.urna_id = ? AND s.estado != 'REVELADA' AND s.arquivada = 0{filtro} LIMIT 1",
+        (urna_id, *(sessoes or [])),
+    ).fetchone() is not None
+
+@app.post("/api/admin/urnas/{uid}/peso", dependencies=[Depends(exigir_mesario)])
+async def mudar_peso_urna(uid: str, p: Peso):
+    if not db.execute("SELECT 1 FROM urnas WHERE id = ?", (uid,)).fetchone():
+        raise HTTPException(404, msg("urna_inexistente"))
+    if tem_votos_em_andamento(uid):
+        raise HTTPException(409, msg("peso_com_votos"))
+    with db:
+        db.execute("UPDATE urnas SET peso = ? WHERE id = ?", (p.peso, uid))
+    registrar_evento("urna_peso_alterado", f"urna={uid} peso={p.peso}")
+    return {"id": uid, "peso": p.peso}
 
 # ---------- Pedido de cadastro de urna ----------
 # A urna sem configuração pede um código curto e o mostra na tela; o mesário confere
@@ -527,7 +575,7 @@ async def aprovar_pedido(codigo: str, u: NovaUrna):
             raise HTTPException(404, msg("pedido_inexistente"))
         token = inserir_urna(u)
         db.execute("UPDATE pedidos_urna SET urna_id = ?, token = ? WHERE codigo = ?", (u.id, token, codigo))
-    registrar_evento("urna_cadastrada", f"urna={u.id} pedido={codigo}")
+    registrar_evento("urna_cadastrada", f"urna={u.id} peso={u.peso} pedido={codigo}")
     await gerente.broadcast({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, "mesario")
     return {"id": u.id}
 
@@ -783,9 +831,9 @@ async def exportar_votos(sid: int):
 
     buffer = io.StringIO()
     escritor = csv.writer(buffer)
-    escritor.writerow(["id", "urna_id", "opcao", "votado_em", "recebido_em"])
+    escritor.writerow(["id", "urna_id", "opcao", "votado_em", "recebido_em", "peso"])
     for v in db.execute(
-        "SELECT id, urna_id, opcao_chave, votado_em, recebido_em "
+        "SELECT id, urna_id, opcao_chave, votado_em, recebido_em, peso "
         "FROM votos WHERE sessao_id = ? ORDER BY recebido_em", (sid,)
     ):
         escritor.writerow(list(v))
@@ -880,6 +928,8 @@ def descrever_evento(tipo: str, campos: dict) -> str | None:
         return "Voto por celular ligado"
     if tipo == "celular_desligado":
         return "Voto por celular desligado"
+    if tipo == "celular_peso_alterado":
+        return f"Peso do voto por celular alterado para {campos.get('peso')}"
     return None
 
 def eventos_publicos(sid: int) -> list[dict]:
@@ -912,10 +962,11 @@ async def auditoria_sessao(sid: int):
     nomes = {u["id"]: u["nome"] for u in db.execute("SELECT id, nome FROM urnas")}
     nomes[URNA_CELULAR] = "Voto por celular"
     por_urna = [
-        {"urna": nomes.get(u["urna_id"], u["urna_id"]), "votos": u["votos"],
-         "primeiro_voto": u["primeiro"], "ultimo_voto": u["ultimo"]}
+        {"urna": nomes.get(u["urna_id"], u["urna_id"]), "votos": u["votos"], "pontos": u["pontos"],
+         "peso": u["peso"], "primeiro_voto": u["primeiro"], "ultimo_voto": u["ultimo"]}
         for u in db.execute(
-            "SELECT urna_id, COUNT(*) AS votos, MIN(recebido_em) AS primeiro, MAX(recebido_em) AS ultimo "
+            "SELECT urna_id, COUNT(*) AS votos, SUM(peso) AS pontos, MAX(peso) AS peso, "
+            "MIN(recebido_em) AS primeiro, MAX(recebido_em) AS ultimo "
             "FROM votos WHERE sessao_id = ? GROUP BY urna_id ORDER BY urna_id", (sid,),
         )
     ]
@@ -1048,9 +1099,9 @@ async def gravar_voto_celular(v: VotoCelular) -> tuple[int, bool]:
             if not marcada:
                 raise recusa(409, "ja_votou")
             db.execute(
-                "INSERT INTO votos (id, sessao_id, urna_id, opcao_chave, votado_em, recebido_em) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (str(v.id), cedula["sessao_id"], URNA_CELULAR, v.opcao, agora(), agora()),
+                "INSERT INTO votos (id, sessao_id, urna_id, opcao_chave, votado_em, recebido_em, peso) "
+                "VALUES (?, ?, ?, ?, ?, ?, (SELECT peso_celular FROM sessoes WHERE id = ?))",
+                (str(v.id), cedula["sessao_id"], URNA_CELULAR, v.opcao, agora(), agora(), cedula["sessao_id"]),
             )
     except sqlite3.IntegrityError:
         # id de voto que já existe: a transação desfaz a marcação da cédula

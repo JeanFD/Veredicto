@@ -265,7 +265,16 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.senha_redefinida": "Senha de {usuario} redefinida. Os acessos abertos dessa conta foram encerrados.",
     "mesario.senha_curta": "A senha precisa de pelo menos 8 caracteres.",
     "mesario.reativar": "Reativar",
-    "mesario.confirmar_desativar_conta": "Desativar a conta {usuario}? O acesso dela acaba na hora."
+    "mesario.confirmar_desativar_conta": "Desativar a conta {usuario}? O acesso dela acaba na hora.",
+    "comum.pontos_e_votos": "pontos · {n} votos",
+    "auditoria.col_peso": "Peso",
+    "auditoria.col_pontos": "Pontos",
+    "mesario.peso": "Peso",
+    "mesario.peso_celular": "Peso do voto por celular",
+    "mesario.peso_marca": " · peso {n}",
+    "mesario.mudar_peso": "Mudar peso (atual: {n})",
+    "mesario.pedir_peso": "Peso dos votos da urna {id} (1 a 10):",
+    "mesario.peso_invalido": "O peso precisa ser um número inteiro de 1 a 10."
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -524,7 +533,16 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.senha_redefinida": "Password for {usuario} reset. That account's open sessions were signed out.",
     "mesario.senha_curta": "The password needs at least 8 characters.",
     "mesario.reativar": "Reactivate",
-    "mesario.confirmar_desativar_conta": "Deactivate the account {usuario}? Its access ends immediately."
+    "mesario.confirmar_desativar_conta": "Deactivate the account {usuario}? Its access ends immediately.",
+    "comum.pontos_e_votos": "points · {n} votes",
+    "auditoria.col_peso": "Weight",
+    "auditoria.col_pontos": "Points",
+    "mesario.peso": "Weight",
+    "mesario.peso_celular": "Phone vote weight",
+    "mesario.peso_marca": " · weight {n}",
+    "mesario.mudar_peso": "Change weight (now: {n})",
+    "mesario.pedir_peso": "Vote weight for ballot box {id} (1 to 10):",
+    "mesario.peso_invalido": "The weight must be a whole number from 1 to 10."
   }
 } /* textos:fim */;
 

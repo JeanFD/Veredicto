@@ -5,10 +5,10 @@ from app.migrar import backup, migrar, pendente, principal
 
 # o que a aplicação espera encontrar depois das migrações
 ESQUEMA = {
-    "sessoes": {"id", "tema", "estado", "ativa", "encerrada_em", "arquivada", "grupo_id", "pergunta", "teste", "celular"},
+    "sessoes": {"id", "tema", "estado", "ativa", "encerrada_em", "arquivada", "grupo_id", "pergunta", "teste", "celular", "peso_celular"},
     "opcoes": {"id", "sessao_id", "chave", "rotulo", "cor", "ordem"},
-    "urnas": {"id", "nome", "token_hash", "ativa", "reserva", "criada_em", "teste"},
-    "votos": {"id", "sessao_id", "urna_id", "opcao_chave", "votado_em", "recebido_em"},
+    "urnas": {"id", "nome", "token_hash", "ativa", "reserva", "criada_em", "teste", "peso"},
+    "votos": {"id", "sessao_id", "urna_id", "opcao_chave", "votado_em", "recebido_em", "peso"},
     "eventos": {"id", "tipo", "detalhe", "em"},
     "cedulas": {"token_hash", "sessao_id", "criada_em", "voto_id", "seguinte_emitida"},
     "pedidos_urna": {"segredo_hash", "codigo", "criado_em", "urna_id", "token"},
@@ -49,7 +49,7 @@ def test_banco_novo_fica_com_o_esquema_da_app():
     conexao = sqlite3.connect(":memory:")
     migrar(conexao)
     assert esquema(conexao) == ESQUEMA
-    assert versao(conexao) == "0005"
+    assert versao(conexao) == "0006"
     assert not pendente(conexao)
 
 def test_banco_antigo_e_adotado_sem_perder_dados():
@@ -61,7 +61,7 @@ def test_banco_antigo_e_adotado_sem_perder_dados():
         ("Sessão antiga", "REVELADA", 0, None, 1),
     ]
     assert conexao.execute("SELECT id, opcao_chave FROM votos").fetchall() == [("v1", "defesa")]
-    assert versao(conexao) == "0005"
+    assert versao(conexao) == "0006"
 
 def test_migrar_de_novo_nao_muda_nada():
     conexao = banco_antigo()

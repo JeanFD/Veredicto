@@ -72,6 +72,17 @@ function mostrarEstado(sessao, total) {
   $("selo-estado").className = "selo " + (sessao ? sessao.estado : "");
   $("selo-teste").hidden = !sessao?.teste;
   $("chave-celular").hidden = !sessao;
+  $("campo-peso-celular").hidden = !sessao?.celular;
+  $("peso-celular").value = sessao?.peso_celular ?? 1;
+  $("peso-celular").onchange = async (e) => {
+    try {
+      await api("POST", `/api/admin/sessoes/${sessao.id}/peso-celular`, { peso: Number(e.target.value) });
+      await carregarSessoes();
+    } catch (erro) {
+      e.target.value = sessao.peso_celular;
+      alert(erro.status === 422 ? t("mesario.peso_invalido") : erro.message);
+    }
+  };
   $("alternar-celular").checked = !!sessao?.celular;
   $("alternar-celular").onchange = async (e) => {
     try {
@@ -277,9 +288,10 @@ $("nova-sessao").onsubmit = async (e) => {
   }
   const teste = $("nova-teste").checked;
   const celular = $("nova-celular").checked;
+  const peso_celular = Number($("nova-peso-celular").value);
   const criada = perguntas.length === 1
-    ? await criarSessao({ ...perguntas[0], teste, celular })
-    : await criarSessao({ perguntas, teste, celular }, "/api/admin/questionarios");
+    ? await criarSessao({ ...perguntas[0], teste, celular, peso_celular })
+    : await criarSessao({ perguntas, teste, celular, peso_celular }, "/api/admin/questionarios");
   if (criada) {
     reiniciarFormularioSessao();
     mostrarAba("sessoes");
@@ -396,7 +408,8 @@ window.mostrarUrnas = (urnas) => {
 
     const cartao = document.createElement("div");
     cartao.className = `urna ${classe}${u.teste ? " de-teste" : ""}`;
-    const marcas = (u.reserva ? t("mesario.reserva_marca") : "") + (u.teste ? t("mesario.teste_marca") : "");
+    const marcas = (u.reserva ? t("mesario.reserva_marca") : "") + (u.teste ? t("mesario.teste_marca") : "")
+      + (u.peso !== 1 ? t("mesario.peso_marca", { n: u.peso }) : "");
     for (const texto of [`${u.id}${marcas}`, u.nome, t("mesario.n_votos", { n: u.votos_sessao }), situacao]) {
       const linha = document.createElement("div");
       linha.textContent = texto;
@@ -429,6 +442,16 @@ window.mostrarUrnas = (urnas) => {
           alert(e.message);
         }
       }, "perigo"));
+      acoes.appendChild(criarBotao(t("mesario.mudar_peso", { n: u.peso }), async () => {
+        const peso = prompt(t("mesario.pedir_peso", { id: u.id }), u.peso);
+        if (peso === null) return;
+        try {
+          await api("POST", `/api/admin/urnas/${u.id}/peso`, { peso: Number(peso) });
+          window.mostrarUrnas(await api("GET", "/api/admin/urnas"));
+        } catch (e) {
+          alert(e.status === 422 ? t("mesario.peso_invalido") : e.message);
+        }
+      }));
       acoes.appendChild(criarBotao(t("mesario.desativar"), () => {
         if (confirm(t("mesario.confirmar_desativar", { id: u.id }))) {
           acao(`/api/admin/urnas/${u.id}/desativar`);
@@ -450,6 +473,7 @@ $("nova-urna").onsubmit = async (e) => {
       nome: $("nova-nome").value,
       reserva: $("nova-reserva").checked,
       teste: $("nova-urna-teste").checked,
+      peso: Number($("nova-peso").value),
     });
     prepararLink(id, token);
     e.target.reset();
@@ -502,6 +526,8 @@ function linhaPedido(p) {
   nome.required = true;
   const reserva = campo("checkbox", t("mesario.reserva"), false);
   const teste = campo("checkbox", t("mesario.urna_teste"), false);
+  const peso = campo("number", t("mesario.peso"), 1);
+  Object.assign(peso, { min: 1, max: 10, className: "peso-urna" });
   const rotulado = (caixa, texto) => {
     const l = document.createElement("label");
     l.append(caixa, ` ${texto}`);
@@ -522,7 +548,7 @@ function linhaPedido(p) {
     e.preventDefault();
     try {
       await api("POST", `/api/admin/pedidos/${p.codigo}/aprovar`, {
-        id: id.value, nome: nome.value, reserva: reserva.checked, teste: teste.checked,
+        id: id.value, nome: nome.value, reserva: reserva.checked, teste: teste.checked, peso: Number(peso.value),
       });
       linha.remove();
       $("pedidos").hidden = !$("lista-pedidos").children.length;
@@ -531,8 +557,11 @@ function linhaPedido(p) {
       alert(err.message);
     }
   };
+  const comPeso = document.createElement("label");
+  comPeso.className = "peso";
+  comPeso.append(t("mesario.peso"), peso);
   linha.append(codigo, id, nome, rotulado(reserva, t("mesario.reserva")), rotulado(teste, t("mesario.urna_teste")),
-    aprovar, recusar);
+    comPeso, aprovar, recusar);
   return linha;
 }
 
