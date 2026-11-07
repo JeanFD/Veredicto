@@ -71,6 +71,9 @@
               border-top: 1px solid var(--borda); }
     .pedido .codigo { font: 700 1.5rem/1 ui-monospace, monospace; letter-spacing: 0.15em; min-width: 5.5ch; }
     .pedido input[type=text] { width: 9rem; }
+    .peso { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 500; }
+    .peso input { width: 4.5rem; }
+    .marcar .peso { margin-top: 0.4rem; }
     .marcar { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.25rem 0 0.75rem; padding: 0.75rem;
               border: 1px solid var(--borda); border-radius: 8px; font-weight: 400; }
     .marcar input { margin-top: 0.2rem; }
@@ -129,6 +132,8 @@
         <span id="selo-teste" class="selo teste" hidden data-i18n="mesario.selo_teste">TESTE</span>
         <label id="chave-celular" class="chave" hidden><input id="alternar-celular" type="checkbox">
           <span data-i18n="mesario.voto_celular">Voto por celular</span></label>
+        <label id="campo-peso-celular" class="peso" hidden><span data-i18n="mesario.peso">Peso</span>
+          <input id="peso-celular" type="number" min="1" max="10" value="1" inputmode="numeric"></label>
         <div class="votos"><small data-i18n="mesario.votos">Votos</small><strong id="total">0</strong></div>
         <div id="acoes-estado"></div>
       </div>
@@ -166,7 +171,9 @@
           <div id="perguntas"></div>
           <label class="marcar"><input id="nova-celular" type="checkbox">
             <span><strong data-i18n="mesario.permitir_celular">Permitir voto por celular</strong>
-              <small data-i18n="mesario.celular_ajuda">O telão mostra um QR code para a plateia votar pelo celular. Sem marcar, só as urnas votam.</small></span></label>
+              <small data-i18n="mesario.celular_ajuda">O telão mostra um QR code para a plateia votar pelo celular. Sem marcar, só as urnas votam.</small>
+              <span class="peso"><span data-i18n="mesario.peso_celular">Peso do voto por celular</span>
+                <input id="nova-peso-celular" type="number" min="1" max="10" value="1" inputmode="numeric"></span></span></label>
           <label class="marcar marcar-teste"><input id="nova-teste" type="checkbox">
             <span><strong data-i18n="mesario.teste">Marcar como teste (ensaio)</strong>
               <small data-i18n="mesario.teste_ajuda">Não aparece na auditoria pública e é apagada, com seus votos, em Limpar testes.</small></span></label>
@@ -201,6 +208,7 @@
             <div class="linha-form">
               <label><input id="nova-reserva" type="checkbox"> <span data-i18n="mesario.reserva">reserva</span></label>
               <label><input id="nova-urna-teste" type="checkbox"> <span data-i18n="mesario.urna_teste">urna de teste</span></label>
+              <label class="peso"><span data-i18n="mesario.peso">Peso</span> <input id="nova-peso" type="number" min="1" max="10" value="1" inputmode="numeric"></label>
               <button class="principal" data-i18n="mesario.cadastrar">Cadastrar</button>
             </div>
           </form>

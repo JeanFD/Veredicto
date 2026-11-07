@@ -14,11 +14,14 @@
     #sessoes a.atual { background: var(--primaria-suave); color: var(--primaria); }
     #sessoes p { margin: 0; color: var(--texto-2); }
     .numero-total { font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
-    .barra { display: grid; grid-template-columns: minmax(6rem, 10rem) 1fr 3.5rem; gap: 0.75rem;
+    .barra { display: grid; grid-template-columns: minmax(6rem, 10rem) 1fr 4.5rem; gap: 0.75rem;
              align-items: center; margin: 0.6rem 0; }
     .trilho { background: #eef1f5; border-radius: 999px; height: 0.85rem; overflow: hidden; }
     .trilho div { height: 100%; border-radius: 999px; }
     .barra strong { text-align: right; font-variant-numeric: tabular-nums; }
+    .barra .numero { text-align: right; }
+    .barra .numero strong { display: block; }
+    .barra .numero small { display: block; color: var(--texto-2); white-space: nowrap; }
     #eventos td:first-child { white-space: nowrap; color: var(--texto-2); width: 1%; }
     @media (max-width: 480px) { .barra { grid-template-columns: 5rem 1fr 2.5rem; } }
   </style>
@@ -68,6 +71,7 @@
             <div class="tabela">
               <table>
                 <thead><tr><th data-i18n="auditoria.col_urna">Urna</th><th class="num" data-i18n="auditoria.col_votos">Votos</th>
+                  <th class="num" data-i18n="auditoria.col_peso">Peso</th><th class="num" data-i18n="auditoria.col_pontos">Pontos</th>
                   <th data-i18n="auditoria.col_primeiro">Primeiro</th><th data-i18n="auditoria.col_ultimo">Último</th></tr></thead>
                 <tbody id="urnas"></tbody>
               </table>

@@ -95,8 +95,11 @@ function regressiva(depois) {
   tique();
 }
 
+// Com pesos diferentes, as barras e o vencedor seguem os pontos (soma dos pesos), e
+// cada opção mostra também quantas pessoas votaram; com todos os pesos 1, são iguais.
 function mostrarResultado(opcoes) {
-  const soma = opcoes.reduce((s, o) => s + o.votos, 0) || 1;
+  const soma = opcoes.reduce((s, o) => s + o.pontos, 0) || 1;
+  const ponderado = opcoes.some((o) => o.pontos !== o.votos);
   const area = $("resultado");
   area.innerHTML = "";
   opcoes.forEach((o, i) => {
@@ -111,8 +114,16 @@ function mostrarResultado(opcoes) {
     barra.style.background = o.cor;
     barra.style.transitionDelay = `${0.3 + i * 0.15}s`;
     trilho.appendChild(barra);
-    const numero = document.createElement("strong");
-    numero.textContent = 0;
+    const numero = document.createElement("div");
+    numero.className = "numero";
+    const pontos = document.createElement("strong");
+    pontos.textContent = 0;
+    numero.appendChild(pontos);
+    if (ponderado) {
+      const votos = document.createElement("small");
+      votos.textContent = t("comum.pontos_e_votos", { n: o.votos });
+      numero.appendChild(votos);
+    }
     linha.append(rotulo, trilho, numero);
     area.appendChild(linha);
   });
@@ -120,8 +131,8 @@ function mostrarResultado(opcoes) {
   area.hidden = false;
   void area.offsetWidth; // aplica a largura 0 antes de mudar, para a transição acontecer
   opcoes.forEach((o, i) => {
-    area.children[i].querySelector(".preenchimento").style.width = `${(o.votos / soma) * 100}%`;
-    contar(area.children[i].querySelector("strong"), o.votos, 1200);
+    area.children[i].querySelector(".preenchimento").style.width = `${(o.pontos / soma) * 100}%`;
+    contar(area.children[i].querySelector("strong"), o.pontos, 1200);
   });
 }
 
