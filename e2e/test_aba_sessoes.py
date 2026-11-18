@@ -153,3 +153,13 @@ def test_apagar_sessao_definitivamente(painel: Page, admin):  # noqa: F811
     # o registro de quem apagou fica na auditoria interna
     eventos = admin.http.get("/api/admin/eventos").json()
     assert any(e["tipo"] == "sessao_apagada" and "por=admin" in e["detalhe"] for e in eventos)
+
+def test_registro_mostra_quem_fez_cada_acao(painel: Page, admin):  # noqa: F811
+    tema = f"E2E registro {uuid.uuid4().hex[:6]}"
+    sid = admin.post("/api/admin/sessoes", json={"tema": tema, "opcoes": OPCOES})["id"]
+    admin.post(f"/api/admin/sessoes/{sid}/ativar")
+    painel.get_by_role("tab", name="Registro").click()
+
+    linha = painel.locator("#lista-registro tr", has_text=f"sessao: {sid}").first
+    expect(linha).to_contain_text("Sessão ativada")
+    expect(linha.locator("td.quem")).to_have_text("admin")

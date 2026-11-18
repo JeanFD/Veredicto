@@ -77,3 +77,7 @@ def test_votos_por_celular_aparecem_com_nome(cliente, sessao_aberta):
     avancar(cliente)
     [urna] = cliente.get("/api/auditoria/sessoes/1").json()["por_urna"]
     assert urna["urna"] == "Voto por celular"
+
+def test_linha_do_tempo_mostra_quem_fez(cliente, revelada):
+    eventos = cliente.get("/api/auditoria/sessoes/1").json()["eventos"]
+    assert all(e["por"] == "admin" for e in eventos), eventos
