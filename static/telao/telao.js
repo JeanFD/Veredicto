@@ -33,6 +33,7 @@ function contar(el, destino, duracao = 600) {
 }
 
 function atualizarTotal(total) {
+  mostrarTotalDoRodape(total);
   const el = $("total");
   if (Number(el.textContent) !== total) {
     el.classList.remove("pulso");
@@ -40,6 +41,24 @@ function atualizarTotal(total) {
     el.classList.add("pulso");
   }
   contar(el, total);
+}
+
+// Cabeçalho e rodapé: a situação da apuração e o total, sempre à vista.
+function mostrarMoldura(m) {
+  const estado = m.sessao?.estado;
+  const situacao = t(`telao.situacao.${estado ?? "AGUARDANDO"}`);
+  $("situacao").textContent = situacao;
+  $("situacao").classList.toggle("apurado", estado === "REVELADA");
+  $("rodape-estado").textContent = situacao;
+  $("rodape-caso").textContent = m.sessao?.caso ?? "";
+  mostrarTotalDoRodape(m.total ?? 0, m.resultado);
+}
+
+function mostrarTotalDoRodape(total, resultado) {
+  const votos = t(total === 1 ? "telao.um_voto" : "telao.n_votos", { n: total.toLocaleString(document.documentElement.lang) });
+  const pontos = resultado?.reduce((s, o) => s + o.pontos, 0);
+  const ponderado = resultado?.some((o) => o.pontos !== o.votos);
+  $("rodape-total").textContent = ponderado ? `${votos} · ${t("telao.n_pontos", { n: pontos })}` : votos;
 }
 
 // ---------- Cartões ----------
@@ -144,6 +163,7 @@ function mostrarEstado(m, aoVivo) {
   $("tema").textContent = m.sessao ? m.sessao.tema : t("telao.aguardando");
   $("caso").hidden = !m.sessao?.caso;
   $("caso").textContent = m.sessao?.caso ?? "";
+  mostrarMoldura(m);
   $("pergunta").hidden = !(m.sessao?.total_perguntas > 1);
   if (!$("pergunta").hidden) {
     $("pergunta").textContent = t("comum.pergunta_de", { n: m.sessao.pergunta, total: m.sessao.total_perguntas });
@@ -191,6 +211,62 @@ function regressiva(depois) {
 
 // Com pesos diferentes, as barras e o vencedor seguem os pontos (soma dos pesos), e
 // cada opção mostra também quantas pessoas votaram; com todos os pesos 1, são iguais.
+function cartaoDaOpcao(o, i, soma, vencedora, ponderado) {
+  const cartao = document.createElement("article");
+  cartao.className = "opcao" + (o === vencedora ? " vencedora" : "");
+  cartao.style.animationDelay = `${0.15 + i * 0.12}s`;
+
+  const cabeca = document.createElement("div");
+  cabeca.className = "cabeca";
+  const indice = document.createElement("span");
+  indice.textContent = String(i + 1).padStart(2, "0");
+  cabeca.append(indice);
+  if (o === vencedora) {
+    const selo = document.createElement("span");
+    selo.className = "selo-vencedora";
+    selo.textContent = t("telao.vencedora");
+    cabeca.append(selo);
+  }
+
+  const rotulo = document.createElement("h2");
+  rotulo.className = "rotulo";
+  rotulo.textContent = o.rotulo;
+
+  const numeros = document.createElement("div");
+  numeros.className = "numeros";
+  const porcento = document.createElement("strong");
+  porcento.className = "porcento";
+  const valor = document.createElement("span");
+  valor.className = "valor";
+  valor.textContent = 0;
+  const sinal = document.createElement("span");
+  sinal.className = "sinal";
+  sinal.textContent = "%";
+  porcento.append(valor, sinal);
+  const pontos = document.createElement("span");
+  pontos.className = "pontos";
+  pontos.textContent = ponderado
+    ? `${o.pontos} ${t("comum.pontos_e_votos", { n: o.votos })}`
+    : t(o.votos === 1 ? "telao.um_voto" : "telao.n_votos", { n: o.votos });
+  numeros.append(porcento, pontos);
+
+  const trilho = document.createElement("div");
+  trilho.className = "trilho";
+  const preenchimento = document.createElement("div");
+  preenchimento.className = "preenchimento";
+  preenchimento.style.transitionDelay = `${0.45 + i * 0.12}s`;
+  trilho.append(preenchimento);
+
+  const legenda = document.createElement("small");
+  legenda.className = "legenda-opcao";
+  legenda.textContent = t("telao.preferencia");
+
+  cartao.append(cabeca, rotulo, numeros, trilho, legenda);
+  return cartao;
+}
+
+// Cada opção vira um cartão: a vencedora preenchida, as outras recuadas. Os cartões
+// sobem em sequência, o número conta de zero e a barra enche logo atrás.
 function mostrarResultado(opcoes) {
   const soma = opcoes.reduce((s, o) => s + o.pontos, 0) || 1;
   const ponderado = opcoes.some((o) => o.pontos !== o.votos);
@@ -198,44 +274,18 @@ function mostrarResultado(opcoes) {
   const maior = Math.max(...opcoes.map((o) => o.pontos));
   const vencedora = maior > 0 && opcoes.filter((o) => o.pontos === maior).length === 1
     ? opcoes.find((o) => o.pontos === maior) : null;
+
   const area = $("resultado");
-  area.innerHTML = "";
-  opcoes.forEach((o, i) => {
-    const linha = document.createElement("div");
-    linha.className = "barra entrando" + (o === vencedora ? " vencedora" : "");
-    linha.style.animationDelay = `${i * 0.15}s`;
-    const rotulo = document.createElement("span");
-    rotulo.className = "rotulo";
-    rotulo.textContent = o.rotulo;
-    const trilho = document.createElement("div");
-    trilho.className = "trilho";
-    const barra = document.createElement("div");
-    barra.className = "preenchimento";
-    barra.style.background = o.cor;
-    barra.style.transitionDelay = `${0.3 + i * 0.15}s`;
-    trilho.appendChild(barra);
-    const numero = document.createElement("div");
-    numero.className = "numero";
-    const pontos = document.createElement("strong");
-    pontos.textContent = 0;
-    const porcento = document.createElement("span");
-    porcento.className = "porcento";
-    porcento.textContent = `${Math.round((o.pontos / soma) * 100)}%`;
-    numero.append(pontos, porcento);
-    if (ponderado) {
-      const votos = document.createElement("small");
-      votos.textContent = t("comum.pontos_e_votos", { n: o.votos });
-      numero.appendChild(votos);
-    }
-    linha.append(rotulo, trilho, numero);
-    area.appendChild(linha);
-  });
+  area.classList.toggle("muitas", opcoes.length > 3);
+  area.replaceChildren(...opcoes.map((o, i) => cartaoDaOpcao(o, i, soma, vencedora, ponderado)));
   $("contagem").hidden = true;
   area.hidden = false;
+
   void area.offsetWidth; // aplica a largura 0 antes de mudar, para a transição acontecer
   opcoes.forEach((o, i) => {
-    area.children[i].querySelector(".preenchimento").style.width = `${(o.pontos / soma) * 100}%`;
-    contar(area.children[i].querySelector("strong"), o.pontos, 1200);
+    const cartao = area.children[i];
+    cartao.querySelector(".preenchimento").style.width = `${(o.pontos / soma) * 100}%`;
+    contar(cartao.querySelector(".valor"), Math.round((o.pontos / soma) * 100), 1400);
   });
 }
 

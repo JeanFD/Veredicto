@@ -367,7 +367,16 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.etapa.pericia": "Oitiva e perícia",
     "mesario.etapa.debates": "Debates e tréplicas",
     "mesario.etapa.votacao": "Votação e sentença",
-    "mesario.confirmar_trocar_cronometro": "Trocar a contagem em andamento por \"{titulo}\"?"
+    "mesario.confirmar_trocar_cronometro": "Trocar a contagem em andamento por \"{titulo}\"?",
+    "telao.vencedora": "Vencedora",
+    "telao.preferencia": "da preferência",
+    "telao.um_voto": "1 voto",
+    "telao.n_votos": "{n} votos",
+    "telao.n_pontos": "{n} pontos",
+    "telao.situacao.AGUARDANDO": "aguardando",
+    "telao.situacao.ABERTA": "votação aberta",
+    "telao.situacao.ENCERRADA": "votação encerrada",
+    "telao.situacao.REVELADA": "apuração concluída"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -728,7 +737,16 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.etapa.pericia": "Witnesses and experts",
     "mesario.etapa.debates": "Closing arguments",
     "mesario.etapa.votacao": "Voting and sentence",
-    "mesario.confirmar_trocar_cronometro": "Replace the running timer with \"{titulo}\"?"
+    "mesario.confirmar_trocar_cronometro": "Replace the running timer with \"{titulo}\"?",
+    "telao.vencedora": "Winner",
+    "telao.preferencia": "of the preference",
+    "telao.um_voto": "1 vote",
+    "telao.n_votos": "{n} votes",
+    "telao.n_pontos": "{n} points",
+    "telao.situacao.AGUARDANDO": "waiting",
+    "telao.situacao.ABERTA": "voting open",
+    "telao.situacao.ENCERRADA": "voting closed",
+    "telao.situacao.REVELADA": "count complete"
   }
 } /* textos:fim */;
 

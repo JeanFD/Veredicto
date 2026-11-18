@@ -5,159 +5,211 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="telao.titulo">Veredito · Telão</title>
   <style>
-    /* Telão: lido de longe, numa sala com luz. Hierarquia em três tempos — o caso em
-       cima, a pergunta grande, e embaixo o número ou as barras. O resto (QR, cartão,
-       cronômetro) flutua nas bordas sem disputar com o centro. */
+    /* Telão: preto, verde-limão e tipografia grande. Três tempos — cabeçalho com a
+       situação da apuração, o palco no meio (pergunta, contagem ou cartões) e o
+       rodapé com o total. A vencedora é o único bloco preenchido; o resto recua. */
     :root {
-      --fundo: #0a1220;
-      --texto: #f8fafc;
-      --suave: rgba(248, 250, 252, 0.62);
-      --ouro: #e2b23c;
+      --preto: #0b0c0a;
+      --carvao: #17191b;
+      --limao: #d7f24e;
+      --texto: #f7f8f5;
+      --suave: rgba(247, 248, 245, 0.55);
+      --borda: rgba(247, 248, 245, 0.12);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0; min-height: 100vh; color: var(--texto); overflow: hidden;
       font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
-      background:
-        radial-gradient(75% 55% at 50% -12%, rgba(56, 97, 150, 0.55) 0%, transparent 70%),
-        radial-gradient(90% 70% at 50% 118%, rgba(16, 33, 58, 0.9) 0%, transparent 62%),
-        var(--fundo);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 1.75rem; text-align: center; padding: 5.5rem 4vw 4rem;
+      background: radial-gradient(70% 50% at 50% 0%, #15180f 0%, transparent 70%), var(--preto);
+      display: grid; grid-template-rows: auto 1fr auto; gap: 1rem;
+      padding: clamp(1rem, 2.2vw, 2rem) clamp(1.25rem, 3vw, 3rem);
     }
-    /* filete de abertura e vinheta: dão moldura à sala sem roubar atenção */
-    body::before { content: ""; position: fixed; inset: 0 0 auto; height: 3px; z-index: 4;
-                   background: linear-gradient(90deg, transparent, var(--ouro), transparent); opacity: 0.75; }
-    body::after { content: ""; position: fixed; inset: 0; pointer-events: none;
-                  background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.5) 100%); }
 
-    .marca { position: fixed; top: 1.6rem; left: 2.2rem; z-index: 2; display: flex; align-items: center;
-             gap: 0.6rem; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.2em;
-             text-transform: uppercase; color: rgba(248, 250, 252, 0.5); }
-    .marca svg { width: 1.5rem; height: 1.5rem; }
+    /* cabeçalho e rodapé: as duas réguas que emolduram o palco */
+    .topo, .rodape { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+                     font-size: clamp(0.65rem, 0.95vw, 0.85rem); font-weight: 700;
+                     letter-spacing: 0.22em; text-transform: uppercase; }
+    .topo { border-bottom: 1px solid var(--borda); padding-bottom: clamp(0.75rem, 1.5vw, 1.25rem); }
+    .rodape { border-top: 1px solid var(--borda); padding-top: clamp(0.75rem, 1.5vw, 1.25rem);
+              color: var(--suave); }
+    .rodape span:nth-child(2) { color: var(--texto); }
+    .marca { display: flex; align-items: center; gap: 0.7rem; font-size: 1.15em; }
+    .marca svg { width: 1.6em; height: 1.6em; }
+    .topo .acoes { display: flex; align-items: center; gap: 0.75rem; }
+    .topo .acoes button { padding: 0.45em 0.9em; border-radius: 999px; border: 1px solid var(--borda);
+                          background: transparent; color: var(--suave); font: inherit; cursor: pointer; }
+    .topo .acoes button:hover, .topo .acoes button:focus-visible { color: var(--texto); border-color: var(--texto); }
+    .pilula { padding: 0.45em 1.1em; border: 1px solid var(--limao); border-radius: 999px;
+              color: var(--limao); white-space: nowrap; }
+    #situacao.apurado { background: var(--limao); color: var(--preto); }
 
-    #caso { margin: 0 0 -0.9rem; font-size: clamp(0.8rem, 1.2vw, 1.05rem); font-weight: 700;
-            letter-spacing: 0.24em; text-transform: uppercase; color: var(--ouro); }
-    #pergunta { margin: 0 0 -1.1rem; font-size: clamp(1rem, 1.6vw, 1.45rem); letter-spacing: 0.06em;
-                text-transform: uppercase; color: var(--suave); }
-    h1 { margin: 0; max-width: 22ch; font-size: clamp(2rem, 4.2vw, 3.9rem); font-weight: 700;
-         line-height: 1.12; letter-spacing: -0.02em; text-wrap: balance; }
+    /* palco */
+    .palco { display: flex; flex-direction: column; align-items: center; justify-content: center;
+             gap: clamp(0.75rem, 1.6vh, 1.5rem); text-align: center; min-height: 0; }
+    #caso { margin: 0; color: var(--limao); font-size: clamp(0.7rem, 1.1vw, 1rem); font-weight: 700;
+            letter-spacing: 0.26em; text-transform: uppercase; }
+    #pergunta { margin: 0; color: var(--suave); font-size: clamp(0.85rem, 1.3vw, 1.2rem);
+                letter-spacing: 0.1em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 24ch; font-size: clamp(2rem, 4.6vw, 4.4rem); font-weight: 800;
+         line-height: 1.04; letter-spacing: -0.035em; text-wrap: balance; }
 
-    #total { font-size: clamp(7rem, 16vw, 15rem); font-weight: 800; line-height: 0.95;
-             letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
-             text-shadow: 0 0 70px rgba(120, 170, 255, 0.35); }
+    #total { font-size: clamp(6rem, 15vw, 14rem); font-weight: 800; line-height: 0.9;
+             letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
     #total.pulso { animation: pulso 0.6s ease-out; }
-    #legenda { margin: 0.75rem 0 0; font-size: clamp(0.85rem, 1.3vw, 1.2rem); letter-spacing: 0.2em;
-               text-transform: uppercase; color: var(--suave); }
+    #legenda { margin: 0.5rem 0 0; color: var(--suave); font-size: clamp(0.75rem, 1.1vw, 1rem);
+               letter-spacing: 0.22em; text-transform: uppercase; }
 
-    /* Resultado: o rótulo manda na largura da primeira coluna, então nome comprido
-       não fica cortado pela barra. A vencedora acende; as outras recuam. */
-    #resultado { width: min(1200px, 92%); display: grid; gap: clamp(0.9rem, 2vh, 1.6rem);
-                 margin-top: clamp(0.5rem, 2vh, 1.5rem); }
-    .barra { display: grid; grid-template-columns: minmax(6rem, 26%) 1fr minmax(5rem, auto);
-             align-items: center; gap: clamp(1rem, 2vw, 2rem); font-size: clamp(1.1rem, 2vw, 1.9rem); }
-    .barra .rotulo { text-align: left; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere;
-                     color: var(--suave); }
-    .barra.vencedora .rotulo { color: #fff; }
-    .trilho { padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.07);
-              box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09); }
-    .preenchimento { width: 0; height: clamp(2rem, 4.4vh, 3.3rem); border-radius: 999px;
-                     box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-                     transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
-    .numero { text-align: right; line-height: 1.1; }
-    .numero strong { font-size: 1.15em; font-variant-numeric: tabular-nums; }
-    .numero .porcento { display: block; font-size: 0.6em; letter-spacing: 0.06em; color: var(--suave); }
-    .numero small { display: block; font-size: 0.48em; color: var(--suave); white-space: nowrap; }
-    .barra:not(.vencedora) { opacity: 0.72; }
-    .barra.vencedora .preenchimento { box-shadow: 0 10px 36px rgba(255, 255, 255, 0.18),
-                                      inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+    /* cartões do resultado: um por opção, a vencedora preenchida */
+    #resultado { width: 100%; margin-top: clamp(0.5rem, 2.5vh, 2rem); display: grid; gap: clamp(0.75rem, 1.4vw, 1.25rem);
+                 grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
+    .opcao { position: relative; overflow: hidden; display: grid; align-content: start;
+             gap: clamp(0.5rem, 1.2vh, 1rem); padding: clamp(1rem, 1.8vw, 1.9rem);
+             border-radius: clamp(1rem, 1.6vw, 1.75rem); background: var(--carvao); text-align: left;
+             animation: cartao-entra 0.75s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .opcao.vencedora { background: var(--limao); color: var(--preto); }
+    .opcao .cabeca { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+                     font-size: clamp(0.6rem, 0.85vw, 0.8rem); font-weight: 700; letter-spacing: 0.2em;
+                     text-transform: uppercase; color: var(--suave); min-height: 2em; }
+    .opcao.vencedora .cabeca { color: rgba(11, 12, 10, 0.65); }
+    .selo-vencedora { padding: 0.5em 1.1em; border-radius: 999px; background: var(--preto);
+                      color: var(--limao); animation: selo-entra 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.1s both; }
+    .rotulo { margin: 0; font-size: clamp(1.2rem, 2.1vw, 2.1rem); font-weight: 600; line-height: 1.15;
+              letter-spacing: -0.01em; overflow-wrap: anywhere; }
+    .numeros { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+               flex-wrap: wrap; }
+    .porcento { font-size: clamp(3rem, 7.5vw, 7rem); font-weight: 800; line-height: 0.85;
+                letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+    .porcento .sinal { font-size: 0.4em; font-weight: 700; letter-spacing: 0; }
+    .pontos { font-size: clamp(0.8rem, 1.2vw, 1.1rem); color: var(--suave); white-space: nowrap; }
+    .opcao.vencedora .pontos { color: rgba(11, 12, 10, 0.7); }
+    .trilho { height: clamp(0.4rem, 0.8vh, 0.6rem); border-radius: 999px;
+              background: rgba(247, 248, 245, 0.12); }
+    .opcao.vencedora .trilho { background: rgba(11, 12, 10, 0.18); }
+    .preenchimento { width: 0; height: 100%; border-radius: 999px; background: var(--limao);
+                     transition: width 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.45s; }
+    .opcao.vencedora .preenchimento { background: var(--preto); }
+    .legenda-opcao { font-size: clamp(0.58rem, 0.8vw, 0.72rem); font-weight: 700; letter-spacing: 0.2em;
+                     text-transform: uppercase; color: var(--suave); }
+    .opcao.vencedora .legenda-opcao { color: rgba(11, 12, 10, 0.6); }
+    /* um brilho passa uma vez pela vencedora, logo depois da barra encher */
+    .opcao.vencedora::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 40%;
+                              background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+                              animation: brilho 1.5s ease-out 1.2s both; }
+    /* com muitas opções os números encolhem para caber sem rolagem */
+    #resultado.muitas .porcento { font-size: clamp(2rem, 4vw, 3.4rem); }
+    #resultado.muitas .rotulo { font-size: clamp(1rem, 1.5vw, 1.4rem); }
 
-    /* Cartão: pano de fundo do caso, notícia ou laudo. Com um na tela, a votação sai
-       da frente; o chapéu do caso e o cronômetro continuam à vista. */
-    body.com-cartao #pergunta, body.com-cartao #tema,
-    body.com-cartao #contagem, body.com-cartao #resultado { display: none !important; }
-    #cartao { width: min(1200px, 92%); max-height: 74vh; overflow: hidden; text-align: left; }
-    #cartao h2 { margin: 0 0 1.25rem; text-align: center; font-size: clamp(1.8rem, 3.4vw, 3rem);
-                 letter-spacing: -0.01em; }
-    #cartao-texto { font-size: clamp(1.05rem, 1.85vw, 1.85rem); line-height: 1.5; }
-    #cartao.longo h2 { font-size: clamp(1.5rem, 2.6vw, 2.2rem); margin-bottom: 0.9rem; }
-    #cartao.longo #cartao-texto { font-size: clamp(0.95rem, 1.4vw, 1.4rem); line-height: 1.45; }
+    /* cartão de conteúdo: pano de fundo do caso, notícia ou laudo */
+    #cartao { width: min(1200px, 100%); max-height: 68vh; overflow: hidden; text-align: left; }
+    #cartao h2 { margin: 0 0 1.25rem; text-align: center; font-size: clamp(1.6rem, 3.2vw, 2.9rem);
+                 letter-spacing: -0.02em; }
+    #cartao-texto { font-size: clamp(1rem, 1.75vw, 1.75rem); line-height: 1.5; }
+    #cartao.longo h2 { font-size: clamp(1.4rem, 2.4vw, 2.1rem); margin-bottom: 0.9rem; }
+    #cartao.longo #cartao-texto { font-size: clamp(0.9rem, 1.35vw, 1.35rem); line-height: 1.45; }
     #cartao-texto p { margin: 0 0 1rem; }
     #cartao-texto ul { margin: 0 0 1rem; padding-left: 1.5rem; }
     #cartao-texto li { margin-bottom: 0.5rem; }
-    #cartao-fonte { margin: 1.25rem 0 0; text-align: right; font-size: 1rem; color: var(--suave); }
+    #cartao-fonte { margin: 1.25rem 0 0; text-align: right; color: var(--suave); font-size: 0.95rem; }
+    body.com-cartao #pergunta, body.com-cartao #tema,
+    body.com-cartao #contagem, body.com-cartao #resultado { display: none !important; }
 
-    /* Cronômetro das falas */
-    #cronometro { position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%); z-index: 3;
-                  padding: 0.6rem 1.8rem; border-radius: 1.1rem; background: rgba(10, 18, 32, 0.72);
-                  border: 1px solid rgba(255, 255, 255, 0.12); backdrop-filter: blur(6px);
-                  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45); }
-    #faixa-teste:not([hidden]) ~ #cronometro { top: 3.75rem; }
-    #cronometro-titulo { margin: 0; font-size: 1.2rem; letter-spacing: 0.08em; text-transform: uppercase;
-                         color: var(--suave); }
-    #cronometro-tempo { font-size: 4.5rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-    #cronometro-esgotado { margin: 0 0 0.2rem; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;
+    /* cronômetro das falas */
+    /* abaixo da régua do cabeçalho, para não cobrir a marca nem a situação */
+    #cronometro { position: fixed; top: clamp(3.75rem, 8vh, 5.5rem); left: 50%; transform: translateX(-50%);
+                  z-index: 3; padding: 0.6rem 1.8rem; border-radius: 1.1rem; text-align: center;
+                  background: rgba(23, 25, 27, 0.92); border: 1px solid var(--borda);
+                  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6); }
+    #faixa-teste:not([hidden]) ~ #cronometro { top: clamp(5.5rem, 11vh, 7.5rem); }
+    #cronometro-titulo { margin: 0; color: var(--suave); font-size: 1.1rem; font-weight: 700;
+                         letter-spacing: 0.12em; text-transform: uppercase; }
+    #cronometro-tempo { font-size: 4.2rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em;
+                        font-variant-numeric: tabular-nums; }
+    #cronometro-esgotado { margin: 0 0 0.2rem; font-size: 1rem; font-weight: 700; letter-spacing: 0.12em;
                            text-transform: uppercase; }
-    #cronometro.esgotado { background: #991b1b; border-color: #dc2626; animation: alerta 1.4s ease-in-out infinite; }
+    #cronometro.esgotado { background: #7f1d1d; border-color: #dc2626; animation: alerta 1.4s ease-in-out infinite; }
 
     /* QR do voto por celular */
-    #celular { position: fixed; right: 2.5rem; bottom: 2.5rem; z-index: 2; padding: 1rem 1rem 0.8rem;
-               border-radius: 1.25rem; background: #fff; color: #0a1220; text-align: center;
-               box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
-    #celular p { margin: 0.6rem 0 0; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.04em; }
+    #celular { position: fixed; right: clamp(1.25rem, 3vw, 3rem); bottom: clamp(3.5rem, 7vh, 5.5rem);
+               z-index: 2; padding: 1rem 1rem 0.8rem; border-radius: 1.25rem; background: #fff;
+               color: var(--preto); text-align: center; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); }
+    #celular p { margin: 0.6rem 0 0; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.1em;
+                 text-transform: uppercase; }
     #qr img, #qr canvas { display: block; }
 
     .faixa-teste { position: fixed; top: 0; left: 0; right: 0; z-index: 4; padding: 0.6rem;
-                   font-size: 1.4rem; font-weight: 700; letter-spacing: 0.05em;
+                   font-size: 1.3rem; font-weight: 700; letter-spacing: 0.1em; text-align: center;
+                   text-transform: uppercase;
                    background: repeating-linear-gradient(-45deg, #b54708 0 18px, #93370d 18px 36px); }
 
     #regressiva { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center;
-                  justify-content: center; font-size: 30rem; font-weight: 800;
-                  background: radial-gradient(75% 55% at 50% -12%, rgba(56, 97, 150, 0.55) 0%, transparent 70%),
-                              var(--fundo); }
+                  justify-content: center; background: var(--preto); color: var(--limao);
+                  font-size: 32rem; font-weight: 800; letter-spacing: -0.06em; }
     #regressiva span { animation: batida 0.5s ease-out both; }
-    .entrando { animation: entrada 0.6s ease-out both; }
+    .entrando { animation: surgir 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
     [hidden] { display: none !important; }
 
-    @keyframes pulso { from { transform: scale(1.08); color: #facc15; } to { transform: scale(1); } }
+    @keyframes surgir { from { opacity: 0; transform: translateY(1.2rem); } to { opacity: 1; transform: none; } }
+    @keyframes cartao-entra { from { opacity: 0; transform: translateY(2.5rem) scale(0.97); }
+                              to { opacity: 1; transform: none; } }
+    @keyframes selo-entra { 0% { opacity: 0; transform: scale(0.4) rotate(-8deg); }
+                            70% { opacity: 1; transform: scale(1.08) rotate(0); }
+                            100% { opacity: 1; transform: scale(1); } }
+    @keyframes brilho { from { transform: translateX(-120%) skewX(-14deg); }
+                        to { transform: translateX(260%) skewX(-14deg); } }
+    @keyframes pulso { from { transform: scale(1.06); color: var(--limao); } to { transform: scale(1); } }
     @keyframes batida { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     @keyframes alerta { 50% { background: #dc2626; } }
-    /* só movimento, sem opacidade: se a animação não rodar, o resultado continua legível */
-    @keyframes entrada { from { transform: translateY(2rem); } to { transform: none; } }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; }
+      .opcao.vencedora::after { display: none; }
     }
   </style>
 </head>
 <body>
   <div id="faixa-teste" class="faixa-teste" hidden data-i18n="comum.faixa_teste">Sessão de teste · os votos serão apagados</div>
-  <div class="marca" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg>
-    Veredito
-  </div>
+
+  <header class="topo">
+    <div class="marca">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg>
+      Veredito
+    </div>
+    <div class="acoes"><span id="situacao" class="pilula"></span></div>
+  </header>
+
+  <main class="palco">
+    <p id="caso" hidden></p>
+    <p id="pergunta" hidden></p>
+    <h1 id="tema" data-i18n="telao.aguardando">Aguardando</h1>
+    <section id="contagem">
+      <div id="total">0</div>
+      <p id="legenda" data-i18n="telao.legenda.ABERTA">votos registrados</p>
+    </section>
+    <section id="resultado" hidden></section>
+    <section id="cartao" hidden>
+      <h2 id="cartao-titulo"></h2>
+      <div id="cartao-texto"></div>
+      <p id="cartao-fonte" hidden></p>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <span id="rodape-estado"></span>
+    <span id="rodape-total"></span>
+    <span id="rodape-caso"></span>
+  </footer>
+
   <div id="cronometro" hidden>
     <p id="cronometro-titulo"></p>
     <div id="cronometro-tempo">0:00</div>
     <p id="cronometro-esgotado" hidden data-i18n="telao.tempo_esgotado">tempo esgotado</p>
   </div>
-  <p id="caso" hidden></p>
-  <p id="pergunta" hidden></p>
-  <h1 id="tema" data-i18n="telao.aguardando">Aguardando</h1>
-  <section id="contagem">
-    <div id="total">0</div>
-    <p id="legenda" data-i18n="telao.legenda.ABERTA">votos registrados</p>
-  </section>
-  <section id="resultado" hidden></section>
-  <section id="cartao" hidden>
-    <h2 id="cartao-titulo"></h2>
-    <div id="cartao-texto"></div>
-    <p id="cartao-fonte" hidden></p>
-  </section>
+
   <aside id="celular" hidden>
     <div id="qr"></div>
     <p data-i18n="telao.vote_celular">Vote pelo celular</p>
   </aside>
+
   <div id="regressiva" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/i18n.js?v=2"></script>
