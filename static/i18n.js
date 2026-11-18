@@ -317,7 +317,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.em_cena": "em cena",
     "mesario.ativar_pergunta": "Ativar pergunta {n}",
     "mesario.mover_caso": "Mover para",
-    "mesario.nova_sessao_atalho": "+ Nova sessão"
+    "mesario.nova_sessao_atalho": "+ Nova sessão",
+    "mesario.clonar": "Clonar"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -628,7 +629,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.em_cena": "on stage",
     "mesario.ativar_pergunta": "Activate question {n}",
     "mesario.mover_caso": "Move to",
-    "mesario.nova_sessao_atalho": "+ New session"
+    "mesario.nova_sessao_atalho": "+ New session",
+    "mesario.clonar": "Duplicate"
   }
 } /* textos:fim */;
 

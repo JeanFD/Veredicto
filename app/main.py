@@ -389,6 +389,47 @@ async def listar_sessoes(arquivadas: bool = False):
         })
     return resposta
 
+def tema_livre(tema: str, usados: set[str]) -> str:
+    """"Tema" vira "Tema (2)"; clonar o clone segue para (3). O tema repetido é recusado
+    na criação, então o modelo já sai com um nome livre."""
+    base = re.sub(r"\s*\(\d+\)$", "", tema)
+    n = 2
+    while f"{base} ({n})".casefold() in usados:
+        n += 1
+    novo = f"{base} ({n})"
+    usados.add(novo.casefold())
+    return novo
+
+@app.get("/api/admin/sessoes/{sid}/modelo", dependencies=[Depends(exigir_mesario)])
+async def modelo_da_sessao(sid: int):
+    """O que o formulário precisa para repetir a sessão: o questionário inteiro, com
+    as opções e as cores, e os temas já livres. O mesário edita antes de criar."""
+    sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, msg("sessao_inexistente"))
+    grupo = sessao["grupo_id"] or sessao["id"]
+    perguntas = db.execute(
+        "SELECT * FROM sessoes WHERE id = ? OR grupo_id = ? ORDER BY pergunta", (grupo, grupo),
+    ).fetchall()
+    usados = {l[0].casefold() for l in db.execute("SELECT tema FROM sessoes")}
+    return {
+        "caso": sessao["caso"],
+        "teste": bool(sessao["teste"]),
+        "celular": bool(sessao["celular"]),
+        "peso_celular": sessao["peso_celular"],
+        "perguntas": [
+            {
+                "tema": tema_livre(p["tema"], usados),
+                "opcoes": [
+                    {"rotulo": o["rotulo"], "cor": o["cor"]}
+                    for o in db.execute(
+                        "SELECT rotulo, cor FROM opcoes WHERE sessao_id = ? ORDER BY ordem", (p["id"],))
+                ],
+            }
+            for p in perguntas
+        ],
+    }
+
 @app.patch("/api/admin/sessoes/{sid}", dependencies=[Depends(exigir_mesario)])
 async def alterar_sessao(sid: int, mudanca: SessaoAlterada):
     """Só o caso: o tema e as opções ficam como foram criados, para a auditoria bater."""
