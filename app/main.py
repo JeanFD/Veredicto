@@ -624,6 +624,7 @@ async def cadastrar_urna(u: NovaUrna):
     with db:
         token = inserir_urna(u)
     registrar_evento("urna_cadastrada", f"urna={u.id} peso={u.peso}")
+    await avisar_urnas()
     return {"id": u.id, "token": token}
 
 # Peso: cada voto guarda o peso com que foi recebido. Mudar o peso de quem já tem
@@ -645,6 +646,7 @@ async def mudar_peso_urna(uid: str, p: Peso):
     with db:
         db.execute("UPDATE urnas SET peso = ? WHERE id = ?", (p.peso, uid))
     registrar_evento("urna_peso_alterado", f"urna={uid} peso={p.peso}")
+    await avisar_urnas()
     return {"id": uid, "peso": p.peso}
 
 # ---------- Pedido de cadastro de urna ----------
@@ -713,6 +715,7 @@ async def aprovar_pedido(codigo: str, u: NovaUrna):
         db.execute("UPDATE pedidos_urna SET urna_id = ?, token = ? WHERE codigo = ?", (u.id, token, codigo))
     registrar_evento("urna_cadastrada", f"urna={u.id} peso={u.peso} pedido={codigo}")
     await gerente.broadcast({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, "mesario")
+    await avisar_urnas()
     return {"id": u.id}
 
 @app.delete("/api/admin/pedidos/{codigo}", dependencies=[Depends(exigir_mesario)])
@@ -738,6 +741,10 @@ async def reemitir_token(uid: str):
     registrar_evento("urna_token_reemitido", f"urna={uid}")
     return {"id": uid, "token": token}
 
+async def avisar_urnas():
+    """A grade do painel se redesenha na hora, sem esperar o aviso periódico."""
+    await gerente.broadcast({"tipo": "urnas", "urnas": status_urnas()}, "mesario")
+
 @app.delete("/api/admin/urnas/{uid}", dependencies=[Depends(exigir_admin)])
 async def apagar_urna(uid: str):
     """Tira a urna da grade de vez. Com votos registrados ela fica: a auditoria
@@ -749,7 +756,7 @@ async def apagar_urna(uid: str):
     with db:
         db.execute("DELETE FROM urnas WHERE id = ?", (uid,))
     registrar_evento("urna_apagada", f"urna={uid}")
-    await gerente.broadcast({"tipo": "urnas", "urnas": status_urnas()}, "mesario")
+    await avisar_urnas()
     return {"ok": True}
 
 @app.post("/api/admin/urnas/{uid}/desativar", dependencies=[Depends(exigir_mesario)])
@@ -759,6 +766,7 @@ async def desativar_urna(uid: str):
     if not cur.rowcount:
         raise HTTPException(status_code=404, detail=msg("urna_inexistente"))
     registrar_evento("urna_desativada", f"urna={uid}")
+    await avisar_urnas()
     return {"ok": True}
 
 @app.post("/api/votos")
