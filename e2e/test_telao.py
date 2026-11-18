@@ -31,10 +31,14 @@ def test_total_ao_vivo_e_revelacao(page: Page, base_url, admin, urna, sessao_abe
     resultado = page.locator("#resultado")
     expect(resultado).to_be_visible()
     expect(page.locator("#contagem")).to_be_hidden()
-    expect(resultado.locator(".barra")).to_have_count(2)
-    expect(resultado.locator(".barra").nth(0)).to_contain_text("Acusação")
-    expect(resultado.locator(".barra strong").nth(0)).to_have_text("1")
-    expect(resultado.locator(".barra strong").nth(1)).to_have_text("2")
+    expect(resultado.locator(".opcao")).to_have_count(2)
+    expect(resultado.locator(".opcao").nth(0)).to_contain_text("Acusação")
+    expect(resultado.locator(".opcao .pontos").nth(0)).to_have_text("1 voto")
+    expect(resultado.locator(".opcao .pontos").nth(1)).to_have_text("2 votos")
+    # a vencedora é a única preenchida, e a porcentagem conta até o valor final
+    expect(resultado.locator(".opcao.vencedora")).to_have_count(1)
+    expect(resultado.locator(".opcao.vencedora .rotulo")).to_have_text("Defesa")
+    expect(resultado.locator(".opcao.vencedora .porcento")).to_have_text("67%")
 
 def test_telao_aberto_depois_da_revelacao_mostra_resultado(page: Page, admin, sessao_aberta):
     admin.avancar(sessao_aberta)

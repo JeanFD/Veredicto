@@ -1,4 +1,5 @@
-"""Pesos no telão e na auditoria: barras pelos pontos, com o número de votos de cada opção."""
+"""Pesos no telão e na auditoria: resultado pelos pontos, com os votos de cada opção."""
+import re
 import uuid
 
 from playwright.sync_api import Page, expect
@@ -22,11 +23,12 @@ def test_telao_e_auditoria_mostram_pontos_e_votos(page: Page, base_url, admin, s
     admin.avancar(sessao_aberta)
     admin.avancar(sessao_aberta)
 
-    barras = page.locator("#resultado .barra")
-    expect(barras.nth(0).locator("strong")).to_have_text("6")
-    expect(barras.nth(0).locator("small")).to_have_text("pontos · 2 votos")
-    expect(barras.nth(1).locator("strong")).to_have_text("5")
-    expect(barras.nth(1).locator("small")).to_have_text("pontos · 5 votos")
+    cartoes = page.locator("#resultado .opcao")
+    expect(cartoes.nth(0).locator(".pontos")).to_have_text("6 pontos · 2 votos")
+    expect(cartoes.nth(0).locator(".porcento")).to_have_text("55%")
+    expect(cartoes.nth(1).locator(".pontos")).to_have_text("5 pontos · 5 votos")
+    expect(cartoes.nth(1).locator(".porcento")).to_have_text("45%")
+    expect(cartoes.nth(0)).to_have_class(re.compile("vencedora"))
 
     page.goto(f"/auditoria/#{sessao_aberta}")
     expect(page.locator("#resultado .barra").nth(0).locator("strong")).to_have_text("6")
@@ -38,8 +40,9 @@ def test_sem_pesos_o_telao_fica_como_antes(page: Page, base_url, admin, urna, se
     page.goto("/telao/")
     admin.avancar(sessao_aberta)
     admin.avancar(sessao_aberta)
-    expect(page.locator("#resultado .barra").nth(1).locator("strong")).to_have_text("1")
-    expect(page.locator("#resultado small")).to_have_count(0)
+    # sem pesos diferentes, o cartão fala só em votos
+    expect(page.locator("#resultado .opcao").nth(1).locator(".pontos")).to_have_text("1 voto")
+    assert "pontos" not in page.locator("#resultado").inner_text()
 
 def test_mudar_peso_da_urna_pelo_painel(painel: Page, admin):  # noqa: F811
     uid, _ = urna_com_peso(admin, 1)
