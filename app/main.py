@@ -333,6 +333,7 @@ def status_urnas() -> list[dict]:
             "pendentes": sinal["pendentes"] if sinal else None,
             "recusados": sinal["recusados"] if sinal else 0,
             "votos_sessao": votos,
+            "votos_total": db.execute("SELECT COUNT(*) FROM votos WHERE urna_id = ?", (u["id"],)).fetchone()[0],
         })
     return resultado
 
@@ -670,6 +671,20 @@ async def reemitir_token(uid: str):
         db.execute("UPDATE urnas SET token_hash = ? WHERE id = ?", (hash_token(token), uid))
     registrar_evento("urna_token_reemitido", f"urna={uid}")
     return {"id": uid, "token": token}
+
+@app.delete("/api/admin/urnas/{uid}", dependencies=[Depends(exigir_admin)])
+async def apagar_urna(uid: str):
+    """Tira a urna da grade de vez. Com votos registrados ela fica: a auditoria
+    mostra o nome dela ao lado dos votos, e desativar já basta para tirá-la do ar."""
+    if not db.execute("SELECT 1 FROM urnas WHERE id = ?", (uid,)).fetchone():
+        raise HTTPException(404, msg("urna_inexistente"))
+    if db.execute("SELECT 1 FROM votos WHERE urna_id = ? LIMIT 1", (uid,)).fetchone():
+        raise HTTPException(409, msg("urna_com_votos"))
+    with db:
+        db.execute("DELETE FROM urnas WHERE id = ?", (uid,))
+    registrar_evento("urna_apagada", f"urna={uid}")
+    await gerente.broadcast({"tipo": "urnas", "urnas": status_urnas()}, "mesario")
+    return {"ok": True}
 
 @app.post("/api/admin/urnas/{uid}/desativar", dependencies=[Depends(exigir_mesario)])
 async def desativar_urna(uid: str):

@@ -552,18 +552,18 @@ window.mostrarUrnas = (urnas) => {
       alerta.textContent = t("mesario.n_recusados", { n: u.recusados });
       cartao.appendChild(alerta);
     }
+    // ações raras e perigosas recolhidas, para não competir com o status
+    const acoes = document.createElement("details");
+    const titulo = document.createElement("summary");
+    titulo.textContent = t("mesario.acoes");
+    acoes.appendChild(titulo);
+    acoes.open = urnasComAcoesAbertas.has(u.id);
+    acoes.ontoggle = () => {
+      if (acoes.open) urnasComAcoesAbertas.add(u.id);
+      else urnasComAcoesAbertas.delete(u.id);
+    };
+    cartao.appendChild(acoes);
     if (u.ativa) {
-      // ações raras e perigosas recolhidas, para não competir com o status
-      const acoes = document.createElement("details");
-      const titulo = document.createElement("summary");
-      titulo.textContent = t("mesario.acoes");
-      acoes.appendChild(titulo);
-      acoes.open = urnasComAcoesAbertas.has(u.id);
-      acoes.ontoggle = () => {
-        if (acoes.open) urnasComAcoesAbertas.add(u.id);
-        else urnasComAcoesAbertas.delete(u.id);
-      };
-      cartao.appendChild(acoes);
       acoes.appendChild(criarBotao(t("mesario.gerar_link"), async () => {
         if (!confirm(t("mesario.confirmar_link", { id: u.id }))) return;
         try {
@@ -588,6 +588,18 @@ window.mostrarUrnas = (urnas) => {
           acao(`/api/admin/urnas/${u.id}/desativar`);
         }
       }, "perigo"));
+    }
+    // urna com votos fica: a auditoria mostra o nome dela ao lado dos votos
+    if (!u.votos_total) {
+      acoes.appendChild(criarBotao(t("mesario.apagar_urna"), async () => {
+        if (!confirm(t("mesario.confirmar_apagar_urna", { id: u.id }))) return;
+        try {
+          window.mostrarUrnas(await api("DELETE", `/api/admin/urnas/${u.id}`).then(
+            () => api("GET", "/api/admin/urnas")));
+        } catch (e) {
+          alert(e.message);
+        }
+      }, "perigo so-admin"));
     }
     area.appendChild(cartao);
   }

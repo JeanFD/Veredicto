@@ -63,6 +63,8 @@ MENSAGENS = {
     "id_reservado": {"pt": "ID reservado para os votos por celular", "en": "ID reserved for phone votes"},
     "urna_existente": {"pt": "ID de urna já existe", "en": "Ballot box ID already exists"},
     "urna_inexistente": {"pt": "Urna inexistente", "en": "Ballot box not found"},
+    "urna_com_votos": {"pt": "A urna tem votos registrados; desative em vez de apagar",
+                       "en": "This ballot box has recorded votes; deactivate it instead of deleting"},
     "peso_com_votos": {"pt": "Não dá para mudar o peso: já há votos dessa origem numa sessão em andamento",
                        "en": "Cannot change the weight: there are already votes from it in an ongoing session"},
     "cartao_inexistente": {"pt": "Cartão inexistente", "en": "Card not found"},

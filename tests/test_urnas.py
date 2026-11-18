@@ -45,3 +45,29 @@ def test_status_mostra_votos_recusados_da_urna(cliente, urna):
     cliente.post("/api/urnas/heartbeat", json={"pendentes": 0, "recusados": 2}, headers=urna)
     [u] = cliente.get("/api/admin/urnas", auth=ADMIN).json()
     assert u["recusados"] == 2
+
+# ---------- apagar ----------
+def test_admin_apaga_urna_sem_votos(cliente):
+    cliente.post("/api/admin/urnas", json={"id": "urna-velha", "nome": "Velha"}, auth=ADMIN)
+    cliente.post("/api/admin/urnas/urna-velha/desativar", auth=ADMIN)
+    assert cliente.delete("/api/admin/urnas/urna-velha", auth=ADMIN).status_code == 200
+    assert [u["id"] for u in cliente.get("/api/admin/urnas", auth=ADMIN).json()] == []
+    assert "urna_apagada" in [e["tipo"] for e in cliente.get("/api/admin/eventos", auth=ADMIN).json()]
+    assert cliente.delete("/api/admin/urnas/urna-velha", auth=ADMIN).status_code == 404
+
+def test_urna_com_votos_nao_e_apagada(cliente, urna, sessao_aberta):
+    cliente.post("/api/votos", json=novo_voto(), headers=urna)
+    r = cliente.delete("/api/admin/urnas/urna-teste", auth=ADMIN)
+    assert r.status_code == 409 and "desative" in r.json()["detail"]
+    assert [u["id"] for u in cliente.get("/api/admin/urnas", auth=ADMIN).json()] == ["urna-teste"]
+
+def test_apagar_urna_e_so_do_admin(cliente):
+    cliente.post("/api/admin/urnas", json={"id": "urna-velha", "nome": "Velha"}, auth=ADMIN)
+    cliente.post("/api/admin/contas", auth=ADMIN,
+                 json={"usuario": "maria", "nome": "Maria", "papel": "mesario", "senha": "senha-boa-1"})
+    assert cliente.delete("/api/admin/urnas/urna-velha", auth=("maria", "senha-boa-1")).status_code == 403
+    assert cliente.delete("/api/admin/urnas/urna-velha").status_code == 401
+
+def test_grade_traz_o_total_de_votos_da_urna(cliente, urna, sessao_aberta):
+    cliente.post("/api/votos", json=novo_voto(), headers=urna)
+    assert [u["votos_total"] for u in cliente.get("/api/admin/urnas", auth=ADMIN).json()] == [1]
