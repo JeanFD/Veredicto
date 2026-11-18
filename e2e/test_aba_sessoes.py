@@ -139,3 +139,17 @@ def test_clonar_sessao_arquivada_abre_o_formulario_preenchido(painel: Page, admi
     expect(nova.locator(".selo").first).to_have_text("AGUARDANDO")
     assert [s["votos"] for s in admin.http.get("/api/admin/sessoes").json()
             if s["tema"] == f"{tema} segunda rodada"] == [0]
+
+def test_apagar_sessao_definitivamente(painel: Page, admin):  # noqa: F811
+    tema = f"E2E apagar {uuid.uuid4().hex[:6]}"
+    sid = admin.post("/api/admin/sessoes", json={"tema": tema, "opcoes": OPCOES})["id"]
+    painel.reload()
+    linha = painel.locator(".sessao", has_text=tema)
+    linha.locator("summary").click()
+    linha.get_by_role("button", name="Apagar definitivamente").click()
+
+    expect(painel.locator(".sessao", has_text=tema)).to_have_count(0)
+    assert all(s["id"] != sid for s in admin.http.get("/api/admin/sessoes?arquivadas=true").json())
+    # o registro de quem apagou fica na auditoria interna
+    eventos = admin.http.get("/api/admin/eventos").json()
+    assert any(e["tipo"] == "sessao_apagada" and "por=admin" in e["detalhe"] for e in eventos)

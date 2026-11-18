@@ -320,7 +320,11 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.nova_sessao_atalho": "+ Nova sessão",
     "mesario.apagar_urna": "Apagar urna",
     "mesario.confirmar_apagar_urna": "Apagar a urna {id}? Ela some da grade e o link dela deixa de valer.",
-    "mesario.clonar": "Clonar"
+    "mesario.clonar": "Clonar",
+    "mesario.apagar_sessao": "Apagar definitivamente",
+    "mesario.confirmar_apagar_sessao": "Apagar \"{tema}\" e os {votos} votos dela? Não dá para desfazer; fica só o registro de quem apagou.",
+    "mesario.confirmar_apagar_questionario": "Apagar o questionário \"{tema}\" inteiro ({n} perguntas) e os {votos} votos? Não dá para desfazer; fica só o registro de quem apagou.",
+    "mesario.sessao_apagada": "Apagadas {sessoes} sessões e {votos} votos."
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -634,7 +638,11 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.nova_sessao_atalho": "+ New session",
     "mesario.apagar_urna": "Delete ballot box",
     "mesario.confirmar_apagar_urna": "Delete ballot box {id}? It leaves the grid and its link stops working.",
-    "mesario.clonar": "Duplicate"
+    "mesario.clonar": "Duplicate",
+    "mesario.apagar_sessao": "Delete permanently",
+    "mesario.confirmar_apagar_sessao": "Delete \"{tema}\" and its {votos} votes? This cannot be undone; only the record of who deleted it remains.",
+    "mesario.confirmar_apagar_questionario": "Delete the whole questionnaire \"{tema}\" ({n} questions) and its {votos} votes? This cannot be undone; only the record of who deleted it remains.",
+    "mesario.sessao_apagada": "Deleted {sessoes} sessions and {votos} votes."
   }
 } /* textos:fim */;
 
