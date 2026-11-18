@@ -58,6 +58,7 @@ startup. In Docker the variables come from `.env` (see [.env.example](.env.examp
 | `AMBIENTE` | `desenvolvimento` | `producao` hides `/docs` and the OpenAPI schema. |
 | `DB_PATH` | `veredicto.db` | SQLite file. |
 | `SESSOES_PATH` | `sessoes.json` | Session presets shown in the panel. |
+| `CARTOES_PATH` | `cartoes.json` | Big-screen cards loaded the first time the panel has none. |
 
 ### Accounts
 

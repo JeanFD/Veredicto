@@ -1,0 +1,67 @@
+[
+  {
+    "pasta": "Roteiro da sessão",
+    "titulo": "Como corre a sessão (55 min)",
+    "texto": "- Leitura da denúncia (5 min): apresentação dos fatos.\n- Oitiva de testemunhas e perícia (20 min): os peritos apresentam logs, relatórios de auditoria e respondem às perguntas.\n- Debates e tréplicas (20 min): alegações finais da acusação e da defesa.\n- Votação e leitura da sentença (10 min): deliberação dos jurados e considerações finais do professor.\n\nO juiz conduz os tempos de fala e mantém a ordem da sessão."
+  },
+  {
+    "pasta": "Soberania digital",
+    "titulo": "Pano de fundo: o efeito Snowden",
+    "texto": "Em 2013, o ex-analista da NSA Edward Snowden vazou documentos confidenciais que revelaram o PRISM, um programa secreto de vigilância em massa. O escândalo mostrou que o governo dos Estados Unidos coletava dados e e-mails direto nos servidores de gigantes de tecnologia: Google, Microsoft, Yahoo e Apple.\n\nNo Brasil, as revelações apontaram interceptação de e-mails da Presidência da República, das redes do Ministério de Minas e Energia e de dados de exploração e negociações da Petrobras.\n\nO episódio expôs uma vulnerabilidade crítica: depender de e-mails, nuvens e ferramentas de produtividade sob jurisdição de outros países é um risco de inteligência, de segurança e de soberania."
+  },
+  {
+    "pasta": "Soberania digital",
+    "titulo": "O caso em julgamento",
+    "texto": "Para evitar novos episódios de espionagem, o Governo Federal aprovou a Lei de Proteção e Soberania Digital, que determina:\n\n- Órgãos públicos, estatais e empresas privadas de infraestrutura crítica (energia, bancos e telecomunicações) devem migrar 100% dos seus e-mails e serviços de nuvem para fornecedores e data centers sob jurisdição brasileira.\n- Fica proibido o uso de ferramentas de software ou de comunicação controladas por empresas submetidas a legislações extraterritoriais, como o US CLOUD Act norte-americano.\n\nA multinacional GlobalCloud Corp. acionou a Justiça para anular a regulamentação, e daí vem este julgamento."
+  },
+  {
+    "pasta": "Soberania digital",
+    "titulo": "Acusação: defensores da soberania",
+    "texto": "Manter e-mails e sistemas estratégicos em empresas estrangeiras expõe o país à espionagem industrial e estatal, e ainda ao risco de um desligamento remoto (kill switch) em momentos de crise diplomática.\n\nBase legal:\n\n- Constituição Federal\n- Lei Geral de Proteção de Dados (LGPD)\n- Marco Civil da Internet"
+  },
+  {
+    "pasta": "Soberania digital",
+    "titulo": "Defesa: livre mercado e conectividade global",
+    "texto": "Isolar o país do ecossistema global de tecnologia aumenta custos, reduz a resiliência contra ataques de indisponibilidade e atrasa a inovação.\n\nAs falhas reveladas por Snowden na década passada foram corrigidas por tecnologias modernas, como a criptografia de ponta a ponta e a arquitetura Zero-Knowledge.\n\nBase legal: livre iniciativa e os contratos globais já firmados."
+  },
+  {
+    "pasta": "Soberania digital",
+    "titulo": "Peritos técnicos: o que será demonstrado",
+    "texto": "- A arquitetura do programa PRISM.\n- Como funcionam as leis extraterritoriais de acesso a dados: US CLOUD Act × LGPD.\n- A eficiência das tecnologias de criptografia atuais."
+  },
+  {
+    "pasta": "Soberania digital",
+    "titulo": "Papéis da sessão",
+    "texto": "- Juiz e moderador: conduz os tempos de fala e mantém a ordem.\n- Bancada de acusação (Grupo 4): defende a aplicação imediata da lei de soberania.\n- Bancada de defesa (Grupo 3): defende a inconstitucionalidade da lei e a manutenção dos contratos globais.\n- Peritos técnicos (Grupo 6): apresentam evidências em redes, criptografia e conformidade legal.\n- Corpo de jurados (restante da turma): avalia os argumentos com base técnica e emite o veredito."
+  },
+  {
+    "pasta": "Redes sociais",
+    "titulo": "Pano de fundo: três escândalos",
+    "texto": "As redes sociais deixaram de ser murais de recados e viraram a principal infraestrutura de informação do mundo. Três episódios expõem falhas profundas de segurança da informação, privacidade e moderação:\n\n- Cambridge Analytica (2018): a raspagem indevida de dados de mais de 87 milhões de usuários e a criação de perfis psicográficos permitiram propaganda política altamente manipuladora, com influência em eleições e no Brexit.\n- Movimentos anti-vacina e pânico na saúde: os algoritmos de recomendação priorizam o engajamento pelo medo e pela controvérsia, impulsionam conteúdo pseudocientífico e reduzem a cobertura vacinal no mundo real.\n- Desinformação de Ceuta: boatos e vídeos manipulados convenceram dezenas de milhares de jovens de que as fronteiras do enclave estavam abertas. O resultado foi uma corrida humana imediata, mortes por afogamento e uma crise diplomática e humanitária."
+  },
+  {
+    "pasta": "Redes sociais",
+    "titulo": "O caso em julgamento",
+    "texto": "O Ministério Público moveu uma Ação Civil Pública contra a gigante de tecnologia ConnectPlatform. O processo alega que o modelo de negócios da empresa lucra com a retenção do usuário gerada pelo pânico e pela manipulação, e exige duas determinações:\n\n- Responsabilidade civil e financeira objetiva: a plataforma deve indenizar a sociedade e responder pelos danos físicos, políticos e de saúde pública provocados por conteúdos virais impulsionados pelo seu algoritmo.\n- Fim do anonimato: identificação rígida (CPF ou passaporte e biometria) para criar qualquer conta, eliminando bots e perfis falsos.\n\nA ConnectPlatform recorreu à Justiça para anular a ação, alegando que a medida destrói a privacidade dos usuários, inviabiliza a liberdade de expressão e impõe censura prévia automatizada."
+  },
+  {
+    "pasta": "Redes sociais",
+    "titulo": "Acusação: Ministério Público",
+    "texto": "A plataforma não é neutra. Como se viu na Cambridge Analytica e em Ceuta, o algoritmo escolhe ativamente o que viraliza. Permitir o disparo por robôs e lucrar com desinformação anti-vacina configura negligência grave e defeito na prestação do serviço.\n\nBase legal:\n\n- Código de Defesa do Consumidor\n- Lei Geral de Proteção de Dados (LGPD)\n- Responsabilização por abuso de direito"
+  },
+  {
+    "pasta": "Redes sociais",
+    "titulo": "Defesa: ConnectPlatform",
+    "texto": "Responsabilizar a plataforma por postagens de terceiros força as empresas à censura prévia ostensiva, derrubando discursos legítimos por erro de algoritmo. Exigir biometria para criar uma conta acaba com o anonimato de ativistas e cria um risco enorme de vazamento de dados biométricos.\n\nBase legal:\n\n- Marco Civil da Internet, artigo 19\n- Constituição de 1988: vedação à censura e liberdade de expressão"
+  },
+  {
+    "pasta": "Redes sociais",
+    "titulo": "Peritos técnicos: o que será demonstrado",
+    "texto": "- A viabilidade técnica de identificar bots em tempo real.\n- Como funcionam a coleta e o perfilamento de dados, no estilo Cambridge Analytica.\n- O tempo de reação dos filtros de inteligência artificial contra conteúdos virais de desinformação."
+  },
+  {
+    "pasta": "Redes sociais",
+    "titulo": "Papéis da sessão",
+    "texto": "- Juiz e moderador: conduz os tempos de fala e mantém a ordem.\n- Bancada de acusação (Grupo 2): defende a condenação e a regulação estrita da plataforma.\n- Bancada de defesa (Grupo 5): defende a neutralidade da rede, a liberdade de expressão e a imunidade da plataforma.\n- Peritos técnicos (Grupo 1): apresentam evidências sobre algoritmos, inteligência artificial e privacidade.\n- Corpo de jurados (restante da turma): avalia os argumentos técnicos e emite o veredito."
+  }
+]

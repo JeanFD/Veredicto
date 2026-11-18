@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 COPY static/ ./static/
-COPY sessoes.json .
+COPY sessoes.json cartoes.json ./
 
 RUN useradd --create-home veredicto && mkdir -p /data && chown veredicto /data
 USER veredicto

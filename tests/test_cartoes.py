@@ -3,6 +3,7 @@ import pytest
 
 import app.main
 from app import noticia
+from app.db import carregar_cartoes, ler_cartoes
 from tests.auxiliares import ADMIN
 
 PAGINA = """
@@ -141,3 +142,22 @@ def test_extrair_corta_texto_muito_longo():
     paragrafo = "<p>" + "palavra " * 30 + "</p>"
     extraido = noticia.extrair(f"<html><body>{paragrafo * 50}</body></html>")
     assert len(extraido["texto"]) <= noticia.LIMITE_TEXTO
+
+# ---------- cartões prontos do júri (cartoes.json) ----------
+def test_cartoes_prontos_entram_na_primeira_subida(cliente):
+    app.main.db.execute("DELETE FROM cartoes")  # a fixture já zera; aqui é o banco novo
+    carregar_cartoes()
+    cartoes = cliente.get("/api/admin/cartoes", auth=ADMIN).json()
+    assert {c["pasta"] for c in cartoes} == {"Roteiro da sessão", "Soberania digital", "Redes sociais"}
+    assert "Snowden" in next(c["texto"] for c in cartoes if c["titulo"] == "Pano de fundo: o efeito Snowden")
+    # já havendo cartões, a carga não repete nem atropela o que o mesário escreveu
+    carregar_cartoes()
+    assert len(cliente.get("/api/admin/cartoes", auth=ADMIN).json()) == len(cartoes)
+
+def test_cartoes_prontos_cabem_no_cartao_e_no_telao():
+    prontos = ler_cartoes()
+    assert len(prontos) >= 10
+    for c in prontos:
+        assert c["pasta"] and len(c["pasta"]) <= 60, c
+        assert c["titulo"] and len(c["titulo"]) <= 120, c
+        assert c["texto"] and len(c["texto"]) <= noticia.LIMITE_TEXTO, c["titulo"]
