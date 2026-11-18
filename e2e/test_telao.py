@@ -33,12 +33,12 @@ def test_total_ao_vivo_e_revelacao(page: Page, base_url, admin, urna, sessao_abe
     expect(page.locator("#contagem")).to_be_hidden()
     expect(resultado.locator(".opcao")).to_have_count(2)
     expect(resultado.locator(".opcao").nth(0)).to_contain_text("Acusação")
-    expect(resultado.locator(".opcao .pontos").nth(0)).to_have_text("1 voto")
-    expect(resultado.locator(".opcao .pontos").nth(1)).to_have_text("2 votos")
-    # a vencedora é a única preenchida, e a porcentagem conta até o valor final
+    # estes testes rodam sem animação (ver conftest): o resultado já entra fechado
     expect(resultado.locator(".opcao.vencedora")).to_have_count(1)
     expect(resultado.locator(".opcao.vencedora .rotulo")).to_have_text("Defesa")
     expect(resultado.locator(".opcao.vencedora .porcento")).to_have_text("67%")
+    expect(resultado.locator(".opcao .pontos").nth(0)).to_have_text("1 voto")
+    expect(resultado.locator(".opcao .pontos").nth(1)).to_have_text("2 votos")
 
 def test_telao_aberto_depois_da_revelacao_mostra_resultado(page: Page, admin, sessao_aberta):
     admin.avancar(sessao_aberta)
@@ -53,3 +53,27 @@ def test_auditoria_publica_mostra_quem_conduziu(page: Page, admin, sessao_aberta
     page.goto(f"/auditoria/#{sessao_aberta}")
     expect(page.locator("#eventos tr").first).to_contain_text("Sessão ativada")
     expect(page.locator("#eventos td.quem").first).to_have_text("admin")
+
+def test_apuracao_corre_antes_de_coroar(browser, browser_context_args, base_url, admin, urna, sessao_aberta):
+    """Com animação ligada, os votos aparecem aos poucos e a vencedora só se acende no fim."""
+    _, token = urna
+    for opcao in ("defesa", "defesa", "defesa", "acusacao"):
+        votar_pela_api(base_url, token, sessao_aberta, opcao)
+    contexto = browser.new_context(**{**browser_context_args, "reduced_motion": "no-preference"})
+    page = contexto.new_page()
+    page.goto("/telao/")
+    admin.avancar(sessao_aberta)
+    admin.avancar(sessao_aberta)
+
+    cartoes = page.locator("#resultado .opcao")
+    expect(cartoes).to_have_count(2)
+    # durante a apuração nenhum cartão está aceso e os números ainda não chegaram
+    expect(page.locator("#resultado .opcao.vencedora")).to_have_count(0)
+    assert page.locator("#resultado .opcao").nth(1).locator(".valor").inner_text() != "75"
+
+    expect(page.locator("#resultado .opcao.vencedora")).to_have_count(1, timeout=20000)
+    expect(cartoes.nth(1).locator(".porcento")).to_have_text("75%")
+    # a divisória para onde os votos mandam: o cartão da frente fica mais largo
+    larguras = cartoes.evaluate_all("cs => cs.map(c => c.getBoundingClientRect().width)")
+    assert larguras[1] > larguras[0] * 1.3, larguras
+    contexto.close()

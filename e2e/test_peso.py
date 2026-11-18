@@ -24,11 +24,11 @@ def test_telao_e_auditoria_mostram_pontos_e_votos(page: Page, base_url, admin, s
     admin.avancar(sessao_aberta)
 
     cartoes = page.locator("#resultado .opcao")
+    expect(cartoes.nth(0)).to_have_class(re.compile("vencedora"))
     expect(cartoes.nth(0).locator(".pontos")).to_have_text("6 pontos · 2 votos")
     expect(cartoes.nth(0).locator(".porcento")).to_have_text("55%")
     expect(cartoes.nth(1).locator(".pontos")).to_have_text("5 pontos · 5 votos")
     expect(cartoes.nth(1).locator(".porcento")).to_have_text("45%")
-    expect(cartoes.nth(0)).to_have_class(re.compile("vencedora"))
 
     page.goto(f"/auditoria/#{sessao_aberta}")
     expect(page.locator("#resultado .barra").nth(0).locator("strong")).to_have_text("6")
