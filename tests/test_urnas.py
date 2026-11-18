@@ -71,3 +71,14 @@ def test_apagar_urna_e_so_do_admin(cliente):
 def test_grade_traz_o_total_de_votos_da_urna(cliente, urna, sessao_aberta):
     cliente.post("/api/votos", json=novo_voto(), headers=urna)
     assert [u["votos_total"] for u in cliente.get("/api/admin/urnas", auth=ADMIN).json()] == [1]
+
+def test_painel_recebe_a_grade_na_hora(cliente):
+    """Cadastrar e desativar aparecem na hora, sem esperar o aviso de 5 em 5 segundos."""
+    from tests.auxiliares import login
+    with cliente.websocket_connect("/ws/mesario") as ws:
+        ws.send_json({"token": login(cliente)})
+        ws.receive_json()  # snapshot
+        cliente.post("/api/admin/urnas", json={"id": "nova", "nome": "Nova"}, auth=ADMIN)
+        assert [u["id"] for u in ws.receive_json()["urnas"]] == ["nova"]
+        cliente.post("/api/admin/urnas/nova/desativar", auth=ADMIN)
+        assert [u["ativa"] for u in ws.receive_json()["urnas"]] == [False]
