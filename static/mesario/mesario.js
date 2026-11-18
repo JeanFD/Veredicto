@@ -249,6 +249,7 @@ function acoesDaSessao(s) {
   acoes.open = sessoesComAcoesAbertas.has(s.id);
   acoes.ontoggle = () => (acoes.open ? sessoesComAcoesAbertas.add(s.id) : sessoesComAcoesAbertas.delete(s.id));
   acoes.appendChild(criarBotao(t("mesario.clonar"), () => clonarSessao(s)));
+  acoes.appendChild(apagarSessao(s));
   if (s.arquivada) return acoes;
   // revelada, a sessão em cena já pode ser guardada sem precisar ativar outra
   if (!s.ativa || s.estado === "REVELADA") {
@@ -407,6 +408,25 @@ $("mais-pergunta").onclick = () => adicionarPergunta();
 // Clonar: o formulário abre preenchido com a sessão escolhida (o questionário inteiro,
 // se for um), com os temas já livres. O mesário edita o que quiser e cria — a sessão
 // nova nasce zerada, e a antiga fica como está.
+// Apagar de vez: some a votação e os votos dela. Fica o registro de quem apagou,
+// com o tema e quantos votos foram embora, no log e na auditoria interna.
+function apagarSessao(s) {
+  const perguntas = s.total_perguntas > 1 ? s.total_perguntas : 0;
+  return criarBotao(t("mesario.apagar_sessao"), async () => {
+    const aviso = perguntas
+      ? t("mesario.confirmar_apagar_questionario", { tema: s.tema, n: perguntas, votos: s.votos })
+      : t("mesario.confirmar_apagar_sessao", { tema: s.tema, votos: s.votos });
+    if (!confirm(aviso)) return;
+    try {
+      const r = await api("DELETE", `/api/admin/sessoes/${s.id}`);
+      alert(t("mesario.sessao_apagada", r));
+      await carregarSessoes();
+    } catch (e) {
+      alert(e.message);
+    }
+  }, "perigo so-admin");
+}
+
 async function clonarSessao(s) {
   let modelo;
   try {

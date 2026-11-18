@@ -505,6 +505,31 @@ async def zerar_sessao(sid: int, dados: Zerar):
     await gerente.broadcast(estado_publico(), "telao", "mesario")
     return {"apagados": apagados}
 
+@app.delete("/api/admin/sessoes/{sid}", dependencies=[Depends(exigir_admin)])
+async def apagar_sessao(sid: int):
+    """Apaga de vez a sessão e o que é dela: opções, votos e cédulas. Questionário sai
+    inteiro, senão a numeração das perguntas que sobram deixa de fazer sentido.
+
+    O que aconteceu fica: o evento guarda tema, votos e quem apagou, e some da lista
+    só a votação. Quem está em cena não pode ser apagada, para o telão não ficar órfão."""
+    sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, msg("sessao_inexistente"))
+    grupo = sessao["grupo_id"] or sessao["id"]
+    ids = [r[0] for r in db.execute("SELECT id FROM sessoes WHERE id = ? OR grupo_id = ?", (grupo, grupo))]
+    if db.execute(f"SELECT 1 FROM sessoes WHERE ativa = 1 AND id IN ({','.join('?' * len(ids))})", ids).fetchone():
+        raise HTTPException(409, msg("ative_outra_antes"))
+    em = ",".join("?" * len(ids))
+    with db:
+        votos = db.execute(f"DELETE FROM votos WHERE sessao_id IN ({em})", ids).rowcount
+        db.execute(f"DELETE FROM cedulas WHERE sessao_id IN ({em})", ids)
+        db.execute(f"DELETE FROM opcoes WHERE sessao_id IN ({em})", ids)
+        db.execute(f"DELETE FROM sessoes WHERE id IN ({em})", ids)
+    registrar_evento("sessao_apagada", f"sessao={sid} perguntas={len(ids)} votos={votos}")
+    log("sessao_apagada", sessao=sid, tema=sessao["tema"], perguntas=len(ids), votos=votos,
+        por=responsavel.get())
+    return {"sessoes": len(ids), "votos": votos}
+
 @app.post("/api/admin/sessoes/{sid}/desarquivar", dependencies=[Depends(exigir_mesario)])
 async def desarquivar_sessao(sid: int):
     with db:
