@@ -114,3 +114,28 @@ def test_aba_volta_com_o_botao_do_navegador(painel: Page):  # noqa: F811
     painel.get_by_role("tab", name="Cartões").click()
     painel.go_back()
     expect(painel.locator("[data-painel=urnas]")).to_be_visible()
+
+def test_clonar_sessao_arquivada_abre_o_formulario_preenchido(painel: Page, admin):  # noqa: F811
+    caso = f"E2E caso {uuid.uuid4().hex[:6]}"
+    tema = f"E2E repetir {uuid.uuid4().hex[:6]}"
+    sid = admin.post("/api/admin/sessoes", json={"tema": tema, "opcoes": OPCOES, "caso": caso})["id"]
+    admin.post(f"/api/admin/sessoes/{sid}/arquivar")
+    painel.reload()
+    painel.get_by_label("mostrar arquivadas").check()
+
+    linha = painel.locator(".sessao", has_text=tema)
+    linha.locator("summary").click()
+    linha.get_by_role("button", name="Clonar").click()
+
+    # o formulário abre pronto para editar, com o tema já livre
+    expect(painel.locator("[data-painel=nova]")).to_be_visible()
+    expect(painel.locator(".pergunta > input")).to_have_value(f"{tema} (2)")
+    expect(painel.get_by_label("Caso (júri)")).to_have_value(caso)
+    expect(painel.locator(".opcao input:not([type=color])").first).to_have_value("Acusação")
+
+    painel.locator(".pergunta > input").fill(f"{tema} segunda rodada")
+    painel.get_by_role("button", name="Criar sessão").click()
+    nova = painel.locator(".sessao", has_text=f"{tema} segunda rodada")
+    expect(nova.locator(".selo").first).to_have_text("AGUARDANDO")
+    assert [s["votos"] for s in admin.http.get("/api/admin/sessoes").json()
+            if s["tema"] == f"{tema} segunda rodada"] == [0]
