@@ -1,4 +1,6 @@
+from app.db import db
 from tests.auxiliares import ADMIN, novo_voto
+from tests.test_observabilidade import logs  # noqa: F401 (fixture)
 
 NOVA = {
     "tema": "Inteligência artificial no judiciário",
@@ -122,3 +124,40 @@ def test_modelo_de_sessao_arquivada_e_com_votos(cliente, urna):
 def test_modelo_exige_sessao_e_senha(cliente):
     assert cliente.get("/api/admin/sessoes/999/modelo", auth=ADMIN).status_code == 404
     assert cliente.get("/api/admin/sessoes/1/modelo").status_code == 401
+
+# ---------- apagar definitivamente ----------
+def test_admin_apaga_sessao_e_deixa_registro(cliente, urna, logs):
+    sid = criar(cliente).json()["id"]
+    cliente.post(f"/api/admin/sessoes/{sid}/ativar", auth=ADMIN)
+    cliente.post(f"/api/admin/sessoes/{sid}/avancar", auth=ADMIN)
+    cliente.post("/api/votos", json=novo_voto(sessao_id=sid), headers=urna)
+    cliente.post("/api/admin/sessoes/1/ativar", auth=ADMIN)
+
+    assert cliente.delete(f"/api/admin/sessoes/{sid}", auth=ADMIN).json() == {"sessoes": 1, "votos": 1}
+    assert all(s["id"] != sid for s in cliente.get("/api/admin/sessoes?arquivadas=true", auth=ADMIN).json())
+    assert db.execute("SELECT COUNT(*) FROM votos WHERE sessao_id = ?", (sid,)).fetchone()[0] == 0
+    assert db.execute("SELECT COUNT(*) FROM opcoes WHERE sessao_id = ?", (sid,)).fetchone()[0] == 0
+    # o registro fica: auditoria interna e log, com quem apagou
+    evento = cliente.get("/api/admin/eventos", auth=ADMIN).json()[-1]
+    assert evento["tipo"] == "sessao_apagada" and "votos=1" in evento["detalhe"] and "por=admin" in evento["detalhe"]
+    apagou = [l for l in logs() if l["evento"] == "sessao_apagada"][-1]
+    assert (apagou["tema"], apagou["votos"], apagou["por"]) == (NOVA["tema"], 1, "admin")
+
+def test_apagar_questionario_leva_as_perguntas_juntas(cliente):
+    ids = cliente.post("/api/admin/questionarios", auth=ADMIN, json={"perguntas": [
+        {"tema": "Q1", "opcoes": NOVA["opcoes"]}, {"tema": "Q2", "opcoes": NOVA["opcoes"]}]}).json()["ids"]
+    assert cliente.delete(f"/api/admin/sessoes/{ids[1]}", auth=ADMIN).json() == {"sessoes": 2, "votos": 0}
+    assert [s["id"] for s in cliente.get("/api/admin/sessoes", auth=ADMIN).json()] == [1]
+
+def test_sessao_em_cena_nao_e_apagada(cliente):
+    cliente.post("/api/admin/sessoes/1/ativar", auth=ADMIN)
+    r = cliente.delete("/api/admin/sessoes/1", auth=ADMIN)
+    assert r.status_code == 409
+    assert cliente.get("/api/sessao/ativa").json()["sessao"]["id"] == 1
+
+def test_apagar_sessao_e_so_do_admin(cliente):
+    cliente.post("/api/admin/contas", auth=ADMIN,
+                 json={"usuario": "maria", "nome": "Maria", "papel": "mesario", "senha": "senha-boa-1"})
+    assert cliente.delete("/api/admin/sessoes/1", auth=("maria", "senha-boa-1")).status_code == 403
+    assert cliente.delete("/api/admin/sessoes/1").status_code == 401
+    assert cliente.delete("/api/admin/sessoes/999", auth=ADMIN).status_code == 404
