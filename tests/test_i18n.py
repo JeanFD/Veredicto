@@ -25,6 +25,7 @@ TIPOS_DE_EVENTO = sorted(
 DINAMICAS = (
     [f"estado.{e}" for e in ESTADOS]
     + [f"telao.legenda.{e}" for e in ESTADOS if e != "REVELADA"]
+    + [f"telao.situacao.{e}" for e in ESTADOS]
     + [f"urna.recusa.{m}" for m in ("sessao_encerrada", "sessao_nao_aberta", "outra")]
     + [f"celular.motivo.{m}" for m in
        ("codigo_expirado", "sessao_fechada", "sessao_inexistente", "cedula_invalida", "ja_votou", "cedula_usada",
