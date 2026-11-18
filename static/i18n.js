@@ -319,7 +319,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.mover_caso": "Mover para",
     "mesario.nova_sessao_atalho": "+ Nova sessão",
     "mesario.apagar_urna": "Apagar urna",
-    "mesario.confirmar_apagar_urna": "Apagar a urna {id}? Ela some da grade e o link dela deixa de valer."
+    "mesario.confirmar_apagar_urna": "Apagar a urna {id}? Ela some da grade e o link dela deixa de valer.",
+    "mesario.clonar": "Clonar"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -632,7 +633,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.mover_caso": "Move to",
     "mesario.nova_sessao_atalho": "+ New session",
     "mesario.apagar_urna": "Delete ballot box",
-    "mesario.confirmar_apagar_urna": "Delete ballot box {id}? It leaves the grid and its link stops working."
+    "mesario.confirmar_apagar_urna": "Delete ballot box {id}? It leaves the grid and its link stops working.",
+    "mesario.clonar": "Duplicate"
   }
 } /* textos:fim */;
 
