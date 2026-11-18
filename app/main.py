@@ -17,7 +17,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
-from app import cronometro
+import httpx
+
+from app import cronometro, noticia
 from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets, responsavel
 from app.ws import gerente
 from app.config import EM_PRODUCAO
@@ -102,6 +104,23 @@ class NovaUrna(BaseModel):
     reserva: bool = False
     teste: bool = False
     peso: int = Field(1, ge=1, le=10)
+
+class NovoCartao(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    pasta: str = Field(min_length=1, max_length=60)
+    titulo: str = Field(min_length=1, max_length=120)
+    texto: str = Field(min_length=1, max_length=noticia.LIMITE_TEXTO)
+    fonte: str = Field("", max_length=300)
+
+class CartaoAlterado(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    pasta: str | None = Field(None, min_length=1, max_length=60)
+    titulo: str | None = Field(None, min_length=1, max_length=120)
+    texto: str | None = Field(None, min_length=1, max_length=noticia.LIMITE_TEXTO)
+    fonte: str | None = Field(None, max_length=300)
+
+class LinkNoticia(BaseModel):
+    url: str = Field(min_length=8, max_length=500)
 
 class NovoCronometro(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -257,13 +276,17 @@ async def gravar_voto(voto: Voto, urna_id: str, sem_prazo: bool) -> bool:
         )
     return bool(cur.rowcount)
 
+def cartao_no_telao() -> dict | None:
+    c = db.execute("SELECT * FROM cartoes WHERE no_telao = 1").fetchone()
+    return {"id": c["id"], "titulo": c["titulo"], "texto": c["texto"], "fonte": c["fonte"]} if c else None
+
 def mensagem_cronometro() -> dict:
     return {"tipo": "cronometro", "cronometro": cronometro.ler()}
 
 def estado_publico(tipo: str = "estado") -> dict:
     s=buscar_sessao_ativa()
     msg = {"tipo": tipo, "sessao": s, "total": total_votos(s["id"]) if s else 0,
-           "cronometro": cronometro.ler()}
+           "cronometro": cronometro.ler(), "cartao": cartao_no_telao()}
     if s and s["estado"] == "REVELADA":
         msg["resultado"] = contar_por_opcao(s["id"])
     return msg
@@ -805,6 +828,91 @@ async def redefinir_senha(usuario: str, dados: SenhaRedefinida):
     trocar_senha(usuario, dados.nova)
     registrar_evento("senha_redefinida", f"conta={usuario}")
     return {"ok": True}
+
+# ---------- Cartões do telão ----------
+# Pano de fundo do caso, notícias e laudos: o mesário prepara antes, numa pasta por
+# júri, e exibe quando quiser. O cartão exibido vai pelo WebSocket, como o cronômetro.
+async def avisar_cartao() -> dict | None:
+    exibido = cartao_no_telao()
+    await gerente.broadcast({"tipo": "cartao", "cartao": exibido}, "telao", "mesario")
+    return exibido
+
+def buscar_cartao(cid: int):
+    cartao = db.execute("SELECT * FROM cartoes WHERE id = ?", (cid,)).fetchone()
+    if not cartao:
+        raise HTTPException(404, msg("cartao_inexistente"))
+    return cartao
+
+@app.get("/api/admin/cartoes", dependencies=[Depends(exigir_mesario)])
+async def listar_cartoes():
+    return [
+        {"id": c["id"], "pasta": c["pasta"], "titulo": c["titulo"], "texto": c["texto"],
+         "fonte": c["fonte"], "no_telao": bool(c["no_telao"])}
+        for c in db.execute("SELECT * FROM cartoes ORDER BY pasta, id")
+    ]
+
+@app.post("/api/admin/cartoes", status_code=201, dependencies=[Depends(exigir_mesario)])
+async def criar_cartao(c: NovoCartao):
+    with db:
+        cur = db.execute(
+            "INSERT INTO cartoes (pasta, titulo, texto, fonte, criado_em) VALUES (?, ?, ?, ?, ?)",
+            (c.pasta, c.titulo, c.texto, c.fonte, agora()),
+        )
+    registrar_evento("cartao_criado", f"cartao={cur.lastrowid}")
+    return {"id": cur.lastrowid}
+
+@app.patch("/api/admin/cartoes/{cid}", dependencies=[Depends(exigir_mesario)])
+async def alterar_cartao(cid: int, mudanca: CartaoAlterado):
+    buscar_cartao(cid)
+    campos = mudanca.model_dump(exclude_none=True)
+    if campos:
+        with db:
+            db.execute(f"UPDATE cartoes SET {', '.join(f'{c} = ?' for c in campos)} WHERE id = ?",
+                       (*campos.values(), cid))
+    cartao = buscar_cartao(cid)
+    if cartao["no_telao"]:
+        await avisar_cartao()
+    return {"id": cid, "pasta": cartao["pasta"], "titulo": cartao["titulo"], "texto": cartao["texto"],
+            "fonte": cartao["fonte"], "no_telao": bool(cartao["no_telao"])}
+
+@app.delete("/api/admin/cartoes/{cid}", dependencies=[Depends(exigir_mesario)])
+async def apagar_cartao(cid: int):
+    exibido = buscar_cartao(cid)["no_telao"]
+    with db:
+        db.execute("DELETE FROM cartoes WHERE id = ?", (cid,))
+    registrar_evento("cartao_apagado", f"cartao={cid}")
+    if exibido:
+        await avisar_cartao()
+    return {"ok": True}
+
+@app.post("/api/admin/cartoes/{cid}/exibir", dependencies=[Depends(exigir_mesario)])
+async def exibir_cartao(cid: int):
+    buscar_cartao(cid)
+    with db:
+        db.execute("UPDATE cartoes SET no_telao = 0")
+        db.execute("UPDATE cartoes SET no_telao = 1 WHERE id = ?", (cid,))
+    return await avisar_cartao()
+
+@app.post("/api/admin/cartoes/ocultar", dependencies=[Depends(exigir_mesario)])
+async def ocultar_cartao():
+    with db:
+        db.execute("UPDATE cartoes SET no_telao = 0")
+    await avisar_cartao()
+    return {"ok": True}
+
+@app.post("/api/admin/cartoes/importar", dependencies=[Depends(exigir_mesario)])
+async def importar_noticia(link: LinkNoticia):
+    """Preenche um cartão a partir de um link; o mesário revisa antes de salvar."""
+    try:
+        html = await noticia.baixar(link.url)
+    except noticia.EnderecoRecusado as e:
+        raise HTTPException(400, msg(str(e)))
+    except httpx.HTTPError:
+        raise HTTPException(400, msg("nao_baixou"))
+    extraido = noticia.extrair(html, link.url)
+    if not extraido["texto"]:
+        raise HTTPException(422, msg("sem_texto"))
+    return extraido
 
 # ---------- Cronômetro do telão ----------
 # ver app/cronometro.py: o mesário dá o título e os minutos da fala, e o telão mostra
