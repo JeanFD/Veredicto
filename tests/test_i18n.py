@@ -8,11 +8,20 @@ import pytest
 from app.i18n import IDIOMAS, MENSAGENS, idioma_do_cabecalho
 from tests.auxiliares import ADMIN, novo_voto
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+RAIZ = Path(__file__).resolve().parent.parent
+STATIC = RAIZ / "static"
 TELAS = ["urna", "telao", "celular", "mesario", "auditoria", "monitor", "."]
 ESTADOS = ["AGUARDANDO", "ABERTA", "ENCERRADA", "REVELADA"]
 
 # chaves montadas em tempo de execução (t(`estado.${...}`) etc.)
+# todo evento registrado precisa de nome na tela de registro; a chamada pode escolher
+# entre dois tipos, como registrar_evento("celular_ligado" if ativo else "celular_desligado")
+FONTE_MAIN = (RAIZ / "app" / "main.py").read_text(encoding="utf-8")
+TIPOS_DE_EVENTO = sorted(
+    set(re.findall(r'registrar_evento\(\s*"(\w+)"', FONTE_MAIN))
+    | set(re.findall(r'registrar_evento\(\s*"\w+" if [^,]+ else "(\w+)"', FONTE_MAIN))
+)
+
 DINAMICAS = (
     [f"estado.{e}" for e in ESTADOS]
     + [f"telao.legenda.{e}" for e in ESTADOS if e != "REVELADA"]
@@ -22,6 +31,7 @@ DINAMICAS = (
         "celular_desligado")]
     + [f"mesario.motivo.{m}" for m in
        ("sessao_encerrada", "sessao_nao_aberta", "sessao_inexistente", "opcao_invalida", "urna_de_teste")]
+    + [f"registro.{tipo}" for tipo in TIPOS_DE_EVENTO]
 )
 
 def textos():

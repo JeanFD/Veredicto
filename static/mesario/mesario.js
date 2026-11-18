@@ -28,7 +28,7 @@ function vazio(texto) {
 
 // ---------- Abas ----------
 // a aba aberta fica no endereço (#urnas): recarregar ou voltar mantém o lugar
-const ABAS = ["sessoes", "nova", "urnas", "cartoes", "telao", "contas"];
+const ABAS = ["sessoes", "nova", "urnas", "cartoes", "telao", "contas", "registro"];
 
 // clicar numa aba empilha o endereço, então o voltar do navegador desfaz a troca;
 // a volta chega aqui pelo hashchange
@@ -41,7 +41,10 @@ function mostrarAba(nome, empilhar = false) {
   history[empilhar && mudou ? "pushState" : "replaceState"](null, "", endereco);
 }
 
-for (const b of document.querySelectorAll("[data-aba]")) b.onclick = () => mostrarAba(b.dataset.aba, true);
+for (const b of document.querySelectorAll("[data-aba]")) b.onclick = () => {
+  mostrarAba(b.dataset.aba, true);
+  if (b.dataset.aba === "registro") carregarRegistro();
+};
 mostrarAba(location.hash.slice(1));
 addEventListener("hashchange", () => mostrarAba(location.hash.slice(1)));
 
@@ -752,6 +755,42 @@ function linhaPedido(p) {
   linha.append(codigo, id, nome, rotulado(reserva, t("mesario.reserva")), rotulado(teste, t("mesario.urna_teste")),
     comPeso, aprovar, recusar);
   return linha;
+}
+
+// ---------- Registro ----------
+// A auditoria interna inteira: sessões, urnas, cartões e contas, com quem fez cada
+// coisa. O 'por' é posto pelo servidor em cada evento; o resto do detalhe vira texto.
+function celulaRegistro(texto, classe) {
+  const td = document.createElement("td");
+  td.textContent = texto;
+  if (classe) td.className = classe;
+  return td;
+}
+
+function campos(detalhe) {
+  return Object.fromEntries(detalhe.split(" ").filter((p) => p.includes("=")).map((p) => p.split(/=(.*)/)));
+}
+
+async function carregarRegistro() {
+  let eventos;
+  try {
+    eventos = await api("GET", "/api/admin/eventos");
+  } catch (e) {
+    return alert(e.message);
+  }
+  const linhas = eventos.reverse().map((e) => {
+    const { por, ...resto } = campos(e.detalhe);
+    const linha = document.createElement("tr");
+    linha.append(
+      celulaRegistro(new Date(e.em).toLocaleString(document.documentElement.lang), "quando"),
+      celulaRegistro(t(`registro.${e.tipo}`)),
+      celulaRegistro(Object.entries(resto).map(([c, v]) => `${c}: ${v}`).join(" · "), "detalhe"),
+      celulaRegistro(por ?? "—", "quem"),
+    );
+    return linha;
+  });
+  $("lista-registro").replaceChildren(...linhas);
+  if (!linhas.length) $("lista-registro").appendChild(vazio(t("registro.sem_eventos")));
 }
 
 // ---------- Contas ----------

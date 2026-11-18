@@ -87,7 +87,8 @@ async function mostrar() {
   $("urnas").replaceChildren(...a.por_urna.map((u) =>
     linha(celula(u.urna), celula(u.votos, "num"), celula(u.peso, "num"), celula(u.pontos, "num"),
       celula(hora(u.primeiro_voto)), celula(hora(u.ultimo_voto)))));
-  $("eventos").replaceChildren(...a.eventos.map((e) => linha(celula(hora(e.em)), celula(e.evento))));
+  $("eventos").replaceChildren(...a.eventos.map(
+    (e) => linha(celula(hora(e.em)), celula(e.evento), celula(e.por || "—", "quem"))));
   $("detalhe").hidden = false;
 }
 

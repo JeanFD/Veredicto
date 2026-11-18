@@ -42,3 +42,10 @@ def test_telao_aberto_depois_da_revelacao_mostra_resultado(page: Page, admin, se
     page.goto("/telao/")
     expect(page.locator("#resultado")).to_be_visible()
     expect(page.locator("#regressiva")).to_be_hidden()
+
+def test_auditoria_publica_mostra_quem_conduziu(page: Page, admin, sessao_aberta):
+    admin.avancar(sessao_aberta)
+    admin.avancar(sessao_aberta)
+    page.goto(f"/auditoria/#{sessao_aberta}")
+    expect(page.locator("#eventos tr").first).to_contain_text("Sessão ativada")
+    expect(page.locator("#eventos td.quem").first).to_have_text("admin")
