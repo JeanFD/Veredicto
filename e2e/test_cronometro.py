@@ -50,3 +50,27 @@ def test_telao_recarregado_continua_a_contagem(painel: Page):  # noqa: F811
     expect(telao.locator("#cronometro-tempo")).to_have_text(re.compile(r"^(20:00|19:5\d)$"))
     painel.get_by_role("button", name="Tirar do telão").click()
     telao.close()
+
+def test_etapas_do_juri_em_um_clique(painel: Page):  # noqa: F811
+    telao = painel.context.new_page()
+    telao.goto("/telao/")
+    painel.get_by_role("tab", name="Telão").click()
+    painel.get_by_role("button", name="Debates e tréplicas · 20 min").click()
+
+    expect(telao.locator("#cronometro-titulo")).to_have_text("Debates e tréplicas")
+    expect(telao.locator("#cronometro-tempo")).to_have_text(re.compile(r"^(20:00|19:5\d)$"))
+    # os campos acompanham o que foi iniciado
+    expect(painel.locator("#crono-titulo")).to_have_value("Debates e tréplicas")
+    expect(painel.locator("#crono-minutos")).to_have_value("20")
+
+    # trocar uma contagem em andamento pede confirmação (o painel aceita os diálogos,
+    # então aqui o confirm é trocado na mão para recusar)
+    painel.evaluate("window.confirm = () => false")
+    painel.get_by_role("button", name="Leitura da denúncia · 5 min").click()
+    expect(telao.locator("#cronometro-titulo")).to_have_text("Debates e tréplicas")
+    painel.evaluate("window.confirm = () => true")
+    painel.get_by_role("button", name="Leitura da denúncia · 5 min").click()
+    expect(telao.locator("#cronometro-titulo")).to_have_text("Leitura da denúncia")
+
+    painel.get_by_role("button", name="Tirar do telão").click()
+    telao.close()
