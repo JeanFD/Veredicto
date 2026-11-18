@@ -1022,6 +1022,28 @@ async function comandarCronometro(metodo, caminho, corpo) {
   }
 }
 
+// As quatro etapas do roteiro do júri, prontas num clique; o resto das falas continua
+// sendo título e minutos digitados.
+const ETAPAS = [
+  { titulo: "mesario.etapa.denuncia", minutos: 5 },
+  { titulo: "mesario.etapa.pericia", minutos: 20 },
+  { titulo: "mesario.etapa.debates", minutos: 20 },
+  { titulo: "mesario.etapa.votacao", minutos: 10 },
+];
+
+function iniciarEtapa(titulo, minutos) {
+  // trocar uma contagem em andamento por engano custa caro no meio da sessão
+  if (cronometro.visivel && cronometro.rodando
+      && !confirm(t("mesario.confirmar_trocar_cronometro", { titulo }))) return;
+  $("crono-titulo").value = titulo;
+  $("crono-minutos").value = minutos;
+  comandarCronometro("POST", "", { titulo, minutos });
+}
+
+$("etapas").replaceChildren(...ETAPAS.map(({ titulo, minutos }) => criarBotao(
+  t("mesario.etapa_botao", { nome: t(titulo), n: minutos }),
+  () => iniciarEtapa(t(titulo), minutos))));
+
 $("form-cronometro").onsubmit = (e) => {
   e.preventDefault();
   comandarCronometro("POST", "", { titulo: $("crono-titulo").value, minutos: Number($("crono-minutos").value) });

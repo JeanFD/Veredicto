@@ -105,6 +105,9 @@
     #ocultar-cartao { margin-bottom: 1rem; }
     #form-cartao textarea { width: 100%; font: inherit; padding: 0.6rem 0.7rem; border: 1px solid var(--borda);
                             border-radius: 8px; resize: vertical; }
+    .rotulo-etapas { margin: 0.9rem 0 0.4rem; font-size: 0.8rem; font-weight: 600;
+                     text-transform: uppercase; letter-spacing: 0.06em; }
+    .etapas { margin-bottom: 1rem; }
     .cronometro .agora { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: baseline; margin: 0.9rem 0 0.6rem; }
     .cronometro .agora strong { font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
     .cronometro .agora.esgotado strong { color: var(--perigo); }
@@ -360,6 +363,8 @@
         <div class="cartao cronometro">
           <h2 data-i18n="mesario.cronometro">Cronômetro das falas</h2>
           <p class="suave" data-i18n="mesario.cronometro_ajuda">Dê um nome à fala e os minutos: o telão mostra a contagem para a sala. Esgotado o tempo, ele fica vermelho e conta quanto passou.</p>
+          <p class="suave rotulo-etapas" data-i18n="mesario.etapas">Etapas do júri</p>
+          <div id="etapas" class="linha-form etapas"></div>
           <form id="form-cronometro" class="linha-form">
             <input id="crono-titulo" required maxlength="60" placeholder="ex: Tréplica — Defesa"
                    data-i18n-placeholder="mesario.crono_exemplo">

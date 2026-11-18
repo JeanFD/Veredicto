@@ -360,7 +360,14 @@ const TEXTOS = /* textos:inicio */ {
     "registro.conta_alterada": "Conta alterada",
     "registro.senha_trocada": "Senha trocada",
     "registro.senha_redefinida": "Senha redefinida",
-    "registro.importacao": "Votos importados de urna isolada"
+    "registro.importacao": "Votos importados de urna isolada",
+    "mesario.etapas": "Etapas do júri",
+    "mesario.etapa_botao": "{nome} · {n} min",
+    "mesario.etapa.denuncia": "Leitura da denúncia",
+    "mesario.etapa.pericia": "Oitiva e perícia",
+    "mesario.etapa.debates": "Debates e tréplicas",
+    "mesario.etapa.votacao": "Votação e sentença",
+    "mesario.confirmar_trocar_cronometro": "Trocar a contagem em andamento por \"{titulo}\"?"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -714,7 +721,14 @@ const TEXTOS = /* textos:inicio */ {
     "registro.conta_alterada": "Account changed",
     "registro.senha_trocada": "Password changed",
     "registro.senha_redefinida": "Password reset",
-    "registro.importacao": "Votes imported from an offline ballot box"
+    "registro.importacao": "Votes imported from an offline ballot box",
+    "mesario.etapas": "Trial stages",
+    "mesario.etapa_botao": "{nome} · {n} min",
+    "mesario.etapa.denuncia": "Reading of the charges",
+    "mesario.etapa.pericia": "Witnesses and experts",
+    "mesario.etapa.debates": "Closing arguments",
+    "mesario.etapa.votacao": "Voting and sentence",
+    "mesario.confirmar_trocar_cronometro": "Replace the running timer with \"{titulo}\"?"
   }
 } /* textos:fim */;
 
