@@ -71,6 +71,10 @@
               border-top: 1px solid var(--borda); }
     .pedido .codigo { font: 700 1.5rem/1 ui-monospace, monospace; letter-spacing: 0.15em; min-width: 5.5ch; }
     .pedido input[type=text] { width: 9rem; }
+    #lista-cartoes h2 { font-size: 1.1rem; margin: 0 0 0.6rem; }
+    #ocultar-cartao { margin-bottom: 1rem; }
+    #form-cartao textarea { width: 100%; font: inherit; padding: 0.6rem 0.7rem; border: 1px solid var(--borda);
+                            border-radius: 8px; resize: vertical; }
     .cronometro .agora { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: baseline; margin: 0.9rem 0 0.6rem; }
     .cronometro .agora strong { font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
     .cronometro .agora.esgotado strong { color: var(--perigo); }
@@ -147,6 +151,7 @@
         <button type="button" role="tab" data-aba="sessoes" data-i18n="mesario.aba.sessoes">Sessões</button>
         <button type="button" role="tab" data-aba="nova" data-i18n="mesario.aba.nova">Nova sessão</button>
         <button type="button" role="tab" data-aba="urnas" data-i18n="mesario.aba.urnas">Urnas</button>
+        <button type="button" role="tab" data-aba="cartoes" data-i18n="mesario.aba.cartoes">Cartões</button>
         <button type="button" role="tab" data-aba="telao" data-i18n="mesario.aba.telao">Telão e links</button>
         <button type="button" role="tab" data-aba="contas" data-i18n="mesario.aba.contas">Contas</button>
       </div>
@@ -263,6 +268,37 @@
             <button class="principal" data-i18n="mesario.trocar_senha">Trocar senha</button>
           </form>
         </div>
+      </section>
+
+      <section data-painel="cartoes" role="tabpanel" hidden>
+        <div class="cabeca-secao">
+          <h2 data-i18n="mesario.cartoes">Cartões do telão</h2>
+          <small data-i18n="mesario.cartoes_ajuda">Pano de fundo do caso, notícias e laudos preparados antes. Exibir manda para o telão; o cronômetro continua à vista.</small>
+        </div>
+        <button type="button" id="ocultar-cartao" class="perigo" hidden data-i18n="mesario.tirar_cartao">Tirar cartão do telão</button>
+        <div id="lista-cartoes"></div>
+        <form id="form-cartao" class="cartao">
+          <h2 id="form-cartao-titulo" data-i18n="mesario.novo_cartao">Novo cartão</h2>
+          <div class="linha-form">
+            <input id="cartao-link" type="url" placeholder="cole o link de uma notícia"
+                   data-i18n-placeholder="mesario.cartao_link">
+            <button type="button" id="trazer-link" data-i18n="mesario.trazer_link">Trazer de um link</button>
+          </div>
+          <label class="campo"><span data-i18n="mesario.cartao_pasta">Pasta do caso</span>
+            <input id="cartao-pasta" list="pastas" required maxlength="60" placeholder="ex: Soberania digital"
+                   data-i18n-placeholder="mesario.pasta_exemplo">
+            <datalist id="pastas"></datalist></label>
+          <label class="campo"><span data-i18n="mesario.cartao_titulo">Título</span>
+            <input id="cartao-titulo" required maxlength="120"></label>
+          <label class="campo"><span data-i18n="mesario.cartao_texto">Texto</span>
+            <textarea id="cartao-texto" required rows="8" maxlength="4000"
+                      placeholder="Um parágrafo por linha em branco. Comece a linha com - para virar tópico."
+                      data-i18n-placeholder="mesario.cartao_texto_ajuda"></textarea></label>
+          <div class="linha-form">
+            <button class="principal" data-i18n="mesario.salvar_cartao">Salvar cartão</button>
+            <button type="button" id="cancelar-cartao" hidden data-i18n="mesario.cancelar_edicao">Cancelar edição</button>
+          </div>
+        </form>
       </section>
 
       <section data-painel="telao" role="tabpanel" class="links colunas" hidden>

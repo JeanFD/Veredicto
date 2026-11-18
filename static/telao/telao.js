@@ -42,6 +42,47 @@ function atualizarTotal(total) {
   contar(el, total);
 }
 
+// ---------- Cartões ----------
+// Pano de fundo do caso, notícia ou laudo que o mesário manda para a tela. O texto
+// vem em parágrafos separados por linha em branco; linha começada com "- " é tópico.
+function blocosDoTexto(texto) {
+  return texto.split(/\n{2,}/).map((parte) => {
+    const linhas = parte.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!linhas.length) return null;
+    if (linhas.every((l) => l.startsWith("- "))) {
+      const lista = document.createElement("ul");
+      for (const linha of linhas) {
+        const item = document.createElement("li");
+        item.textContent = linha.slice(2);
+        lista.appendChild(item);
+      }
+      return lista;
+    }
+    const paragrafo = document.createElement("p");
+    paragrafo.textContent = linhas.join(" ");
+    return paragrafo;
+  }).filter(Boolean);
+}
+
+function dominio(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function mostrarCartao(cartao) {
+  document.body.classList.toggle("com-cartao", Boolean(cartao));
+  $("cartao").hidden = !cartao;
+  if (!cartao) return;
+  $("cartao-titulo").textContent = cartao.titulo;
+  $("cartao-texto").replaceChildren(...blocosDoTexto(cartao.texto));
+  $("cartao").classList.toggle("longo", cartao.texto.length > 1200);
+  $("cartao-fonte").hidden = !cartao.fonte;
+  $("cartao-fonte").textContent = cartao.fonte ? t("telao.fonte", { fonte: dominio(cartao.fonte) }) : "";
+}
+
 // ---------- Cronômetro das falas ----------
 // O servidor manda quanto falta e reenvia a cada poucos segundos; entre uma mensagem
 // e outra a tela conta sozinha. Zerado o tempo, o relógio vira vermelho e passa a
@@ -226,6 +267,7 @@ function conectar() {
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (m.cronometro) mostrarCronometro(m.cronometro);
+    if (m.tipo === "cartao" || m.tipo === "snapshot") mostrarCartao(m.cartao);
     if (m.tipo === "snapshot" || m.tipo === "estado") mostrarEstado(m, m.tipo === "estado");
     if (m.tipo === "total" && sessaoAtual && m.sessao_id === sessaoAtual.id) {
       atualizarTotal(m.total);

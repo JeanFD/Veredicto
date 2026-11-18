@@ -33,6 +33,18 @@
                background: #fff; color: #0b1424; text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); }
     #celular p { margin: 0.5rem 0 0; font-size: 1.5rem; font-weight: bold; }
     #qr img, #qr canvas { display: block; }
+    #cartao { width: 86%; max-height: 74vh; overflow: hidden; text-align: left; }
+    #cartao h2 { font-size: 3rem; margin: 0 0 1.5rem; text-align: center; letter-spacing: -0.01em; }
+    #cartao-texto { font-size: 2rem; line-height: 1.45; }
+    #cartao.longo h2 { font-size: 2.4rem; margin-bottom: 1rem; }
+    #cartao.longo #cartao-texto { font-size: 1.5rem; line-height: 1.4; }
+    #cartao-texto p { margin: 0 0 1rem; }
+    #cartao-texto ul { margin: 0 0 1rem; padding-left: 1.5rem; }
+    #cartao-texto li { margin-bottom: 0.5rem; }
+    #cartao-fonte { margin: 1rem 0 0; font-size: 1.1rem; opacity: 0.6; text-align: right; }
+    /* com um cartão na tela, a votação sai da frente; o cronômetro continua à vista */
+    body.com-cartao #pergunta, body.com-cartao #tema,
+    body.com-cartao #contagem, body.com-cartao #resultado { display: none !important; }
     #cronometro { position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%); padding: 0.6rem 1.8rem;
                   border-radius: 1rem; background: rgba(15, 23, 42, 0.55); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
     #faixa-teste:not([hidden]) ~ #cronometro { top: 3.75rem; }
@@ -73,6 +85,11 @@
     <p id="legenda" data-i18n="telao.legenda.ABERTA">votos registrados</p>
   </section>
   <section id="resultado" hidden></section>
+  <section id="cartao" hidden>
+    <h2 id="cartao-titulo"></h2>
+    <div id="cartao-texto"></div>
+    <p id="cartao-fonte" hidden></p>
+  </section>
   <aside id="celular" hidden>
     <div id="qr"></div>
     <p data-i18n="telao.vote_celular">Vote pelo celular</p>

@@ -28,7 +28,7 @@ function vazio(texto) {
 
 // ---------- Abas ----------
 // a aba aberta fica no endereço (#urnas): recarregar ou voltar mantém o lugar
-const ABAS = ["sessoes", "nova", "urnas", "telao", "contas"];
+const ABAS = ["sessoes", "nova", "urnas", "cartoes", "telao", "contas"];
 
 function mostrarAba(nome) {
   if (!ABAS.includes(nome)) nome = ABAS[0];
@@ -354,6 +354,7 @@ function conectarWs() {
     if (m.tipo === "urnas" && window.mostrarUrnas) window.mostrarUrnas(m.urnas);
     if (m.tipo === "pedidos") mostrarPedidos(m.pedidos);
     if (m.cronometro) mostrarCronometro(m.cronometro);
+    if (m.tipo === "cartao") carregarCartoes();
   };
   ws.onclose = (e) => {
     if (e.code === 4401) return sair();
@@ -381,6 +382,7 @@ function iniciar() {
   // a grade chega pelo WebSocket a cada 5s; busca já para não abrir vazia
   api("GET", "/api/admin/urnas").then((u) => window.mostrarUrnas(u), () => {});
   api("GET", "/api/admin/pedidos").then(mostrarPedidos, () => {});
+  carregarCartoes().catch(() => {});
   if (conta.papel === "admin") carregarContas();
   conectarWs();
 }
@@ -643,6 +645,119 @@ $("minha-senha").onsubmit = async (e) => {
     alert(t("mesario.senha_trocada"));
   } catch (err) {
     alert(err.message);
+  }
+};
+
+// ---------- Cartões do telão ----------
+let editando = null;
+
+async function carregarCartoes() {
+  mostrarCartoes(await api("GET", "/api/admin/cartoes"));
+}
+
+function mostrarCartoes(cartoes) {
+  const pastas = [...new Set(cartoes.map((c) => c.pasta))];
+  $("pastas").replaceChildren(...pastas.map((p) => new Option(p)));
+  $("ocultar-cartao").hidden = !cartoes.some((c) => c.no_telao);
+  const lista = $("lista-cartoes");
+  lista.innerHTML = "";
+  if (!cartoes.length) return lista.appendChild(vazio(t("mesario.sem_cartoes")));
+  for (const pasta of pastas) {
+    const bloco = document.createElement("div");
+    bloco.className = "cartao";
+    const nome = document.createElement("h2");
+    nome.textContent = pasta;
+    bloco.appendChild(nome);
+    for (const c of cartoes.filter((x) => x.pasta === pasta)) bloco.appendChild(linhaCartao(c));
+    lista.appendChild(bloco);
+  }
+}
+
+function linhaCartao(c) {
+  const linha = document.createElement("div");
+  linha.className = "sessao" + (c.no_telao ? " ativa" : "");
+  const titulo = document.createElement("div");
+  titulo.className = "titulo";
+  titulo.textContent = c.titulo;
+  if (c.no_telao) {
+    const selo = document.createElement("span");
+    selo.className = "selo celular";
+    selo.textContent = t("mesario.no_telao");
+    titulo.appendChild(selo);
+  }
+  linha.append(
+    titulo,
+    criarBotao(t("mesario.exibir"), () => comandarCartao("POST", `/${c.id}/exibir`), "principal"),
+    criarBotao(t("mesario.editar_cartao"), () => editarCartao(c)),
+    criarBotao(t("mesario.apagar"), () => {
+      if (confirm(t("mesario.confirmar_apagar_cartao", { titulo: c.titulo }))) comandarCartao("DELETE", `/${c.id}`);
+    }, "perigo"),
+  );
+  return linha;
+}
+
+async function comandarCartao(metodo, caminho, corpo) {
+  try {
+    await api(metodo, `/api/admin/cartoes${caminho}`, corpo);
+    await carregarCartoes();
+    return true;
+  } catch (e) {
+    alert(e.message);
+    return false;
+  }
+}
+
+function editarCartao(c) {
+  editando = c.id;
+  $("form-cartao-titulo").textContent = t("mesario.editando_cartao");
+  $("cancelar-cartao").hidden = false;
+  $("cartao-pasta").value = c.pasta;
+  $("cartao-titulo").value = c.titulo;
+  $("cartao-texto").value = c.texto;
+  $("cartao-link").value = c.fonte;
+  $("cartao-pasta").scrollIntoView({ block: "center" });
+}
+
+function limparFormCartao() {
+  editando = null;
+  $("form-cartao").reset();
+  $("form-cartao-titulo").textContent = t("mesario.novo_cartao");
+  $("cancelar-cartao").hidden = true;
+}
+
+$("cancelar-cartao").onclick = limparFormCartao;
+$("ocultar-cartao").onclick = () => comandarCartao("POST", "/ocultar");
+
+$("form-cartao").onsubmit = async (e) => {
+  e.preventDefault();
+  const dados = {
+    pasta: $("cartao-pasta").value,
+    titulo: $("cartao-titulo").value,
+    texto: $("cartao-texto").value,
+    fonte: $("cartao-link").value,
+  };
+  const salvo = editando
+    ? await comandarCartao("PATCH", `/${editando}`, dados)
+    : await comandarCartao("POST", "", dados);
+  if (salvo) limparFormCartao();
+};
+
+// o texto vem do servidor, que baixa a página: o mesário confere e corrige antes de salvar
+$("trazer-link").onclick = async () => {
+  const url = $("cartao-link").value.trim();
+  if (!url) return;
+  const botao = $("trazer-link");
+  botao.disabled = true;
+  botao.textContent = t("mesario.buscando");
+  try {
+    const noticia = await api("POST", "/api/admin/cartoes/importar", { url });
+    $("cartao-titulo").value = noticia.titulo;
+    $("cartao-texto").value = noticia.texto;
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    botao.disabled = false;
+    botao.textContent = t("mesario.trazer_link");
   }
 };
 
