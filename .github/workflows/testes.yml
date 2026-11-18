@@ -37,12 +37,10 @@ jobs:
       options: --user 1001
     steps:
       - uses: actions/checkout@v4
-      # sem cache: pip, que dentro do container exige lsb_release
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -r requirements-e2e.txt
-      - run: python -m pytest e2e -v --tracing retain-on-failure
+      # o Python é o do container: o setup-python baixa um binário ligado a outro
+      # OpenSSL que não é o da imagem, e aí "import ssl" quebra
+      - run: python3 -m pip install -r requirements-e2e.txt
+      - run: python3 -m pytest e2e -v --tracing retain-on-failure
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
