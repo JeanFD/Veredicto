@@ -353,6 +353,7 @@ function conectarWs() {
     if (m.tipo === "total") $("total").textContent = m.total;
     if (m.tipo === "urnas" && window.mostrarUrnas) window.mostrarUrnas(m.urnas);
     if (m.tipo === "pedidos") mostrarPedidos(m.pedidos);
+    if (m.cronometro) mostrarCronometro(m.cronometro);
   };
   ws.onclose = (e) => {
     if (e.code === 4401) return sair();
@@ -644,6 +645,47 @@ $("minha-senha").onsubmit = async (e) => {
     alert(err.message);
   }
 };
+
+// ---------- Cronômetro das falas ----------
+// mesma contagem local do telão: o servidor manda quanto falta, a tela tica sozinha
+let cronometro = { visivel: false };
+let tiqueCronometro = null;
+
+function mostrarCronometro(c) {
+  cronometro = { ...c, recebido: performance.now() };
+  $("crono-ativo").hidden = !c.visivel;
+  $("crono-nome").textContent = c.titulo;
+  $("crono-pausar").textContent = t(c.rodando ? "mesario.pausar" : "mesario.retomar");
+  desenharCronometro();
+  clearInterval(tiqueCronometro);
+  if (c.visivel && c.rodando) tiqueCronometro = setInterval(desenharCronometro, 250);
+}
+
+function desenharCronometro() {
+  const c = cronometro;
+  if (!c.visivel) return;
+  const restante = c.rodando ? c.restante - (performance.now() - c.recebido) / 1000 : c.restante;
+  const s = restante >= 0 ? Math.ceil(restante) : Math.floor(-restante);
+  $("crono-tempo").textContent = `${restante < 0 ? "+" : ""}${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  $("crono-tempo").parentElement.classList.toggle("esgotado", restante < 0);
+}
+
+async function comandarCronometro(metodo, caminho, corpo) {
+  try {
+    mostrarCronometro(await api(metodo, `/api/admin/cronometro${caminho}`, corpo));
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+$("form-cronometro").onsubmit = (e) => {
+  e.preventDefault();
+  comandarCronometro("POST", "", { titulo: $("crono-titulo").value, minutos: Number($("crono-minutos").value) });
+};
+$("crono-pausar").onclick = () => comandarCronometro("POST", cronometro.rodando ? "/pausar" : "/retomar");
+$("crono-mais").onclick = () => comandarCronometro("POST", "/ajustar", { segundos: 60 });
+$("crono-menos").onclick = () => comandarCronometro("POST", "/ajustar", { segundos: -60 });
+$("crono-encerrar").onclick = () => comandarCronometro("DELETE", "");
 
 // ---------- Telão ----------
 $("abrir-telao").onclick = async () => {

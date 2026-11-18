@@ -42,6 +42,57 @@ function atualizarTotal(total) {
   contar(el, total);
 }
 
+// ---------- Cronômetro das falas ----------
+// O servidor manda quanto falta e reenvia a cada poucos segundos; entre uma mensagem
+// e outra a tela conta sozinha. Zerado o tempo, o relógio vira vermelho e passa a
+// mostrar quanto já passou, com um apito na virada.
+let cronometro = { visivel: false };
+let tiqueCronometro = null;
+let apitou = false;
+
+function formatarTempo(restante) {
+  const s = restante >= 0 ? Math.ceil(restante) : Math.floor(-restante);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function apitar() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscilador = ctx.createOscillator();
+    const ganho = ctx.createGain();
+    oscilador.frequency.value = 880;
+    ganho.gain.setValueAtTime(0.25, ctx.currentTime);
+    ganho.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
+    oscilador.connect(ganho).connect(ctx.destination);
+    oscilador.start();
+    oscilador.stop(ctx.currentTime + 0.7);
+    setTimeout(() => ctx.close(), 1000);
+  } catch {
+    // navegador sem áudio ou sem permissão: o vermelho na tela já avisa
+  }
+}
+
+function mostrarCronometro(c) {
+  cronometro = { ...c, recebido: performance.now() };
+  desenharCronometro();
+  clearInterval(tiqueCronometro);
+  if (c.visivel && c.rodando) tiqueCronometro = setInterval(desenharCronometro, 200);
+}
+
+function desenharCronometro() {
+  const c = cronometro;
+  $("cronometro").hidden = !c.visivel;
+  if (!c.visivel) return;
+  const restante = c.rodando ? c.restante - (performance.now() - c.recebido) / 1000 : c.restante;
+  const esgotado = restante < 0;
+  $("cronometro-titulo").textContent = c.titulo;
+  $("cronometro-tempo").textContent = (esgotado ? "+" : "") + formatarTempo(restante);
+  $("cronometro").classList.toggle("esgotado", esgotado);
+  $("cronometro-esgotado").hidden = !esgotado;
+  if (esgotado && !apitou) apitar();
+  apitou = esgotado;
+}
+
 // ---------- Estado ----------
 function mostrarEstado(m, aoVivo) {
   // só a transição ENCERRADA → REVELADA da mesma sessão tem contagem regressiva
@@ -174,6 +225,7 @@ function conectar() {
   const ws = new WebSocket(`${proto}://${location.host}/ws/telao`);
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
+    if (m.cronometro) mostrarCronometro(m.cronometro);
     if (m.tipo === "snapshot" || m.tipo === "estado") mostrarEstado(m, m.tipo === "estado");
     if (m.tipo === "total" && sessaoAtual && m.sessao_id === sessaoAtual.id) {
       atualizarTotal(m.total);

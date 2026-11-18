@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
+from app import cronometro
 from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets, responsavel
 from app.ws import gerente
 from app.config import EM_PRODUCAO
@@ -42,7 +43,15 @@ async def lifespan(app: FastAPI):
             await gerente.entregar({"tipo": "pedidos", "pedidos": pedidos_pendentes()}, ["mesario"])
             await asyncio.sleep(5)
 
-    tarefas = [asyncio.create_task(vigiar_urnas())]
+    async def vigiar_cronometro():
+        # as telas contam sozinhas entre as mensagens; este reenvio corrige a diferença
+        # e deixa certo o relógio de quem acabou de abrir ou recarregar a página
+        while True:
+            if cronometro.ler()["rodando"]:
+                await gerente.broadcast(mensagem_cronometro(), "telao", "mesario")
+            await asyncio.sleep(5)
+
+    tarefas = [asyncio.create_task(vigiar_urnas()), asyncio.create_task(vigiar_cronometro())]
     if gerente.redis:
         tarefas.append(asyncio.create_task(gerente.escutar()))
     yield
@@ -93,6 +102,14 @@ class NovaUrna(BaseModel):
     reserva: bool = False
     teste: bool = False
     peso: int = Field(1, ge=1, le=10)
+
+class NovoCronometro(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    titulo: str = Field(min_length=1, max_length=60)
+    minutos: float = Field(gt=0, le=180)
+
+class AjusteCronometro(BaseModel):
+    segundos: int = Field(ge=-600, le=600)
 
 class Peso(BaseModel):
     peso: int = Field(ge=1, le=10)
@@ -240,9 +257,13 @@ async def gravar_voto(voto: Voto, urna_id: str, sem_prazo: bool) -> bool:
         )
     return bool(cur.rowcount)
 
+def mensagem_cronometro() -> dict:
+    return {"tipo": "cronometro", "cronometro": cronometro.ler()}
+
 def estado_publico(tipo: str = "estado") -> dict:
     s=buscar_sessao_ativa()
-    msg = {"tipo": tipo, "sessao": s, "total": total_votos(s["id"]) if s else 0}
+    msg = {"tipo": tipo, "sessao": s, "total": total_votos(s["id"]) if s else 0,
+           "cronometro": cronometro.ler()}
     if s and s["estado"] == "REVELADA":
         msg["resultado"] = contar_por_opcao(s["id"])
     return msg
@@ -784,6 +805,32 @@ async def redefinir_senha(usuario: str, dados: SenhaRedefinida):
     trocar_senha(usuario, dados.nova)
     registrar_evento("senha_redefinida", f"conta={usuario}")
     return {"ok": True}
+
+# ---------- Cronômetro do telão ----------
+# ver app/cronometro.py: o mesário dá o título e os minutos da fala, e o telão mostra
+async def avisar_cronometro(estado: dict) -> dict:
+    await gerente.broadcast({"tipo": "cronometro", "cronometro": estado}, "telao", "mesario")
+    return estado
+
+@app.post("/api/admin/cronometro", dependencies=[Depends(exigir_mesario)])
+async def iniciar_cronometro(c: NovoCronometro):
+    return await avisar_cronometro(cronometro.iniciar(c.titulo, c.minutos))
+
+@app.post("/api/admin/cronometro/pausar", dependencies=[Depends(exigir_mesario)])
+async def pausar_cronometro():
+    return await avisar_cronometro(cronometro.pausar())
+
+@app.post("/api/admin/cronometro/retomar", dependencies=[Depends(exigir_mesario)])
+async def retomar_cronometro():
+    return await avisar_cronometro(cronometro.retomar())
+
+@app.post("/api/admin/cronometro/ajustar", dependencies=[Depends(exigir_mesario)])
+async def ajustar_cronometro(a: AjusteCronometro):
+    return await avisar_cronometro(cronometro.ajustar(a.segundos))
+
+@app.delete("/api/admin/cronometro", dependencies=[Depends(exigir_mesario)])
+async def encerrar_cronometro():
+    return await avisar_cronometro(cronometro.encerrar())
 
 @app.post("/api/urnas/heartbeat")
 async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
