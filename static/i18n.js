@@ -274,7 +274,18 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.peso_marca": " · peso {n}",
     "mesario.mudar_peso": "Mudar peso (atual: {n})",
     "mesario.pedir_peso": "Peso dos votos da urna {id} (1 a 10):",
-    "mesario.peso_invalido": "O peso precisa ser um número inteiro de 1 a 10."
+    "mesario.peso_invalido": "O peso precisa ser um número inteiro de 1 a 10.",
+    "telao.tempo_esgotado": "tempo esgotado",
+    "mesario.cronometro": "Cronômetro das falas",
+    "mesario.cronometro_ajuda": "Dê um nome à fala e os minutos: o telão mostra a contagem para a sala. Esgotado o tempo, ele fica vermelho e conta quanto passou.",
+    "mesario.crono_exemplo": "ex: Tréplica — Defesa",
+    "mesario.minutos": "Minutos",
+    "mesario.iniciar": "Iniciar",
+    "mesario.pausar": "Pausar",
+    "mesario.retomar": "Retomar",
+    "mesario.mais_minuto": "+1 min",
+    "mesario.menos_minuto": "−1 min",
+    "mesario.encerrar_cronometro": "Tirar do telão"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -542,7 +553,18 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.peso_marca": " · weight {n}",
     "mesario.mudar_peso": "Change weight (now: {n})",
     "mesario.pedir_peso": "Vote weight for ballot box {id} (1 to 10):",
-    "mesario.peso_invalido": "The weight must be a whole number from 1 to 10."
+    "mesario.peso_invalido": "The weight must be a whole number from 1 to 10.",
+    "telao.tempo_esgotado": "time is up",
+    "mesario.cronometro": "Speech timer",
+    "mesario.cronometro_ajuda": "Name the speech and give it the minutes: the big screen counts down for the room. When time is up it turns red and counts the overtime.",
+    "mesario.crono_exemplo": "e.g. Rebuttal — Defense",
+    "mesario.minutos": "Minutes",
+    "mesario.iniciar": "Start",
+    "mesario.pausar": "Pause",
+    "mesario.retomar": "Resume",
+    "mesario.mais_minuto": "+1 min",
+    "mesario.menos_minuto": "−1 min",
+    "mesario.encerrar_cronometro": "Remove from screen"
   }
 } /* textos:fim */;
 
