@@ -66,6 +66,8 @@ Com as urnas, o telão e os celulares de verdade, no Wi-Fi do evento.
 - [ ] Instalar a urna como app (PWA) em cada tablet; fechar e abrir de novo sem rede.
 - [ ] Telão aberto pelo botão do mesário; QR do celular legível do fundo da sala.
 - [ ] Sessão de ensaio com "Permitir voto por celular" marcado: votar em todas as urnas e em alguns celulares; total do telão bate com a grade.
+- [ ] Cronômetro: iniciar 2 min e conferir se o relógio é legível do fundo da sala; deixar estourar e ver o vermelho com a contagem do excesso.
+- [ ] Cartões: exibir o pano de fundo do caso no telão, conferir a leitura do fundo da sala e tirar da tela.
 - [ ] Pesos: urna da turma com peso 3 e as demais com peso 1; conferir no telão e na auditoria os pontos (votos × peso) e o número de votos de cada opção.
 - [ ] Desligar o voto por celular na barra da sessão ativa: o QR some do telão e o celular avisa para votar na urna.
 - [ ] Tirar o Wi-Fi de uma urna, votar 3 vezes, devolver o Wi-Fi: os 3 votos chegam e a fila zera.

@@ -25,6 +25,7 @@ def cliente():
         db.execute("DELETE FROM eventos")
         db.execute("DELETE FROM urnas")
         db.execute("DELETE FROM pedidos_urna")
+        db.execute("DELETE FROM cartoes")
         db.execute("UPDATE cronometro SET titulo = '', restante = 0, fim_em = 0, rodando = 0, visivel = 0")
         db.execute("DELETE FROM logins")
         db.execute("DELETE FROM contas WHERE usuario != 'admin'")
