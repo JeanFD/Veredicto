@@ -142,6 +142,8 @@ function mostrarEstado(m, aoVivo) {
   sessaoAtual = m.sessao;
   $("faixa-teste").hidden = !m.sessao?.teste;
   $("tema").textContent = m.sessao ? m.sessao.tema : t("telao.aguardando");
+  $("caso").hidden = !m.sessao?.caso;
+  $("caso").textContent = m.sessao?.caso ?? "";
   $("pergunta").hidden = !(m.sessao?.total_perguntas > 1);
   if (!$("pergunta").hidden) {
     $("pergunta").textContent = t("comum.pergunta_de", { n: m.sessao.pergunta, total: m.sessao.total_perguntas });
@@ -192,15 +194,21 @@ function regressiva(depois) {
 function mostrarResultado(opcoes) {
   const soma = opcoes.reduce((s, o) => s + o.pontos, 0) || 1;
   const ponderado = opcoes.some((o) => o.pontos !== o.votos);
+  // empate não tem vencedora: só acende quando uma opção está sozinha na frente
+  const maior = Math.max(...opcoes.map((o) => o.pontos));
+  const vencedora = maior > 0 && opcoes.filter((o) => o.pontos === maior).length === 1
+    ? opcoes.find((o) => o.pontos === maior) : null;
   const area = $("resultado");
   area.innerHTML = "";
   opcoes.forEach((o, i) => {
     const linha = document.createElement("div");
-    linha.className = "barra entrando";
+    linha.className = "barra entrando" + (o === vencedora ? " vencedora" : "");
     linha.style.animationDelay = `${i * 0.15}s`;
     const rotulo = document.createElement("span");
+    rotulo.className = "rotulo";
     rotulo.textContent = o.rotulo;
     const trilho = document.createElement("div");
+    trilho.className = "trilho";
     const barra = document.createElement("div");
     barra.className = "preenchimento";
     barra.style.background = o.cor;
@@ -210,7 +218,10 @@ function mostrarResultado(opcoes) {
     numero.className = "numero";
     const pontos = document.createElement("strong");
     pontos.textContent = 0;
-    numero.appendChild(pontos);
+    const porcento = document.createElement("span");
+    porcento.className = "porcento";
+    porcento.textContent = `${Math.round((o.pontos / soma) * 100)}%`;
+    numero.append(pontos, porcento);
     if (ponderado) {
       const votos = document.createElement("small");
       votos.textContent = t("comum.pontos_e_votos", { n: o.votos });
