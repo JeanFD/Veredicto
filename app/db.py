@@ -3,7 +3,7 @@ import sqlite3
 from contextvars import ContextVar
 from datetime import datetime, timezone
 
-from app.config import DB_PATH, SESSOES_PATH
+from app.config import CARTOES_PATH, DB_PATH, SESSOES_PATH
 from app.migrar import migrar
 from app.observabilidade import campos_do_detalhe, log
 
@@ -41,6 +41,24 @@ def inserir_sessao(tema: str, opcoes: list[dict], grupo_id: int | None = None, p
         )
     return cur.lastrowid
 
+def ler_cartoes() -> list[dict]:
+    """Cartões prontos do júri; sem o arquivo, o painel começa sem nenhum."""
+    try:
+        with open(CARTOES_PATH, encoding="utf-8-sig") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+
+def carregar_cartoes():
+    if db.execute("SELECT 1 FROM cartoes").fetchone():
+        return
+    with db:
+        for c in ler_cartoes():
+            db.execute(
+                "INSERT INTO cartoes (pasta, titulo, texto, fonte, criado_em) VALUES (?, ?, ?, ?, ?)",
+                (c["pasta"], c["titulo"], c["texto"], c.get("fonte", ""), agora()),
+            )
+
 def carregar_sessoes():
     if db.execute("SELECT COUNT(*) FROM sessoes").fetchone()[0] != 0:
         return
@@ -57,3 +75,4 @@ def registrar_evento(tipo: str, detalhe: str = ""):
     log(tipo, **campos_do_detalhe(detalhe))
 
 carregar_sessoes()
+carregar_cartoes()
