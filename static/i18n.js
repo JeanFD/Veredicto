@@ -79,7 +79,6 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.encerrar_votacao": "Encerrar votação",
     "mesario.revelar_resultado": "Revelar resultado",
     "mesario.pergunta_prefixo": "Pergunta {n} de {total} · ",
-    "mesario.liberar_pergunta": "Liberar pergunta {n}",
     "mesario.confirmar_liberar": "Liberar a pergunta {n} de {total}?",
     "mesario.arquivada": "arquivada",
     "mesario.desarquivar": "Desarquivar",
@@ -308,7 +307,17 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.exibir": "Exibir",
     "mesario.editar_cartao": "Editar",
     "mesario.apagar": "Apagar",
-    "mesario.confirmar_apagar_cartao": "Apagar o cartão “{titulo}”?"
+    "mesario.confirmar_apagar_cartao": "Apagar o cartão “{titulo}”?",
+    "mesario.caso": "Caso",
+    "mesario.caso_sessao": "Caso (júri)",
+    "mesario.todos_casos": "Todos os casos",
+    "mesario.sem_caso": "Sem caso",
+    "mesario.sem_sessoes_no_caso": "Nenhuma sessão neste caso.",
+    "mesario.questionario_de": "Questionário · {n} perguntas",
+    "mesario.em_cena": "em cena",
+    "mesario.ativar_pergunta": "Ativar pergunta {n}",
+    "mesario.mover_caso": "Mover para",
+    "mesario.nova_sessao_atalho": "+ Nova sessão"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -381,7 +390,6 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.encerrar_votacao": "Close voting",
     "mesario.revelar_resultado": "Reveal result",
     "mesario.pergunta_prefixo": "Question {n} of {total} · ",
-    "mesario.liberar_pergunta": "Release question {n}",
     "mesario.confirmar_liberar": "Release question {n} of {total}?",
     "mesario.arquivada": "archived",
     "mesario.desarquivar": "Unarchive",
@@ -610,7 +618,17 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.exibir": "Show",
     "mesario.editar_cartao": "Edit",
     "mesario.apagar": "Delete",
-    "mesario.confirmar_apagar_cartao": "Delete the card “{titulo}”?"
+    "mesario.confirmar_apagar_cartao": "Delete the card “{titulo}”?",
+    "mesario.caso": "Case",
+    "mesario.caso_sessao": "Case (trial)",
+    "mesario.todos_casos": "All cases",
+    "mesario.sem_caso": "No case",
+    "mesario.sem_sessoes_no_caso": "No sessions in this case.",
+    "mesario.questionario_de": "Questionnaire · {n} questions",
+    "mesario.em_cena": "on stage",
+    "mesario.ativar_pergunta": "Activate question {n}",
+    "mesario.mover_caso": "Move to",
+    "mesario.nova_sessao_atalho": "+ New session"
   }
 } /* textos:fim */;
 

@@ -30,15 +30,20 @@ function vazio(texto) {
 // a aba aberta fica no endereço (#urnas): recarregar ou voltar mantém o lugar
 const ABAS = ["sessoes", "nova", "urnas", "cartoes", "telao", "contas"];
 
-function mostrarAba(nome) {
+// clicar numa aba empilha o endereço, então o voltar do navegador desfaz a troca;
+// a volta chega aqui pelo hashchange
+function mostrarAba(nome, empilhar = false) {
   if (!ABAS.includes(nome)) nome = ABAS[0];
   for (const b of document.querySelectorAll("[data-aba]")) b.setAttribute("aria-selected", b.dataset.aba === nome);
   for (const p of document.querySelectorAll("[data-painel]")) p.hidden = p.dataset.painel !== nome;
-  history.replaceState(null, "", nome === ABAS[0] ? location.pathname : `#${nome}`);
+  const endereco = nome === ABAS[0] ? location.pathname : `#${nome}`;
+  const mudou = endereco !== (location.hash || location.pathname);
+  history[empilhar && mudou ? "pushState" : "replaceState"](null, "", endereco);
 }
 
-for (const b of document.querySelectorAll("[data-aba]")) b.onclick = () => mostrarAba(b.dataset.aba);
+for (const b of document.querySelectorAll("[data-aba]")) b.onclick = () => mostrarAba(b.dataset.aba, true);
 mostrarAba(location.hash.slice(1));
+addEventListener("hashchange", () => mostrarAba(location.hash.slice(1)));
 
 function criarBotao(texto, aoClicar, classe) {
   const b = document.createElement("button");
@@ -50,27 +55,70 @@ function criarBotao(texto, aoClicar, classe) {
 }
 
 // ---------- Sessões ----------
+// A barra de cima é o palco: a sessão em cena, a trilha dos quatro estados e um
+// único botão, o próximo passo. A lista abaixo serve para escolher quem entra em
+// cena; arquivar, zerar e mover de caso ficam guardados em "Ações".
+const ESTADOS = ["AGUARDANDO", "ABERTA", "ENCERRADA", "REVELADA"];
 const PROXIMO = {
   AGUARDANDO: t("mesario.abrir_votacao"),
   ABERTA: t("mesario.encerrar_votacao"),
   ENCERRADA: t("mesario.revelar_resultado"),
 };
-// revelar é irreversível: vai junto das ações perigosas
+// revelar é irreversível: sai em vermelho
 const PERIGOSO = new Set(["ENCERRADA"]);
 
-function botaoAvancar(s) {
-  const perigoso = PERIGOSO.has(s.estado);
-  return criarBotao(PROXIMO[s.estado], () => avancar(s.id, s.estado), perigoso ? "perigo" : "principal");
-}
+let casoFiltro = "";
+let casosConhecidos = [];
+let sessoesCarregadas = [];
+const sessoesComAcoesAbertas = new Set();
 
 // "Pergunta 2 de 3 · " para perguntas de questionário; vazio para sessão avulsa
 const posicao = (s) => (s.total_perguntas > 1 ? t("mesario.pergunta_prefixo", { n: s.pergunta, total: s.total_perguntas }) : "");
 
+function selo(classe, texto) {
+  const marca = document.createElement("span");
+  marca.className = `selo ${classe}`;
+  marca.textContent = texto;
+  return marca;
+}
+
+// ---------- Barra: o que está em cena ----------
+function botaoProximoPasso(s) {
+  if (PROXIMO[s.estado]) {
+    return criarBotao(PROXIMO[s.estado], () => avancar(s.id, s.estado), PERIGOSO.has(s.estado) ? "perigo" : "principal");
+  }
+  // revelada a pergunta, o próximo passo é a seguinte do mesmo questionário
+  if (s.estado === "REVELADA" && s.proxima_pergunta) {
+    return criarBotao(t("mesario.ativar_pergunta", { n: s.pergunta + 1 }), () => {
+      if (confirm(t("mesario.confirmar_liberar", { n: s.pergunta + 1, total: s.total_perguntas }))) {
+        acao(`/api/admin/sessoes/${s.proxima_pergunta}/ativar`);
+      }
+    }, "principal");
+  }
+  return null;
+}
+
+function mostrarTrilha(sessao) {
+  $("trilha").hidden = !sessao;
+  if (!sessao) return;
+  const atual = ESTADOS.indexOf(sessao.estado);
+  $("trilha").replaceChildren(...ESTADOS.map((estado, i) => {
+    const passo = document.createElement("li");
+    passo.className = i < atual ? "feito" : i === atual ? "agora" : "";
+    passo.textContent = t(`estado.${estado}`);
+    if (i === atual) passo.setAttribute("aria-current", "step");
+    return passo;
+  }));
+}
+
 function mostrarEstado(sessao, total) {
+  // o caso fica na linha de cima, com o rótulo; o tema embaixo, inteiro
+  $("caso-ativo").textContent = sessao?.caso ?? "";
   $("ativa").textContent = sessao ? posicao(sessao) + sessao.tema : t("mesario.nenhuma");
   $("selo-estado").textContent = sessao ? t(`estado.${sessao.estado}`) : "—";
   $("selo-estado").className = "selo " + (sessao ? sessao.estado : "");
   $("selo-teste").hidden = !sessao?.teste;
+  mostrarTrilha(sessao);
   $("chave-celular").hidden = !sessao;
   $("campo-peso-celular").hidden = !sessao?.celular;
   $("peso-celular").value = sessao?.peso_celular ?? 1;
@@ -94,82 +142,161 @@ function mostrarEstado(sessao, total) {
     }
   };
   $("total").textContent = total;
-  $("acoes-estado").innerHTML = "";
-  if (sessao && PROXIMO[sessao.estado]) $("acoes-estado").appendChild(botaoAvancar(sessao));
-  // o mesário libera cada pergunta do questionário depois de revelar a anterior
-  if (sessao?.estado === "REVELADA" && sessao.proxima_pergunta) {
-    $("acoes-estado").appendChild(criarBotao(t("mesario.liberar_pergunta", { n: sessao.pergunta + 1 }), () => {
-      if (confirm(t("mesario.confirmar_liberar", { n: sessao.pergunta + 1, total: sessao.total_perguntas }))) {
-        acao(`/api/admin/sessoes/${sessao.proxima_pergunta}/ativar`);
-      }
-    }, "principal"));
-  }
+  const proximo = sessao && botaoProximoPasso(sessao);
+  $("acoes-estado").replaceChildren(...(proximo ? [proximo] : []));
 }
 
+// ---------- Lista: quem entra em cena ----------
 async function carregarSessoes() {
-  // lista completa: os presets precisam conhecer também os temas arquivados
-  const sessoes = await api("GET", "/api/admin/sessoes?arquivadas=true");
-  const mostrarArquivadas = $("mostrar-arquivadas").checked;
-  const area = $("sessoes");
-  area.innerHTML = "";
-  for (const s of sessoes.filter((s) => mostrarArquivadas || !s.arquivada)) {
-    const linha = document.createElement("div");
-    linha.className = "sessao" + (s.ativa ? " ativa" : "") + (s.arquivada ? " arquivada" : "");
-    const titulo = document.createElement("div");
-    titulo.className = "titulo";
-    const nome = document.createElement("span");
-    nome.textContent = `${posicao(s)}${s.tema}${s.arquivada ? ` · ${t("mesario.arquivada")}` : ""}`;
-    const selo = document.createElement("span");
-    selo.className = `selo ${s.estado}`;
-    selo.textContent = t(`estado.${s.estado}`);
-    titulo.append(nome, selo);
-    if (s.teste) {
-      const marca = document.createElement("span");
-      marca.className = "selo teste";
-      marca.textContent = t("mesario.selo_teste");
-      titulo.append(marca);
-    }
-    if (s.celular) {
-      const marca = document.createElement("span");
-      marca.className = "selo celular";
-      marca.textContent = t("mesario.selo_celular");
-      titulo.append(marca);
-    }
-    linha.appendChild(titulo);
+  mostrarSessoes(await api("GET", "/api/admin/sessoes?arquivadas=true"));
+}
 
-    const perigo = document.createElement("div");
-    perigo.className = "acoes-perigo";
-    if (s.arquivada) {
-      linha.appendChild(criarBotao(t("mesario.desarquivar"), () => acao(`/api/admin/sessoes/${s.id}/desarquivar`)));
-    } else if (!s.ativa && !s.liberada) {
-      const aviso = document.createElement("small");
-      aviso.textContent = t("mesario.aguarda_anterior");
-      linha.appendChild(aviso);
-    } else if (!s.ativa) {
-      linha.appendChild(criarBotao(t("mesario.ativar"), () => acao(`/api/admin/sessoes/${s.id}/ativar`)));
-    }
-    if (!s.arquivada && !s.ativa) {
-      perigo.appendChild(criarBotao(t("mesario.arquivar"), () => {
-        if (confirm(t("mesario.confirmar_arquivar", { tema: s.tema }))) {
-          acao(`/api/admin/sessoes/${s.id}/arquivar`);
-        }
-      }, "perigo"));
-    } else if (s.ativa && PROXIMO[s.estado]) {
-      (PERIGOSO.has(s.estado) ? perigo : linha).appendChild(botaoAvancar(s));
-    }
-    if (!s.arquivada && s.estado !== "REVELADA") {
-      perigo.appendChild(criarBotao(t("mesario.zerar"), () => zerar(s), "perigo so-admin"));
-    }
-    if (perigo.children.length) linha.appendChild(perigo);
-    area.appendChild(linha);
-  }
-  if (!area.children.length) area.appendChild(vazio(t("mesario.sem_sessoes")));
+function mostrarSessoes(sessoes) {
+  sessoesCarregadas = sessoes;
+  atualizarCasos();
+  // a barra sai da mesma lista: as duas nunca mostram estados diferentes
+  const emCena = sessoes.find((s) => s.ativa);
+  mostrarEstado(emCena ?? null, emCena ? emCena.votos : 0);
+
+  const visiveis = sessoes.filter((s) => ($("mostrar-arquivadas").checked || !s.arquivada)
+    && (!casoFiltro || (s.caso || "") === casoFiltro));
+  const area = $("sessoes");
+  area.replaceChildren(...porCaso(visiveis).map(blocoDoCaso));
+  if (!area.children.length) area.appendChild(vazio(t(casoFiltro ? "mesario.sem_sessoes_no_caso" : "mesario.sem_sessoes")));
+
   testes.sessoes = sessoes.filter((s) => s.teste).length;
   mostrarLimparTestes();
   const arquivadas = sessoes.filter((s) => s.arquivada).length;
   $("total-arquivadas").textContent = arquivadas ? `(${arquivadas})` : "";
   mostrarPresets(sessoes);
 }
+
+// um bloco por caso, e dentro dele as perguntas de cada questionário juntas, na ordem
+function porCaso(sessoes) {
+  const casos = new Map();
+  for (const s of sessoes) {
+    const caso = s.caso || "";
+    if (!casos.has(caso)) casos.set(caso, new Map());
+    const grupos = casos.get(caso);
+    const chave = s.grupo_id ?? `avulsa-${s.id}`;
+    if (!grupos.has(chave)) grupos.set(chave, []);
+    grupos.get(chave).push(s);
+  }
+  return [...casos].map(([caso, grupos]) => ({ caso, grupos: [...grupos.values()] }));
+}
+
+function blocoDoCaso({ caso, grupos }) {
+  const bloco = document.createElement("section");
+  bloco.className = "cartao caso";
+  const nome = document.createElement("h2");
+  nome.textContent = caso || t("mesario.sem_caso");
+  bloco.appendChild(nome);
+  for (const grupo of grupos) {
+    if (grupo[0].total_perguntas > 1) {
+      const aviso = document.createElement("p");
+      aviso.className = "suave questionario";
+      aviso.textContent = t("mesario.questionario_de", { n: grupo[0].total_perguntas });
+      bloco.appendChild(aviso);
+    }
+    for (const s of grupo) bloco.appendChild(linhaSessao(s));
+  }
+  return bloco;
+}
+
+function linhaSessao(s) {
+  const linha = document.createElement("div");
+  linha.className = "sessao" + (s.ativa ? " ativa" : "") + (s.arquivada ? " arquivada" : "");
+  const titulo = document.createElement("div");
+  titulo.className = "titulo";
+  if (s.total_perguntas > 1) {
+    const passo = document.createElement("span");
+    passo.className = "passo";
+    passo.textContent = s.pergunta;
+    titulo.appendChild(passo);
+  }
+  const nome = document.createElement("span");
+  nome.textContent = s.tema + (s.arquivada ? ` · ${t("mesario.arquivada")}` : "");
+  titulo.append(nome, selo(s.estado, t(`estado.${s.estado}`)));
+  if (s.teste) titulo.appendChild(selo("teste", t("mesario.selo_teste")));
+  if (s.celular) titulo.appendChild(selo("celular", t("mesario.selo_celular")));
+  linha.appendChild(titulo);
+
+  if (s.ativa) {
+    const aviso = document.createElement("strong");
+    aviso.className = "em-cena";
+    aviso.textContent = t("mesario.em_cena");
+    linha.appendChild(aviso);
+  } else if (s.arquivada) {
+    linha.appendChild(criarBotao(t("mesario.desarquivar"), () => acao(`/api/admin/sessoes/${s.id}/desarquivar`)));
+  } else if (!s.liberada) {
+    const aviso = document.createElement("small");
+    aviso.className = "suave";
+    aviso.textContent = t("mesario.aguarda_anterior");
+    linha.appendChild(aviso);
+  } else {
+    linha.appendChild(criarBotao(t("mesario.ativar"), () => acao(`/api/admin/sessoes/${s.id}/ativar`)));
+  }
+  if (!s.arquivada) linha.appendChild(acoesDaSessao(s));
+  return linha;
+}
+
+function acoesDaSessao(s) {
+  const acoes = document.createElement("details");
+  acoes.className = "acoes";
+  const titulo = document.createElement("summary");
+  titulo.textContent = t("mesario.acoes");
+  acoes.appendChild(titulo);
+  acoes.open = sessoesComAcoesAbertas.has(s.id);
+  acoes.ontoggle = () => (acoes.open ? sessoesComAcoesAbertas.add(s.id) : sessoesComAcoesAbertas.delete(s.id));
+  // revelada, a sessão em cena já pode ser guardada sem precisar ativar outra
+  if (!s.ativa || s.estado === "REVELADA") {
+    acoes.appendChild(criarBotao(t("mesario.arquivar"), () => {
+      if (confirm(t("mesario.confirmar_arquivar", { tema: s.tema }))) acao(`/api/admin/sessoes/${s.id}/arquivar`);
+    }, "perigo"));
+  }
+  // zerar só faz sentido com votos para apagar
+  if (s.votos && s.estado !== "REVELADA") {
+    acoes.appendChild(criarBotao(t("mesario.zerar"), () => zerar(s), "perigo so-admin"));
+  }
+  acoes.appendChild(seletorDeCaso(s));
+  return acoes;
+}
+
+function seletorDeCaso(s) {
+  const rotulo = document.createElement("label");
+  rotulo.className = "mover";
+  const escolha = document.createElement("select");
+  escolha.setAttribute("aria-label", t("mesario.mover_caso"));
+  escolha.replaceChildren(new Option(t("mesario.sem_caso"), ""), ...casosConhecidos.map((c) => new Option(c)));
+  escolha.value = s.caso || "";
+  escolha.onchange = () => acao(`/api/admin/sessoes/${s.id}`, "PATCH", { caso: escolha.value });
+  rotulo.append(t("mesario.mover_caso"), escolha);
+  return rotulo;
+}
+
+// ---------- Caso: o mesmo recorte vale para sessões e cartões ----------
+function atualizarCasos() {
+  const dosCartoes = cartoesCarregados.map((c) => c.pasta);
+  casosConhecidos = [...new Set([...sessoesCarregadas.map((s) => s.caso), ...dosCartoes].filter(Boolean))].sort();
+  for (const filtro of [$("filtro-caso"), $("filtro-caso-cartoes")]) {
+    filtro.replaceChildren(new Option(t("mesario.todos_casos"), ""), ...casosConhecidos.map((c) => new Option(c)));
+    filtro.value = casoFiltro;
+  }
+  $("casos").replaceChildren(...casosConhecidos.map((c) => new Option(c)));
+}
+
+function escolherCaso(valor) {
+  casoFiltro = valor;
+  mostrarSessoes(sessoesCarregadas);
+  mostrarCartoes(cartoesCarregados);
+}
+
+$("filtro-caso").onchange = (e) => escolherCaso(e.target.value);
+$("filtro-caso-cartoes").onchange = (e) => escolherCaso(e.target.value);
+$("atalho-nova").onclick = () => {
+  mostrarAba("nova");
+  $("nova-caso").value = casoFiltro;
+};
 
 $("mostrar-arquivadas").onchange = carregarSessoes;
 
@@ -289,9 +416,10 @@ $("nova-sessao").onsubmit = async (e) => {
   const teste = $("nova-teste").checked;
   const celular = $("nova-celular").checked;
   const peso_celular = Number($("nova-peso-celular").value);
+  const caso = $("nova-caso").value.trim();
   const criada = perguntas.length === 1
-    ? await criarSessao({ ...perguntas[0], teste, celular, peso_celular })
-    : await criarSessao({ perguntas, teste, celular, peso_celular }, "/api/admin/questionarios");
+    ? await criarSessao({ ...perguntas[0], teste, celular, peso_celular, caso })
+    : await criarSessao({ perguntas, teste, celular, peso_celular, caso }, "/api/admin/questionarios");
   if (criada) {
     reiniciarFormularioSessao();
     mostrarAba("sessoes");
@@ -300,9 +428,9 @@ $("nova-sessao").onsubmit = async (e) => {
 
 reiniciarFormularioSessao();
 
-async function acao(caminho) {
+async function acao(caminho, metodo = "POST", corpo) {
   try {
-    await api("POST", caminho);
+    await api(metodo, caminho, corpo);
     await carregarSessoes();
   } catch (e) {
     alert(e.message);
@@ -650,12 +778,16 @@ $("minha-senha").onsubmit = async (e) => {
 
 // ---------- Cartões do telão ----------
 let editando = null;
+let cartoesCarregados = [];
 
 async function carregarCartoes() {
   mostrarCartoes(await api("GET", "/api/admin/cartoes"));
 }
 
 function mostrarCartoes(cartoes) {
+  cartoesCarregados = cartoes;
+  atualizarCasos();
+  if (casoFiltro) cartoes = cartoes.filter((c) => c.pasta === casoFiltro);
   const pastas = [...new Set(cartoes.map((c) => c.pasta))];
   $("pastas").replaceChildren(...pastas.map((p) => new Option(p)));
   $("ocultar-cartao").hidden = !cartoes.some((c) => c.no_telao);

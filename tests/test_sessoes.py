@@ -51,3 +51,28 @@ def test_presets_aceita_arquivo_com_bom(cliente, tmp_path, monkeypatch):
     arquivo.write_text('[{"tema": "Com BOM", "opcoes": []}]', encoding="utf-8-sig")
     monkeypatch.setattr("app.db.SESSOES_PATH", str(arquivo))
     assert cliente.get("/api/admin/presets", auth=ADMIN).json()[0]["tema"] == "Com BOM"
+
+def test_arquivar_a_sessao_revelada_em_cena(cliente):
+    """Revelada, a sessão em cena é guardada sem precisar ativar outra antes."""
+    cliente.post("/api/admin/sessoes/1/ativar", auth=ADMIN)
+    assert cliente.post("/api/admin/sessoes/1/arquivar", auth=ADMIN).status_code == 409
+    for _ in range(3):
+        cliente.post("/api/admin/sessoes/1/avancar?forcar=true", auth=ADMIN)
+    assert cliente.post("/api/admin/sessoes/1/arquivar", auth=ADMIN).status_code == 200
+    assert cliente.get("/api/sessao/ativa").json()["sessao"] is None
+
+def test_mover_sessao_de_caso(cliente):
+    ids = cliente.post("/api/admin/questionarios", auth=ADMIN, json={"caso": "Antigo", "perguntas": [
+        {"tema": "Q1", "opcoes": NOVA["opcoes"]}, {"tema": "Q2", "opcoes": NOVA["opcoes"]}]}).json()["ids"]
+    assert cliente.patch(f"/api/admin/sessoes/{ids[1]}", json={"caso": "Soberania"}, auth=ADMIN).json() == {
+        "id": ids[1], "caso": "Soberania"}
+    # o questionário inteiro acompanha, para não quebrar o bloco na lista
+    casos = {s["id"]: s["caso"] for s in cliente.get("/api/admin/sessoes", auth=ADMIN).json()}
+    assert [casos[i] for i in ids] == ["Soberania", "Soberania"]
+    assert cliente.patch("/api/admin/sessoes/999", json={"caso": "x"}, auth=ADMIN).status_code == 404
+    assert cliente.patch(f"/api/admin/sessoes/{ids[0]}", json={"caso": "x"}).status_code == 401
+
+def test_caso_do_preset_e_contagem_na_lista(cliente):
+    sessoes = cliente.get("/api/admin/sessoes", auth=ADMIN).json()
+    assert {s["caso"] for s in sessoes} == {"Ensaio"}
+    assert all(s["votos"] == 0 for s in sessoes)

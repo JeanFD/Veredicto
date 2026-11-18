@@ -57,8 +57,18 @@ startup. In Docker the variables come from `.env` (see [.env.example](.env.examp
 | `ADMIN_SENHA` | (required) | Password of the first `admin` account, created when there are no accounts yet (change it later in the panel). Also signs the big-screen key and the phone codes. |
 | `AMBIENTE` | `desenvolvimento` | `producao` hides `/docs` and the OpenAPI schema. |
 | `DB_PATH` | `veredicto.db` | SQLite file. |
-| `SESSOES_PATH` | `sessoes.json` | Session presets shown in the panel. |
+| `SESSOES_PATH` | `sessoes.json` | Session presets shown in the panel, each with its case. |
 | `CARTOES_PATH` | `cartoes.json` | Big-screen cards loaded the first time the panel has none. |
+
+
+### Running a session
+
+Sessions are grouped by **case** (the trial), the same name the big-screen cards use,
+so the case picker at the top of the panel narrows both at once. A questionnaire shows
+up as one block with its questions numbered in order. The bar at the top is the stage:
+it shows what is on, the four-step trail (waiting → open → closed → revealed) and a
+single button, the next step. Rows only choose what goes on stage; archiving, resetting
+a count and moving a session to another case live under "Ações".
 
 ### Accounts
 

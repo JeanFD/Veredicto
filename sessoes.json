@@ -2,15 +2,33 @@
     {
         "tema": "Soberania digital, ameaças de espionagem e infraestrutura de redes",
         "opcoes": [
-            { "chave": "acusacao", "rotulo":"Acusação", "cor": "#dc2626"},
-            { "chave": "defesa", "rotulo":"Defesa", "cor": "#2563eb"}
-        ]
+            {
+                "chave": "acusacao",
+                "rotulo": "Acusação",
+                "cor": "#dc2626"
+            },
+            {
+                "chave": "defesa",
+                "rotulo": "Defesa",
+                "cor": "#2563eb"
+            }
+        ],
+        "caso": "Soberania digital"
     },
     {
         "tema": "Responsabilidade das redes sociais e manipulação algorítmica",
         "opcoes": [
-            { "chave": "acusacao", "rotulo":"Acusação", "cor": "#dc2626"},
-            { "chave": "defesa", "rotulo":"Defesa", "cor": "#2563eb"}
-        ]
+            {
+                "chave": "acusacao",
+                "rotulo": "Acusação",
+                "cor": "#dc2626"
+            },
+            {
+                "chave": "defesa",
+                "rotulo": "Defesa",
+                "cor": "#2563eb"
+            }
+        ],
+        "caso": "Redes sociais"
     }
 ]

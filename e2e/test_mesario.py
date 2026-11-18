@@ -55,7 +55,8 @@ def test_criar_questionario_pelo_formulario(painel: Page):
     perguntas.nth(1).get_by_placeholder("tema ou pergunta").fill("E2E segunda")
     painel.get_by_role("button", name="Criar sessão").click()
 
-    expect(painel.locator(".sessao", has_text="Pergunta 1 de 2 · E2E primeira")).to_be_visible()
-    segunda = painel.locator(".sessao", has_text="Pergunta 2 de 2 · E2E segunda")
+    primeira = painel.locator(".sessao", has_text="E2E primeira")
+    expect(primeira.locator(".passo")).to_have_text("1")
+    segunda = painel.locator(".sessao", has_text="E2E segunda")
     expect(segunda).to_contain_text("aguarda a revelação da pergunta anterior")
     expect(segunda.get_by_role("button", name="Ativar")).to_have_count(0)

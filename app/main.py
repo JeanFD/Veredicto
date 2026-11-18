@@ -168,12 +168,18 @@ class NovaSessao(BaseModel):
     teste: bool = False
     celular: bool = False
     peso_celular: int = Field(1, ge=1, le=10)
+    caso: str = Field("", max_length=60)
 
 class NovoQuestionario(BaseModel):
     perguntas: list[NovaSessao] = Field(min_length=2, max_length=10)
     teste: bool = False
     celular: bool = False
     peso_celular: int = Field(1, ge=1, le=10)
+    caso: str = Field("", max_length=60)
+
+class SessaoAlterada(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    caso: str = Field(max_length=60)
 
 class Celular(BaseModel):
     ativo: bool
@@ -200,6 +206,7 @@ def buscar_sessao_ativa():
         "teste": bool(s["teste"]),
         "celular": bool(s["celular"]),
         "peso_celular": s["peso_celular"],
+        "caso": s["caso"],
         "opcoes": [dict(o) for o in opcoes],
         **posicao_no_questionario(s),
     }
@@ -374,22 +381,40 @@ async def listar_sessoes(arquivadas: bool = False):
             "teste": bool(l["teste"]),
             "celular": bool(l["celular"]),
             "peso_celular": l["peso_celular"],
+            "caso": l["caso"],
+            "votos": total_votos(l["id"]),
             **posicao_no_questionario(l),
             # pergunta encadeada só pode ser ativada depois de revelada a anterior
             "liberada": anterior is None or anterior["estado"] == "REVELADA",
         })
     return resposta
 
-@app.post("/api/admin/sessoes/{sid}/arquivar", dependencies=[Depends(exigir_mesario)])
-async def arquivar_sessao(sid: int):
-    sessao = db.execute("SELECT ativa FROM sessoes WHERE id = ?", (sid,)).fetchone()
+@app.patch("/api/admin/sessoes/{sid}", dependencies=[Depends(exigir_mesario)])
+async def alterar_sessao(sid: int, mudanca: SessaoAlterada):
+    """Só o caso: o tema e as opções ficam como foram criados, para a auditoria bater."""
+    sessao = db.execute("SELECT grupo_id FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
         raise HTTPException(404, msg("sessao_inexistente"))
-    if sessao["ativa"]:
+    grupo = sessao["grupo_id"] or sid
+    with db:
+        db.execute("UPDATE sessoes SET caso = ? WHERE id = ? OR grupo_id = ?", (mudanca.caso, grupo, grupo))
+    registrar_evento("sessao_movida", f"sessao={sid} caso={mudanca.caso or '-'}")
+    return {"id": sid, "caso": mudanca.caso}
+
+@app.post("/api/admin/sessoes/{sid}/arquivar", dependencies=[Depends(exigir_mesario)])
+async def arquivar_sessao(sid: int):
+    sessao = db.execute("SELECT ativa, estado FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, msg("sessao_inexistente"))
+    # revelada, a sessão em cena pode ser guardada direto: o telão volta a aguardar
+    em_cena = bool(sessao["ativa"])
+    if em_cena and sessao["estado"] != "REVELADA":
         raise HTTPException(409, msg("ative_outra_antes"))
     with db:
-        db.execute("UPDATE sessoes SET arquivada = 1 WHERE id = ?", (sid,))
+        db.execute("UPDATE sessoes SET arquivada = 1, ativa = 0 WHERE id = ?", (sid,))
     registrar_evento("sessao_arquivada", f"sessao={sid}")
+    if em_cena:
+        await gerente.broadcast(estado_publico(), "telao", "mesario")
     return {"ok": True}
 
 @app.post("/api/admin/sessoes/{sid}/celular", dependencies=[Depends(exigir_mesario)])
@@ -457,7 +482,7 @@ async def criar_sessao(nova: NovaSessao):
     validar_temas_livres([nova.tema])
     with db:
         sid = inserir_sessao(nova.tema, opcoes, teste=nova.teste, celular=nova.celular,
-                             peso_celular=nova.peso_celular)
+                             peso_celular=nova.peso_celular, caso=nova.caso)
     registrar_evento("sessao_criada", f"sessao={sid}")
     return {"id": sid}
 
@@ -483,11 +508,11 @@ async def criar_questionario(novo: NovoQuestionario):
     validar_temas_livres([p.tema for p in novo.perguntas])
     with db:
         ids = [inserir_sessao(novo.perguntas[0].tema, opcoes[0], teste=novo.teste, celular=novo.celular,
-                              peso_celular=novo.peso_celular)]
+                              peso_celular=novo.peso_celular, caso=novo.caso)]
         db.execute("UPDATE sessoes SET grupo_id = ? WHERE id = ?", (ids[0], ids[0]))
         for n, (p, ops) in enumerate(zip(novo.perguntas[1:], opcoes[1:]), start=2):
             ids.append(inserir_sessao(p.tema, ops, grupo_id=ids[0], pergunta=n, teste=novo.teste,
-                                      celular=novo.celular, peso_celular=novo.peso_celular))
+                                      celular=novo.celular, peso_celular=novo.peso_celular, caso=novo.caso))
     for sid in ids:
         registrar_evento("sessao_criada", f"sessao={sid} grupo={ids[0]}")
     return {"ids": ids}

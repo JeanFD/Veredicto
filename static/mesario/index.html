@@ -12,6 +12,8 @@
     #estado-atual .faixa { max-width: 1100px; margin: 0 auto; padding: 0.85rem 1rem;
                            display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; }
     #estado-atual .info { flex: 1; min-width: 220px; }
+    #caso-ativo:not(:empty)::before { content: " · "; }
+    #caso-ativo { display: inline !important; color: var(--primaria); }
     #estado-atual small { display: block; font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
                           letter-spacing: 0.06em; }
     #ativa { font-size: 1.1rem; }
@@ -21,6 +23,30 @@
     .cabeca-secao { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: baseline;
                     justify-content: space-between; margin-bottom: 0.75rem; }
     .cabeca-secao label { font-weight: 400; color: var(--texto-2); }
+
+    .trilha { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; max-width: 1100px;
+              margin: 0 auto; padding: 0 1rem 0.8rem; font-size: 0.72rem; font-weight: 700;
+              letter-spacing: 0.06em; }
+    .trilha li { padding: 0.2rem 0.7rem; border-radius: 999px; background: var(--superficie-2);
+                 border: 1px solid var(--borda); color: var(--texto-2); }
+    .trilha li.feito { color: var(--sucesso); border-color: var(--sucesso); }
+    .trilha li.agora { background: var(--primaria); border-color: var(--primaria); color: #fff; }
+
+    .caso { margin-bottom: 1rem; }
+    .caso > h2 { font-size: 1.05rem; margin: 0 0 0.75rem; }
+    .caso .questionario { margin: 0.9rem 0 0.4rem; font-size: 0.82rem; font-weight: 600; }
+    .passo { flex: none; display: inline-flex; align-items: center; justify-content: center;
+             width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--primaria-suave);
+             color: var(--primaria); font-size: 0.8rem; font-weight: 700; }
+    .sessao.ativa .passo { background: var(--primaria); color: #fff; }
+    .em-cena { color: var(--primaria); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;
+               text-transform: uppercase; }
+    .sessao details.acoes { font-size: 0.85rem; min-width: 7rem; }
+    .sessao details.acoes summary { cursor: pointer; color: var(--primaria); font-weight: 600; }
+    .sessao details.acoes button { display: flex; width: 100%; margin-top: 0.4rem; }
+    .sessao .mover { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem;
+                     color: var(--texto-2); }
+    .sessao .mover select { width: auto; flex: 1; }
 
     .sessao { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; padding: 0.9rem 1rem;
               background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio);
@@ -132,7 +158,7 @@
     <section id="estado-atual">
       <div class="faixa">
         <div class="info">
-          <small data-i18n="mesario.sessao_ativa">Sessão ativa</small>
+          <small data-i18n="mesario.sessao_ativa">Sessão ativa</small><small id="caso-ativo"></small>
           <strong id="ativa" data-i18n="mesario.nenhuma">nenhuma</strong>
         </div>
         <span id="selo-estado" class="selo">—</span>
@@ -144,6 +170,7 @@
         <div class="votos"><small data-i18n="mesario.votos">Votos</small><strong id="total">0</strong></div>
         <div id="acoes-estado"></div>
       </div>
+      <ol id="trilha" class="trilha" hidden></ol>
     </section>
 
     <main class="conteudo">
@@ -160,6 +187,9 @@
         <div class="cabeca-secao">
           <h2 data-i18n="mesario.sessoes">Sessões</h2>
           <div class="linha-form">
+            <label class="peso"><span data-i18n="mesario.caso">Caso</span>
+              <select id="filtro-caso"></select></label>
+            <button type="button" id="atalho-nova" data-i18n="mesario.nova_sessao_atalho">+ Nova sessão</button>
             <label><input id="mostrar-arquivadas" type="checkbox"> <span data-i18n="mesario.mostrar_arquivadas">mostrar arquivadas</span> <span id="total-arquivadas"></span></label>
             <button type="button" id="limpar-testes" class="perigo so-admin" hidden></button>
           </div>
@@ -176,6 +206,10 @@
         <form id="nova-sessao" class="cartao">
           <h2 data-i18n="mesario.criar_sessao">Criar sessão</h2>
           <p class="suave" data-i18n="mesario.nova_ajuda">Com mais de uma pergunta, a sessão vira um questionário: cada pergunta é aberta, encerrada e revelada separadamente.</p>
+          <label class="campo"><span data-i18n="mesario.caso_sessao">Caso (júri)</span>
+            <input id="nova-caso" list="casos" maxlength="60" placeholder="ex: Soberania digital"
+                   data-i18n-placeholder="mesario.pasta_exemplo">
+            <datalist id="casos"></datalist></label>
           <div id="perguntas"></div>
           <label class="marcar"><input id="nova-celular" type="checkbox">
             <span><strong data-i18n="mesario.permitir_celular">Permitir voto por celular</strong>
@@ -273,6 +307,8 @@
       <section data-painel="cartoes" role="tabpanel" hidden>
         <div class="cabeca-secao">
           <h2 data-i18n="mesario.cartoes">Cartões do telão</h2>
+          <label class="peso"><span data-i18n="mesario.caso">Caso</span>
+            <select id="filtro-caso-cartoes"></select></label>
           <small data-i18n="mesario.cartoes_ajuda">Pano de fundo do caso, notícias e laudos preparados antes. Exibir manda para o telão; o cronômetro continua à vista.</small>
         </div>
         <button type="button" id="ocultar-cartao" class="perigo" hidden data-i18n="mesario.tirar_cartao">Tirar cartão do telão</button>
