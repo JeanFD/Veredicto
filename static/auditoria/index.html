@@ -22,6 +22,7 @@
     .barra .numero { text-align: right; }
     .barra .numero strong { display: block; }
     .barra .numero small { display: block; color: var(--texto-2); white-space: nowrap; }
+    td.quem { color: var(--texto-2); white-space: nowrap; }
     #eventos td:first-child { white-space: nowrap; color: var(--texto-2); width: 1%; }
     @media (max-width: 480px) { .barra { grid-template-columns: 5rem 1fr 2.5rem; } }
   </style>
@@ -80,7 +81,11 @@
 
           <div class="cartao">
             <h2 data-i18n="auditoria.linha_tempo">Linha do tempo</h2>
-            <div class="tabela"><table><tbody id="eventos"></tbody></table></div>
+            <div class="tabela"><table>
+              <thead><tr><th data-i18n="auditoria.col_quando">Quando</th>
+                <th data-i18n="auditoria.col_evento">O que aconteceu</th>
+                <th data-i18n="auditoria.col_quem">Quem</th></tr></thead>
+              <tbody id="eventos"></tbody></table></div>
           </div>
         </section>
       </div>

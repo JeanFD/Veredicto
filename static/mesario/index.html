@@ -88,7 +88,11 @@
     .opcao input:not([type=color]) { flex: 1 1 160px; }
     .links .cartao p { color: var(--texto-2); }
     [data-papel="mesario"] .so-admin { display: none !important; }
-    table.contas { width: 100%; border-collapse: collapse; }
+    table.contas, table.registro { width: 100%; border-collapse: collapse; }
+    table.registro th, table.registro td { text-align: left; padding: 0.45rem 0.5rem;
+                                           border-top: 1px solid var(--borda); font-size: 0.9rem; }
+    table.registro td.quando, table.registro td.quem { white-space: nowrap; color: var(--texto-2); }
+    table.registro td.detalhe { color: var(--texto-2); }
     table.contas th, table.contas td { text-align: left; padding: 0.5rem; border-top: 1px solid var(--borda); }
     table.contas td:last-child { text-align: right; white-space: nowrap; }
     table.contas select { width: auto; }
@@ -181,6 +185,7 @@
         <button type="button" role="tab" data-aba="cartoes" data-i18n="mesario.aba.cartoes">Cartões</button>
         <button type="button" role="tab" data-aba="telao" data-i18n="mesario.aba.telao">Telão e links</button>
         <button type="button" role="tab" data-aba="contas" data-i18n="mesario.aba.contas">Contas</button>
+        <button type="button" role="tab" data-aba="registro" data-i18n="mesario.aba.registro">Registro</button>
       </div>
 
       <section data-painel="sessoes" role="tabpanel">
@@ -335,6 +340,20 @@
             <button type="button" id="cancelar-cartao" hidden data-i18n="mesario.cancelar_edicao">Cancelar edição</button>
           </div>
         </form>
+      </section>
+
+      <section data-painel="registro" role="tabpanel" hidden>
+        <div class="cartao">
+          <div class="cabeca-secao">
+            <h2 data-i18n="registro.titulo">Registro do que foi feito</h2>
+            <small data-i18n="registro.ajuda">Tudo o que o painel registrou, do mais recente para o mais antigo, com quem fez.</small>
+          </div>
+          <table class="registro">
+            <thead><tr><th data-i18n="registro.col_hora">Quando</th><th data-i18n="registro.col_acao">O que</th>
+              <th data-i18n="registro.col_detalhe">Detalhes</th><th data-i18n="registro.col_quem">Quem</th></tr></thead>
+            <tbody id="lista-registro"></tbody>
+          </table>
+        </div>
       </section>
 
       <section data-painel="telao" role="tabpanel" class="links colunas" hidden>

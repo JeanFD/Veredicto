@@ -1179,7 +1179,6 @@ def descrever_evento(tipo: str, campos: dict) -> str | None:
     if tipo == "sessao_avancada":
         return f"Estado alterado para {campos.get('estado')}"
     if tipo == "sessao_zerada":
-        # 'por' traz o IP de quem zerou: fica só na auditoria interna
         return f"Contagem zerada ({campos.get('votos')} votos apagados)"
     if tipo == "revelacao_forcada":
         return "Revelação forçada com pendências nas urnas"
@@ -1201,7 +1200,7 @@ def eventos_publicos(sid: int) -> list[dict]:
             continue
         texto = descrever_evento(e["tipo"], campos)
         if texto:
-            publicos.append({"em": e["em"], "evento": texto})
+            publicos.append({"em": e["em"], "evento": texto, "por": campos.get("por", "")})
     return publicos
 
 @app.get("/api/auditoria/sessoes")
