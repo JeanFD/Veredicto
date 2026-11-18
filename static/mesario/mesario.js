@@ -236,7 +236,7 @@ function linhaSessao(s) {
   } else {
     linha.appendChild(criarBotao(t("mesario.ativar"), () => acao(`/api/admin/sessoes/${s.id}/ativar`)));
   }
-  if (!s.arquivada) linha.appendChild(acoesDaSessao(s));
+  linha.appendChild(acoesDaSessao(s));
   return linha;
 }
 
@@ -248,6 +248,8 @@ function acoesDaSessao(s) {
   acoes.appendChild(titulo);
   acoes.open = sessoesComAcoesAbertas.has(s.id);
   acoes.ontoggle = () => (acoes.open ? sessoesComAcoesAbertas.add(s.id) : sessoesComAcoesAbertas.delete(s.id));
+  acoes.appendChild(criarBotao(t("mesario.clonar"), () => clonarSessao(s)));
+  if (s.arquivada) return acoes;
   // revelada, a sessão em cena já pode ser guardada sem precisar ativar outra
   if (!s.ativa || s.estado === "REVELADA") {
     acoes.appendChild(criarBotao(t("mesario.arquivar"), () => {
@@ -365,7 +367,7 @@ function adicionarOpcao(area, rotulo = "", cor = "#64748b") {
 
 // Com mais de uma pergunta, a sessão vira um questionário: perguntas encadeadas,
 // cada uma aberta, encerrada e revelada separadamente.
-function adicionarPergunta() {
+function adicionarPergunta(dados) {
   const bloco = document.createElement("fieldset");
   bloco.className = "pergunta";
   const titulo = document.createElement("legend");
@@ -373,12 +375,16 @@ function adicionarPergunta() {
   tema.placeholder = t("mesario.tema_pergunta");
   tema.required = true;
   tema.maxLength = 200;
+  tema.value = dados?.tema ?? "";
   const opcoes = document.createElement("div");
   const remover = criarBotao(t("mesario.remover_pergunta"), () => { bloco.remove(); numerarPerguntas(); });
   remover.className = "remover-pergunta";
   bloco.append(titulo, tema, opcoes, criarBotao(t("mesario.mais_opcao"), () => adicionarOpcao(opcoes)), remover);
-  adicionarOpcao(opcoes, t("mesario.opcao_padrao_1"), "#dc2626");
-  adicionarOpcao(opcoes, t("mesario.opcao_padrao_2"), "#2563eb");
+  const iniciais = dados?.opcoes ?? [
+    { rotulo: t("mesario.opcao_padrao_1"), cor: "#dc2626" },
+    { rotulo: t("mesario.opcao_padrao_2"), cor: "#2563eb" },
+  ];
+  for (const o of iniciais) adicionarOpcao(opcoes, o.rotulo, o.cor);
   $("perguntas").appendChild(bloco);
   numerarPerguntas();
 }
@@ -396,7 +402,27 @@ function reiniciarFormularioSessao() {
   adicionarPergunta();
 }
 
-$("mais-pergunta").onclick = adicionarPergunta;
+$("mais-pergunta").onclick = () => adicionarPergunta();
+
+// Clonar: o formulário abre preenchido com a sessão escolhida (o questionário inteiro,
+// se for um), com os temas já livres. O mesário edita o que quiser e cria — a sessão
+// nova nasce zerada, e a antiga fica como está.
+async function clonarSessao(s) {
+  let modelo;
+  try {
+    modelo = await api("GET", `/api/admin/sessoes/${s.id}/modelo`);
+  } catch (e) {
+    return alert(e.message);
+  }
+  $("perguntas").innerHTML = "";
+  for (const pergunta of modelo.perguntas) adicionarPergunta(pergunta);
+  $("nova-caso").value = modelo.caso;
+  $("nova-celular").checked = modelo.celular;
+  $("nova-peso-celular").value = modelo.peso_celular;
+  $("nova-teste").checked = modelo.teste;
+  mostrarAba("nova", true);
+  $("perguntas").querySelector("input").focus();
+}
 
 $("nova-sessao").onsubmit = async (e) => {
   e.preventDefault();
