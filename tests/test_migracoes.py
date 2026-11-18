@@ -12,6 +12,7 @@ ESQUEMA = {
     "eventos": {"id", "tipo", "detalhe", "em"},
     "cedulas": {"token_hash", "sessao_id", "criada_em", "voto_id", "seguinte_emitida"},
     "pedidos_urna": {"segredo_hash", "codigo", "criado_em", "urna_id", "token"},
+    "cronometro": {"id", "titulo", "restante", "fim_em", "rodando", "visivel"},
     "contas": {"usuario", "nome", "papel", "senha_hash", "ativa", "criada_em"},
     "logins": {"token_hash", "usuario", "expira_em"},
 }
@@ -49,7 +50,7 @@ def test_banco_novo_fica_com_o_esquema_da_app():
     conexao = sqlite3.connect(":memory:")
     migrar(conexao)
     assert esquema(conexao) == ESQUEMA
-    assert versao(conexao) == "0006"
+    assert versao(conexao) == "0007"
     assert not pendente(conexao)
 
 def test_banco_antigo_e_adotado_sem_perder_dados():
@@ -61,7 +62,7 @@ def test_banco_antigo_e_adotado_sem_perder_dados():
         ("Sessão antiga", "REVELADA", 0, None, 1),
     ]
     assert conexao.execute("SELECT id, opcao_chave FROM votos").fetchall() == [("v1", "defesa")]
-    assert versao(conexao) == "0006"
+    assert versao(conexao) == "0007"
 
 def test_migrar_de_novo_nao_muda_nada():
     conexao = banco_antigo()
