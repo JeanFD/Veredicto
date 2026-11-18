@@ -211,22 +211,24 @@ function regressiva(depois) {
 
 // Com pesos diferentes, as barras e o vencedor seguem os pontos (soma dos pesos), e
 // cada opção mostra também quantas pessoas votaram; com todos os pesos 1, são iguais.
-function cartaoDaOpcao(o, i, soma, vencedora, ponderado) {
+// Revelação: a apuração corre na tela. Os números sobem de zero, a largura de cada
+// cartão acompanha a porcentagem e, quando a ordem muda, os cartões trocam de lugar.
+// O selo da vencedora só entra no fim, para não entregar o resultado antes da hora.
+const DURACAO_APURACAO = 6600;
+// ritmos diferentes por posição: uma opção sobe mais cedo, outra vem de trás
+const RITMOS = [1, 0.74, 1.26, 0.88, 1.12, 0.96];
+
+function cartaoDaOpcao(o, i) {
   const cartao = document.createElement("article");
-  cartao.className = "opcao" + (o === vencedora ? " vencedora" : "");
+  cartao.className = "opcao";
   cartao.style.animationDelay = `${0.15 + i * 0.12}s`;
+  cartao.style.flexGrow = 1;
 
   const cabeca = document.createElement("div");
   cabeca.className = "cabeca";
   const indice = document.createElement("span");
   indice.textContent = String(i + 1).padStart(2, "0");
   cabeca.append(indice);
-  if (o === vencedora) {
-    const selo = document.createElement("span");
-    selo.className = "selo-vencedora";
-    selo.textContent = t("telao.vencedora");
-    cabeca.append(selo);
-  }
 
   const rotulo = document.createElement("h2");
   rotulo.className = "rotulo";
@@ -245,16 +247,12 @@ function cartaoDaOpcao(o, i, soma, vencedora, ponderado) {
   porcento.append(valor, sinal);
   const pontos = document.createElement("span");
   pontos.className = "pontos";
-  pontos.textContent = ponderado
-    ? `${o.pontos} ${t("comum.pontos_e_votos", { n: o.votos })}`
-    : t(o.votos === 1 ? "telao.um_voto" : "telao.n_votos", { n: o.votos });
   numeros.append(porcento, pontos);
 
   const trilho = document.createElement("div");
   trilho.className = "trilho";
   const preenchimento = document.createElement("div");
   preenchimento.className = "preenchimento";
-  preenchimento.style.transitionDelay = `${0.45 + i * 0.12}s`;
   trilho.append(preenchimento);
 
   const legenda = document.createElement("small");
@@ -265,8 +263,58 @@ function cartaoDaOpcao(o, i, soma, vencedora, ponderado) {
   return cartao;
 }
 
-// Cada opção vira um cartão: a vencedora preenchida, as outras recuadas. Os cartões
-// sobem em sequência, o número conta de zero e a barra enche logo atrás.
+function textoDosPontos(o, votos, pontos, ponderado) {
+  return ponderado
+    ? `${pontos} ${t("comum.pontos_e_votos", { n: votos })}`
+    : t(votos === 1 ? "telao.um_voto" : "telao.n_votos", { n: votos });
+}
+
+// desenha um instante da apuração: números, largura do cartão e barra
+// Enquanto a apuração corre, nenhum cartão se acende: a cor da vencedora só entra
+// quando o último voto aparece, em coroar().
+function desenharParciais(cartoes, parciais, ponderado) {
+  const soma = parciais.reduce((s, p) => s + p.pontos, 0) || 1;
+  parciais.forEach((p, i) => {
+    const fatia = p.pontos / soma;
+    const cartao = cartoes[i];
+    cartao.querySelector(".valor").textContent = Math.round(fatia * 100);
+    cartao.querySelector(".pontos").textContent = textoDosPontos(p.opcao, p.votos, p.pontos, ponderado);
+    cartao.querySelector(".preenchimento").style.width = `${fatia * 100}%`;
+    // a divisória entre os cartões anda conforme a fatia; o mínimo da CSS segura o texto
+    cartao.style.flexGrow = Math.max(fatia, 0.02).toFixed(3);
+  });
+}
+
+function coroar(cartoes, opcoes, vencedora) {
+  cartoes.forEach((cartao, i) => {
+    const ganhou = opcoes[i] === vencedora;
+    cartao.classList.toggle("vencedora", ganhou);
+    cartao.classList.add("apurada");
+    if (!ganhou) return;
+    const selo = document.createElement("span");
+    selo.className = "selo-vencedora";
+    selo.textContent = t("telao.vencedora");
+    cartao.querySelector(".cabeca").append(selo);
+  });
+}
+
+// A cada quadro: números, largura e barra andam juntos, desacelerando no fim como
+// uma apuração que fecha.
+function correrApuracao(cartoes, opcoes, ponderado, aoTerminar) {
+  const comeco = performance.now();
+  const quadro = (agora) => {
+    const t = Math.min(1, (agora - comeco) / DURACAO_APURACAO);
+    const suave = 1 - (1 - t) ** 2.2;
+    desenharParciais(cartoes, opcoes.map((o, i) => {
+      const avanco = suave ** RITMOS[i % RITMOS.length];
+      return { opcao: o, pontos: o.pontos * avanco, votos: Math.round(o.votos * avanco) };
+    }), ponderado);
+    if (t < 1) requestAnimationFrame(quadro);
+    else aoTerminar();
+  };
+  requestAnimationFrame(quadro);
+}
+
 function mostrarResultado(opcoes) {
   const soma = opcoes.reduce((s, o) => s + o.pontos, 0) || 1;
   const ponderado = opcoes.some((o) => o.pontos !== o.votos);
@@ -277,16 +325,24 @@ function mostrarResultado(opcoes) {
 
   const area = $("resultado");
   area.classList.toggle("muitas", opcoes.length > 3);
-  area.replaceChildren(...opcoes.map((o, i) => cartaoDaOpcao(o, i, soma, vencedora, ponderado)));
+  const cartoes = opcoes.map((o, i) => cartaoDaOpcao(o, i));
+  area.replaceChildren(...cartoes);
   $("contagem").hidden = true;
   area.hidden = false;
 
-  void area.offsetWidth; // aplica a largura 0 antes de mudar, para a transição acontecer
-  opcoes.forEach((o, i) => {
-    const cartao = area.children[i];
-    cartao.querySelector(".preenchimento").style.width = `${(o.pontos / soma) * 100}%`;
-    contar(cartao.querySelector(".valor"), Math.round((o.pontos / soma) * 100), 1400);
-  });
+  const finais = opcoes.map((o) => ({ opcao: o, pontos: o.pontos, votos: o.votos }));
+  const fechar = () => {
+    desenharParciais(cartoes, finais, ponderado);
+    coroar(cartoes, opcoes, vencedora);
+  };
+  if (semMovimento || maior === 0) {
+    fechar();
+    return;
+  }
+  desenharParciais(cartoes, opcoes.map((o) => ({ opcao: o, pontos: 0, votos: 0 })), ponderado);
+  // a corrida começa depois que o último cartão terminou de subir
+  setTimeout(() => correrApuracao(cartoes, opcoes, ponderado, fechar),
+             900 + opcoes.length * 120);
 }
 
 // ---------- QR do voto por celular ----------
