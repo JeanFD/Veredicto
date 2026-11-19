@@ -38,9 +38,12 @@ def test_nada_antes_de_revelar(cliente, urna, estado):
 
 # ---------- depois da revelação ----------
 def test_lista_sessoes_reveladas(cliente, revelada):
-    assert cliente.get("/api/auditoria/sessoes").json() == [
-        {"id": 1, "tema": "Sessão de teste", "pergunta": 1, "total_perguntas": 1},
-    ]
+    [sessao] = cliente.get("/api/auditoria/sessoes").json()
+    assert sessao["id"] == 1 and sessao["tema"] == "Sessão de teste"
+    assert (sessao["pergunta"], sessao["total_perguntas"]) == (1, 1)
+    # caso e data: sem eles a lista vira uma pilha de perguntas sem referência
+    assert sessao["caso"] == "Ensaio" and sessao["grupo_id"] is None
+    assert sessao["encerrada_em"]
 
 def test_total_por_urna_sem_divisao_por_opcao(cliente, revelada):
     a = cliente.get("/api/auditoria/sessoes/1").json()
@@ -78,6 +81,18 @@ def test_votos_por_celular_aparecem_com_nome(cliente, sessao_aberta):
     [urna] = cliente.get("/api/auditoria/sessoes/1").json()["por_urna"]
     assert urna["urna"] == "Voto por celular"
 
-def test_linha_do_tempo_mostra_quem_fez(cliente, revelada):
-    eventos = cliente.get("/api/auditoria/sessoes/1").json()["eventos"]
-    assert all(e["por"] == "admin" for e in eventos), eventos
+def test_quem_fez_cada_coisa_so_para_quem_entrou(cliente, revelada):
+    """A auditoria é pública; o nome de quem operou é da mesa, não da rua."""
+    publico = cliente.get("/api/auditoria/sessoes/1").json()["eventos"]
+    assert publico and all("por" not in e for e in publico), publico
+
+    com_conta = cliente.get("/api/auditoria/sessoes/1", auth=ADMIN).json()["eventos"]
+    assert all(e["por"] == "admin" for e in com_conta), com_conta
+
+def test_senha_errada_na_auditoria_nao_tranca_o_ip(cliente, revelada):
+    """A página é pública: errar a senha aqui não pode bloquear o login de todo mundo."""
+    for _ in range(10):
+        r = cliente.get("/api/auditoria/sessoes/1", auth=("admin", "errada"))
+        assert r.status_code == 200
+        assert all("por" not in e for e in r.json()["eventos"])
+    assert cliente.post("/api/login", json={"usuario": ADMIN[0], "senha": ADMIN[1]}).status_code == 200

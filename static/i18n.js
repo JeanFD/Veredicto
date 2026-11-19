@@ -404,7 +404,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.importar_votos": "Importar votos",
     "mesario.baixar_votos": "Baixar votos (CSV)",
     "mesario.votos_baixados": "Arquivo {arquivo} baixado.",
-    "mesario.aba_urnas_pedidos": "Urnas ({n} pedindo cadastro)"
+    "mesario.aba_urnas_pedidos": "Urnas ({n} pedindo cadastro)",
+    "auditoria.sem_caso": "Sem caso"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -802,7 +803,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.importar_votos": "Import votes",
     "mesario.baixar_votos": "Download votes (CSV)",
     "mesario.votos_baixados": "File {arquivo} downloaded.",
-    "mesario.aba_urnas_pedidos": "Ballot boxes ({n} requesting setup)"
+    "mesario.aba_urnas_pedidos": "Ballot boxes ({n} requesting setup)",
+    "auditoria.sem_caso": "No case"
   }
 } /* textos:fim */;
 

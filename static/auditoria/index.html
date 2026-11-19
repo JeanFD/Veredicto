@@ -8,8 +8,17 @@
   <style>
     .divisao { display: grid; gap: 1rem; grid-template-columns: 280px 1fr; align-items: start; }
     @media (max-width: 760px) { .divisao { grid-template-columns: 1fr; } }
-    #sessoes a { display: block; padding: 0.6rem 0.75rem; border-radius: 8px; color: inherit;
+    /* uma lista plana não dizia de que júri era cada pergunta: os blocos são os casos */
+    #sessoes h3 { margin: 1.1rem 0 0.35rem; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em;
+                  text-transform: uppercase; color: var(--texto-2); }
+    #sessoes .caso:first-child h3 { margin-top: 0; }
+    #sessoes a { display: flex; gap: 0.5rem; justify-content: space-between; align-items: baseline;
+                 padding: 0.6rem 0.75rem; border-radius: 8px; color: inherit;
                  text-decoration: none; font-weight: 500; }
+    #sessoes a small { flex: none; font-size: 0.78rem; font-weight: 400; color: var(--texto-2); }
+    #sessoes a.atual small { color: inherit; }
+    #caso-detalhe:not(:empty) { margin: 0 0 0.35rem; font-size: 0.74rem; font-weight: 700;
+                                letter-spacing: 0.06em; text-transform: uppercase; color: var(--primaria); }
     #sessoes a:hover { background: var(--superficie-2); }
     #sessoes a.atual { background: var(--primaria-suave); color: var(--primaria); }
     #sessoes p { margin: 0; color: var(--texto-2); }
@@ -60,6 +69,7 @@
         <p id="escolha" class="vazio" data-i18n="auditoria.escolha">Escolha uma sessão para ver o resultado, os votos por urna e a linha do tempo.</p>
         <section id="detalhe" hidden>
           <div class="cartao">
+            <p id="caso-detalhe"></p>
             <h2 id="tema"></h2>
             <small data-i18n="auditoria.total">Total de votos</small>
             <div class="numero-total" id="total"></div>
@@ -84,7 +94,7 @@
             <div class="tabela"><table>
               <thead><tr><th data-i18n="auditoria.col_quando">Quando</th>
                 <th data-i18n="auditoria.col_evento">O que aconteceu</th>
-                <th data-i18n="auditoria.col_quem">Quem</th></tr></thead>
+                <th id="col-quem" data-i18n="auditoria.col_quem">Quem</th></tr></thead>
               <tbody id="eventos"></tbody></table></div>
           </div>
         </section>
@@ -93,6 +103,7 @@
   </main>
 
   <script src="/i18n.js?v=2"></script>
+  <script src="/login.js?v=2"></script>
   <script src="auditoria.js?v=2"></script>
 </body>
 </html>
