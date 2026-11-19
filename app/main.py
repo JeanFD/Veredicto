@@ -880,6 +880,10 @@ async def entrar(dados: Login, request: Request):
     conta = conta_com_senha(request.client.host, dados.usuario, dados.senha)
     token, expira = abrir_login(conta["usuario"])
     log("login", usuario=conta["usuario"], ip=request.client.host)
+    # o registro do painel diz quando cada conta entrou; quem entrou vai no "por",
+    # como nas outras ações, para aparecer na coluna "Quem" e na busca
+    responsavel.set(conta["usuario"])
+    registrar_evento("login")
     return {"token": token, "expira_em": expira, **conta_publica(conta)}
 
 @app.post("/api/logout")
