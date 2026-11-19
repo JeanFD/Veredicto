@@ -26,6 +26,8 @@ let ocupada = false;   // true durante confirmação ou mensagem de sucesso
 
 // cada troca de tela entra com uma transição curta, em vez de um corte seco
 function limpar() {
+  pararEspera();
+  avisar(null);
   $("opcoes").innerHTML = "";
   $("tema").classList.remove("enviando");
   const tela = document.querySelector("main");
@@ -44,6 +46,12 @@ function botao(texto, cor, aoClicar, classe) {
   b.onpointerdown = () => b.classList.add("tocado");
   b.onpointerup = b.onpointercancel = b.onpointerleave = () => b.classList.remove("tocado");
   $("opcoes").appendChild(b);
+  return b;
+}
+
+function avisar(texto) {
+  $("aviso").hidden = !texto;
+  $("aviso").textContent = texto ?? "";
 }
 
 function sinalizar(classe, duracao) {
@@ -72,12 +80,47 @@ function renderizar() {
 }
 
 
+// A cédula não fica armada esperando: se o eleitor se afastar, ela volta sozinha, para
+// que o próximo não encontre o voto de outra pessoa pronto para confirmar. E o
+// "Confirmar" nasce no lugar da opção recém-tocada, então ignora o toque por um
+// instante — um toque duplo escolhe, não vota.
+// confirmacao: segundos até a cédula voltar sozinha; avisar: segundos finais contados
+// na tela; trava: ms em que o "Confirmar" ignora o toque. Os testes de ponta a ponta
+// encurtam os dois primeiros por window.TEMPOS_URNA, que em produção não existe.
+const TEMPOS = { confirmacao: 30, avisar: 10, trava: 600, ...(window.TEMPOS_URNA ?? {}) };
+
+let esperaConfirmacao = null;
+let travaConfirmar = null;
+
+function pararEspera() {
+  clearInterval(esperaConfirmacao);
+  clearTimeout(travaConfirmar);
+  esperaConfirmacao = null;
+}
+
+function voltarParaCedula() {
+  ocupada = false;
+  renderizar();
+}
+
+function contarParaVoltar() {
+  let faltam = TEMPOS.confirmacao;
+  esperaConfirmacao = setInterval(() => {
+    faltam -= 1;
+    if (faltam <= 0) return voltarParaCedula();
+    if (faltam <= TEMPOS.avisar) avisar(t("urna.volta_em", { s: faltam }));
+  }, 1000);
+}
+
 function confirmar(op) {
   ocupada = true;
   limpar();
   $("tema").textContent = t("comum.confirmar_voto", { opcao: op.rotulo });
-  botao(t("comum.confirmar"), op.cor, () => votar(op));
-  botao(t("comum.corrigir"), null, () => { ocupada = false; renderizar(); }, "secundario");
+  const sim = botao(t("comum.confirmar"), op.cor, () => votar(op));
+  sim.disabled = true;
+  travaConfirmar = setTimeout(() => { sim.disabled = false; }, TEMPOS.trava);
+  botao(t("comum.corrigir"), null, voltarParaCedula, "secundario");
+  contarParaVoltar();
 }
 
 async function votar(op) {
@@ -121,6 +164,36 @@ function avisarRecusa(motivo) {
   }, "secundario");
 }
 
+// ---------- Sem autorização ----------
+// Token reemitido, banco restaurado: o servidor passa a recusar a urna. Antes a tela
+// seguia mostrando a pergunta guardada e o eleitor votava no vazio. Agora ela assume
+// a tela e oferece o repareamento, atrás de uma segunda confirmação — desconfigurar
+// uma urna no meio da votação custa caro.
+let semAutorizacao = false;
+
+function mostrarSemAutorizacao() {
+  ocupada = true;
+  limpar();
+  document.body.classList.add("sem-autorizacao");
+  $("pergunta").hidden = true;
+  $("tema").textContent = t("urna.sem_autorizacao");
+  avisar(t("urna.sem_autorizacao_ajuda"));
+  botao(t("urna.parear_de_novo"), null, pedirRepareamento, "secundario");
+}
+
+function pedirRepareamento() {
+  limpar();
+  $("tema").textContent = t("urna.confirmar_repareamento");
+  const presos = ler("fila", []).length;
+  if (presos) avisar(t("urna.repareamento_fila", { n: presos }));
+  botao(t("urna.desconfigurar"), "#b42318", () => {
+    localStorage.removeItem("urna_id");
+    localStorage.removeItem("urna_token");
+    location.reload();
+  });
+  botao(t("urna.cancelar"), null, mostrarSemAutorizacao, "secundario");
+}
+
 // ---------- Sessão ----------
 function atualizarSessao(nova) {
   const mudou = JSON.stringify(nova) !== JSON.stringify(sessao);
@@ -138,9 +211,21 @@ async function buscarSessao() {
     });
     if (r.status === 401) {
       $("rede").textContent = t("urna.nao_autorizada");
+      if (!semAutorizacao) {
+        semAutorizacao = true;
+        mostrarSemAutorizacao();
+      }
       return;
     }
-    atualizarSessao((await r.json()).sessao);
+    const corpo = await r.json();
+    if (semAutorizacao) {
+      // autorizada de novo: sai da tela de aviso mesmo que a sessão não tenha mudado
+      semAutorizacao = false;
+      ocupada = false;
+      sessao = null;
+      document.body.classList.remove("sem-autorizacao");
+    }
+    atualizarSessao(corpo.sessao);
     $("rede").textContent = t("urna.online");
   } catch {
     $("rede").textContent = t("urna.offline");
