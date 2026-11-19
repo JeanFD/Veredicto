@@ -201,3 +201,33 @@ def test_baixar_os_votos_em_csv(painel: Page, base_url, admin, urna):  # noqa: F
         linhas = arquivo.read().splitlines()
     assert linhas[0].startswith("id,urna_id,opcao")
     assert len(linhas) == 2, linhas
+
+def test_registro_tem_busca_e_contagem(painel: Page, admin):  # noqa: F811
+    """#138: a aba despejava todos os eventos de sempre, sem busca e sem fim."""
+    tema = f"E2E busca {uuid.uuid4().hex[:6]}"
+    sid = admin.post("/api/admin/sessoes", json={"tema": tema, "opcoes": OPCOES})["id"]
+    admin.post(f"/api/admin/sessoes/{sid}/ativar")
+    painel.get_by_role("tab", name="Registro").click()
+
+    linhas = painel.locator("#lista-registro tr")
+    expect(painel.locator("#conta-registro")).to_contain_text("mostrando")
+    todas = linhas.count()
+    assert todas > 2, todas
+
+    painel.locator("#busca-registro").fill(f"sessao: {sid}")
+    expect(linhas.first).to_contain_text(f"sessao: {sid}")
+    achadas = linhas.count()
+    assert 1 <= achadas < todas, (achadas, todas)
+    for i in range(achadas):
+        expect(linhas.nth(i)).to_contain_text(f"sessao: {sid}")
+    expect(painel.locator("#conta-registro")).to_have_text(f"mostrando {achadas} de {achadas}")
+
+    painel.locator("#busca-registro").fill("nada-com-esse-nome")
+    expect(painel.locator("#lista-registro td.vazio")).to_contain_text("Nada encontrado")
+
+def test_registro_carrega_ao_abrir_pelo_endereco(painel: Page, admin):  # noqa: F811
+    """#138: só o clique na aba carregava; recarregar em #registro vinha vazio."""
+    admin.post("/api/admin/sessoes", json={"tema": f"E2E link {uuid.uuid4().hex[:6]}", "opcoes": OPCOES})
+    painel.goto("/mesario/#registro")
+    expect(painel.locator("#lista-registro tr").first).to_contain_text("Sessão criada")
+    expect(painel.locator("#conta-registro")).to_contain_text("mostrando")
