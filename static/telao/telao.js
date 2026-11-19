@@ -43,15 +43,21 @@ function atualizarTotal(total) {
   contar(el, total);
 }
 
-// Cabeçalho e rodapé: a situação da apuração e o total, sempre à vista.
+// A situação fica na pílula do cabeçalho e o total no rodapé, sempre à vista.
 function mostrarMoldura(m) {
   const estado = m.sessao?.estado;
-  const situacao = t(`telao.situacao.${estado ?? "AGUARDANDO"}`);
-  $("situacao").textContent = situacao;
+  $("situacao").textContent = t(`telao.situacao.${estado ?? "AGUARDANDO"}`);
   $("situacao").classList.toggle("apurado", estado === "REVELADA");
-  $("rodape-estado").textContent = situacao;
-  $("rodape-caso").textContent = m.sessao?.caso ?? "";
   mostrarTotalDoRodape(m.total ?? 0, m.resultado);
+  mostrarContextoDoRodape();
+}
+
+// A situação já está na pílula do cabeçalho e o caso no alto do palco, inclusive com
+// um cartão na tela: repetir os dois no rodapé só enchia o telão. O tema é o único
+// que o cartão cobre, então é o único que o rodapé precisa resgatar.
+function mostrarContextoDoRodape() {
+  const comCartao = document.body.classList.contains("com-cartao");
+  $("rodape-tema").textContent = comCartao ? sessaoAtual?.tema ?? "" : "";
 }
 
 function mostrarTotalDoRodape(total, resultado) {
@@ -94,6 +100,7 @@ function dominio(url) {
 function mostrarCartao(cartao) {
   document.body.classList.toggle("com-cartao", Boolean(cartao));
   $("cartao").hidden = !cartao;
+  mostrarContextoDoRodape();
   if (!cartao) return;
   $("cartao-titulo").textContent = cartao.titulo;
   $("cartao-texto").replaceChildren(...blocosDoTexto(cartao.texto));
