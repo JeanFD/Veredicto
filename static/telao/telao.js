@@ -205,6 +205,7 @@ function ligarSom() {
 // tiques nos últimos segundos: um por segundo inteiro, só enquanto corre
 const TIQUES_FINAIS = 5;
 let ultimoTique = null;
+let menorTique = Infinity;
 
 function mostrarCronometro(c) {
   if (c.visivel && c.rodando && !(cronometro?.visivel && cronometro?.rodando)) Sons.cronometroInicio();
@@ -217,20 +218,34 @@ function mostrarCronometro(c) {
 function desenharCronometro() {
   const c = cronometro;
   $("cronometro").hidden = !c.visivel;
-  if (!c.visivel) return;
+  if (!c.visivel) {
+    apitou = false;
+    menorTique = Infinity;
+    return;
+  }
   const restante = c.rodando ? c.restante - (performance.now() - c.recebido) / 1000 : c.restante;
   const esgotado = restante < 0;
   $("cronometro-titulo").textContent = c.titulo;
   $("cronometro-tempo").textContent = (esgotado ? "+" : "") + formatarTempo(restante);
   $("cronometro").classList.toggle("esgotado", esgotado);
   $("cronometro-esgotado").hidden = !esgotado;
-  if (esgotado && !apitou) Sons.cronometroFim();
-  apitou = esgotado;
-  // tica ao virar cada um dos últimos segundos; um telão que abre no meio da
-  // contagem espera a próxima virada, sem tique solto
+  // O servidor reenvia o cronômetro a cada poucos segundos, e o relógio dele e o
+  // daqui não batem no décimo: logo depois do zero, uma mensagem com 0,2 s de
+  // sobra desfazia o "esgotado" e o apito tocava de novo. Apito e tiques só se
+  // rearmam quando o tempo volta de verdade (nova fala, +1 min) ou sai da tela.
+  if (restante > 1) apitou = false;
+  if (restante > TIQUES_FINAIS + 1 || !c.rodando) menorTique = Infinity;
+  if (esgotado && !apitou) {
+    Sons.cronometroFim();
+    apitou = true;
+  }
+  // tica ao virar cada um dos últimos segundos, uma vez cada; um telão que abre no
+  // meio da contagem espera a próxima virada, sem tique solto
   const segundo = c.rodando && !esgotado ? Math.ceil(restante) : null;
-  if (segundo !== null && segundo <= TIQUES_FINAIS && ultimoTique !== null && segundo < ultimoTique) {
+  if (segundo !== null && segundo <= TIQUES_FINAIS && ultimoTique !== null
+      && segundo < ultimoTique && segundo < menorTique) {
     Sons.cronometroTique();
+    menorTique = segundo;
   }
   ultimoTique = segundo;
 }

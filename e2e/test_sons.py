@@ -60,3 +60,17 @@ def test_cronometro_toca_no_inicio_nos_ultimos_segundos_e_no_fim(page: Page, adm
         assert tocados(page) == ["cronometroInicio"] + ["cronometroTique"] * 5 + ["cronometroFim"]
     finally:
         admin.http.delete("/api/admin/cronometro")
+
+def test_mensagem_atrasada_do_servidor_nao_repete_apito_nem_tique(page: Page, admin):
+    """O relógio do servidor e o do telão não batem no décimo: logo depois do zero,
+    um reenvio com 0,3 s de sobra fazia o apito tocar duas vezes."""
+    page.add_init_script(ESPIAO)
+    page.goto("/telao/")
+    try:
+        admin.post("/api/admin/cronometro", json={"titulo": "E2E atraso", "minutos": 0.1})  # 6 s
+        expect(page.locator("#cronometro-esgotado")).to_be_visible(timeout=15000)
+        page.evaluate("mostrarCronometro({titulo: 'E2E atraso', restante: 0.3, rodando: true, visivel: true})")
+        page.wait_for_timeout(1500)
+        assert tocados(page) == ["cronometroInicio"] + ["cronometroTique"] * 5 + ["cronometroFim"]
+    finally:
+        admin.http.delete("/api/admin/cronometro")
