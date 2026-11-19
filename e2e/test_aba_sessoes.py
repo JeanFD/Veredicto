@@ -231,3 +231,23 @@ def test_registro_carrega_ao_abrir_pelo_endereco(painel: Page, admin):  # noqa: 
     painel.goto("/mesario/#registro")
     expect(painel.locator("#lista-registro tr").first).to_contain_text("Sessão criada")
     expect(painel.locator("#conta-registro")).to_contain_text("mostrando")
+
+def test_painel_no_celular(painel: Page):  # noqa: F811
+    """#140: a faixa fixa comia a tela e as abas rolavam para fora sem volta."""
+    painel.set_viewport_size({"width": 375, "height": 812})
+
+    # a navegação do topo cabe inteira, sem rolagem escondida
+    nav = painel.locator(".topo nav")
+    assert nav.evaluate("n => n.scrollWidth - n.clientWidth") == 0
+    expect(painel.get_by_role("link", name="Auditoria")).to_be_visible()
+
+    # a faixa de estado cabe num terço da tela
+    faixa = painel.locator("#estado-atual").bounding_box()
+    assert faixa["height"] < 812 / 3, faixa
+
+    # rolando a lista, as abas continuam na tela e logo abaixo da faixa
+    painel.mouse.wheel(0, 3000)
+    painel.wait_for_timeout(200)
+    abas = painel.locator(".abas").bounding_box()
+    assert abas["y"] >= faixa["height"] - 2, (abas, faixa)
+    assert abas["y"] + abas["height"] <= 812, abas

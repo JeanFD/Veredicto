@@ -48,9 +48,9 @@ def test_mudar_peso_da_urna_pelo_painel(painel: Page, admin):  # noqa: F811
     uid, _ = urna_com_peso(admin, 1)
     painel.evaluate("window.prompt = () => \"3\"")  # o painel aceita os diálogos com o valor padrão
     painel.get_by_role("tab", name="Urnas").click()
-    cartao = painel.locator("#urnas .urna", has_text=uid)
+    cartao = painel.locator("#lista-urnas .urna", has_text=uid)
     cartao.locator("summary").click()
     cartao.get_by_role("button", name="Mudar peso (atual: 1)").click()
     confirmar(painel, "Salvar", digitando="3")
-    expect(painel.locator("#urnas .urna", has_text=uid)).to_contain_text(f"{uid} · peso 3")
+    expect(painel.locator("#lista-urnas .urna", has_text=uid)).to_contain_text(f"{uid} · peso 3")
     assert [u["peso"] for u in admin.http.get("/api/admin/urnas").json() if u["id"] == uid] == [3]
