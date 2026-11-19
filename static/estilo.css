@@ -113,6 +113,10 @@ label { font-weight: 500; }
 .selo.teste { background: #fff4e5; color: #b54708; border: 1px dashed #f5b971; }
 .selo.teste::before { display: none; }
 .selo.celular { background: #eef4ff; color: var(--primaria); }
+/* a queda da conexão para de chegar voto na tela sem nada dizer: a marca pisca */
+.selo.alerta { background: var(--perigo-suave); color: var(--perigo);
+               animation: pisca 1.6s ease-in-out infinite; }
+@keyframes pisca { 50% { opacity: 0.4; } }
 .selo.celular::before { display: none; }
 
 /* grade de status das urnas (painel e monitoramento) */
@@ -124,7 +128,7 @@ label { font-weight: 500; }
 .urna > div { font-size: 0.9rem; }
 .online { border-top-color: var(--sucesso); } .offline { border-top-color: var(--perigo); }
 .nunca { border-top-color: #98a2b3; } .inativa { opacity: 0.5; }
-.recusados { color: var(--perigo); font-weight: 700; }
+.recusados, .presos { color: var(--perigo); font-weight: 700; }
 .grade .vazio { grid-column: 1 / -1; margin: 0; }
 .conta-atual { color: rgba(255, 255, 255, 0.85); font-size: 0.85rem; }
 

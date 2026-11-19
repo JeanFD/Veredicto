@@ -386,7 +386,10 @@ const TEXTOS = /* textos:inicio */ {
     "urna.desconfigurar": "Desconfigurar",
     "urna.cancelar": "Cancelar",
     "telao.sem_rede": "sem conexão",
-    "telao.ligar_som": "ligar o som"
+    "telao.ligar_som": "ligar o som",
+    "mesario.sem_rede": "sem conexão",
+    "mesario.um_preso": "1 voto preso na urna",
+    "mesario.n_presos": "{n} votos presos na urna"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -766,7 +769,10 @@ const TEXTOS = /* textos:inicio */ {
     "urna.desconfigurar": "Unset",
     "urna.cancelar": "Cancel",
     "telao.sem_rede": "no connection",
-    "telao.ligar_som": "turn sound on"
+    "telao.ligar_som": "turn sound on",
+    "mesario.sem_rede": "no connection",
+    "mesario.um_preso": "1 vote stuck in the ballot box",
+    "mesario.n_presos": "{n} votes stuck in the ballot box"
   }
 } /* textos:fim */;
 
