@@ -23,7 +23,11 @@ jobs:
           script: |
             set -e
             cd /opt/veredicto
-            git pull --ff-only
+            # segue o main do GitHub mesmo depois de uma reescrita de histórico
+            # (o pull --ff-only recusava e o deploy parava); o que está fora do
+            # git, como .env e o banco, não é tocado
+            git fetch origin main
+            git reset --hard origin/main
             docker compose build veredicto
             # backup + migrações antes de trocar o container: se falharem, o
             # set -e para o deploy aqui e a versão antiga continua no ar
