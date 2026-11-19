@@ -23,9 +23,48 @@ window.Sons = (() => {
     return contexto;
   }
 
+  // No iPhone e no iPad, o Web Audio segue a chave de silencioso por padrão: com
+  // ela ligada, a urna e o celular ficavam mudos sem erro nenhum. "playback" diz
+  // ao sistema que o som é da página e deve sair (Safari 16.4+).
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
+  } catch {
+    // navegador sem audioSession: segue como antes
+  }
+
+  // O Safari só destrava o áudio quando um som começa dentro do próprio toque; o
+  // resume() sozinho deixava o contexto "running" e mudo. Um buffer de uma amostra,
+  // em silêncio, faz esse papel.
+  let destravado = false;
+
+  function destravar(c) {
+    if (destravado) return;
+    try {
+      const fonte = c.createBufferSource();
+      fonte.buffer = c.createBuffer(1, 1, 22050);
+      fonte.connect(c.destination);
+      fonte.start(0);
+      destravado = true;
+    } catch {
+      // sem áudio: fica para o próximo toque
+    }
+  }
+
   function preparar() {
     const c = obter();
-    return c ? c.resume().catch(() => {}) : Promise.resolve();
+    if (!c) return Promise.resolve();
+    destravar(c);
+    return c.resume().catch(() => {});
+  }
+
+  // Qualquer toque na página já prepara o áudio: na urna, o toque na opção chega
+  // antes do "Confirmar", e o iOS conta o toque no touchend, não no começo dele.
+  // Só nas telas que pedem: no telão, o ouvinte no meio do clique tirava do botão
+  // de tela cheia o gesto de que ele precisa (o telão tem o próprio "ligar o som").
+  function prepararNoToque() {
+    for (const evento of ["touchend", "pointerup", "keydown"]) {
+      addEventListener(evento, preparar, { capture: true, passive: true });
+    }
   }
 
   function pronto() {
@@ -56,8 +95,8 @@ window.Sons = (() => {
   const sons = {
     // voto registrado: duas notas subindo, curtas e discretas
     voto() {
-      nota(1046.5, { dura: 0.12, volume: 0.18 });
-      nota(1568, { em: 0.1, dura: 0.25, volume: 0.18 });
+      nota(880, { dura: 0.18, volume: 0.45, tipo: "triangle" });
+      nota(1318.5, { em: 0.14, dura: 0.4, volume: 0.45, tipo: "triangle" });
     },
     // cronômetro começou a correr
     cronometroInicio() {
@@ -93,6 +132,7 @@ window.Sons = (() => {
   return {
     ...sons,
     preparar,
+    prepararNoToque,
     pronto,
     obter,
     ligar(sim) { ligado = sim; },

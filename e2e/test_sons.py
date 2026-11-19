@@ -13,7 +13,7 @@ Object.defineProperty(window, "Sons", {
   set(sons) {
     window.tocados = [];
     for (const nome of Object.keys(sons)) {
-      if (typeof sons[nome] === "function" && !["preparar", "pronto", "obter", "ligar"].includes(nome)) {
+      if (typeof sons[nome] === "function" && !["preparar", "prepararNoToque", "pronto", "obter", "ligar"].includes(nome)) {
         sons[nome] = (...a) => window.tocados.push(nome);
       }
     }

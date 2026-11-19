@@ -193,3 +193,5 @@ function semConexao(tentarDeNovo) {
 }
 
 iniciar();
+
+Sons.prepararNoToque();

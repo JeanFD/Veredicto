@@ -329,3 +329,5 @@ renderizar();
 buscarSessao();
 setInterval(buscarSessao, 5000);
 cicloEnvio();
+
+Sons.prepararNoToque();

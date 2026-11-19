@@ -154,8 +154,10 @@ function mostrarBotaoDoSom() {
   $("ligar-som").hidden = !som || !Sons.ligado || som.state === "running";
 }
 
+// só o resume(): o destrave do Sons.preparar() toca um buffer dentro do clique, e
+// no Chromium isso tirava do botão de tela cheia o gesto de que ele precisa
 function ligarSom() {
-  Sons.preparar().then(mostrarBotaoDoSom);
+  if (som) som.resume().then(mostrarBotaoDoSom, () => {});
 }
 
 // tiques nos últimos segundos: um por segundo inteiro, só enquanto corre
