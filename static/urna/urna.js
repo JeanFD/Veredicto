@@ -86,23 +86,23 @@ function renderizar() {
 
 // A cédula não fica armada esperando: se o eleitor se afastar, ela volta sozinha, para
 // que o próximo não encontre o voto de outra pessoa pronto para confirmar. E o
-// "Confirmar" nasce no lugar da opção recém-tocada, então ignora o toque por um
-// instante — um toque duplo escolhe, não vota.
+// "Confirmar" nasce no lugar da opção recém-tocada: um toque duplo escolheria e
+// votaria. Por isso os botões da confirmação só aparecem passada a espera — e, à
+// vista, já funcionam. Antes o botão aparecia desativado, parecia pronto, e o
+// toque de quem confirmava rápido sumia sem aviso.
 // confirmacao: segundos até a cédula voltar sozinha; avisar: segundos finais contados
-// na tela; trava: ms em que o "Confirmar" ignora o toque. Os testes de ponta a ponta
-// encurtam os dois primeiros por window.TEMPOS_URNA, que em produção não existe.
-// A trava era de 600 ms, mas a tela termina de entrar em 250 ms: o "Confirmar" já
-// parecia pronto e o toque entre os dois sumia, e o eleitor tinha de tocar de novo.
-// 300 ms ainda segura o segundo toque de um toque duplo, que vem antes disso.
-const TEMPOS = { confirmacao: 30, avisar: 10, trava: 300, ...(window.TEMPOS_URNA ?? {}) };
+// na tela; espera: ms até os botões da confirmação aparecerem. Os testes de ponta a
+// ponta encurtam os dois primeiros por window.TEMPOS_URNA, que em produção não existe.
+const TEMPOS = { confirmacao: 30, avisar: 10, espera: 500, ...(window.TEMPOS_URNA ?? {}) };
 
 let esperaConfirmacao = null;
-let travaConfirmar = null;
+let mostrarBotoes = null;
 
 function pararEspera() {
   clearInterval(esperaConfirmacao);
-  clearTimeout(travaConfirmar);
+  clearTimeout(mostrarBotoes);
   esperaConfirmacao = null;
+  $("opcoes").classList.remove("esperando", "surgindo");
 }
 
 function voltarParaCedula() {
@@ -123,10 +123,15 @@ function confirmar(op) {
   ocupada = true;
   limpar();
   $("tema").textContent = t("comum.confirmar_voto", { opcao: op.rotulo });
-  const sim = botao(t("comum.confirmar"), op.cor, () => votar(op));
-  sim.disabled = true;
-  travaConfirmar = setTimeout(() => { sim.disabled = false; }, TEMPOS.trava);
+  // os botões já ocupam o lugar (a pergunta não pula quando eles surgem), mas
+  // invisíveis não recebem toque: o segundo toque de um toque duplo cai no fundo
+  $("opcoes").classList.add("esperando");
+  botao(t("comum.confirmar"), op.cor, () => votar(op));
   botao(t("comum.corrigir"), null, voltarParaCedula, "secundario");
+  mostrarBotoes = setTimeout(() => {
+    $("opcoes").classList.remove("esperando", "surgindo");
+    $("opcoes").classList.add("surgindo");
+  }, TEMPOS.espera);
   contarParaVoltar();
 }
 

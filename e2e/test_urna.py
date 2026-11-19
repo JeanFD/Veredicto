@@ -87,7 +87,7 @@ def test_toque_duplo_na_opcao_nao_confirma(page: Page, admin, urna, sessao_abert
     expect(page.locator("#tema")).to_have_text("Confirmar voto em Acusação?")
     page.wait_for_timeout(300)
     assert admin.votos_da_urna(uid) == 0
-    # passada a trava, o mesmo lugar confirma
+    # passada a espera, o botão aparece e o mesmo lugar confirma
     page.get_by_role("button", name="Confirmar").click()
     expect(page.locator("#tema")).to_contain_text("Voto registrado")
     assert admin.votos_da_urna(uid) == 1
@@ -163,12 +163,17 @@ def test_texto_da_opcao_acompanha_a_cor(page: Page, admin, urna):
     escuro = page.get_by_role("button", name="Azul escuro")
     assert escuro.evaluate("b => getComputedStyle(b).color") == "rgb(255, 255, 255)"
 
-def test_confirmar_logo_depois_da_tela_entrar_vota_no_primeiro_toque(page: Page, admin, urna, sessao_aberta):
-    """A trava de 600 ms engolia o toque de quem confirmava logo que o botão aparecia."""
+def test_confirmar_vota_no_primeiro_toque_assim_que_aparece(page: Page, admin, urna, sessao_aberta):
+    """O "Confirmar" aparecia desativado e engolia o toque de quem confirmava rápido.
+    Agora ele só aparece passada a espera do toque duplo, e à vista já funciona."""
     uid = abrir_urna(page, urna)
     page.get_by_role("button", name="Defesa").click()
-    page.wait_for_timeout(400)
-    caixa = page.get_by_role("button", name="Confirmar").bounding_box()
+    confirmar = page.get_by_role("button", name="Confirmar")
+    expect(page.locator("#tema")).to_have_text("Confirmar voto em Defesa?")
+    expect(confirmar).to_be_hidden()
+    expect(confirmar).to_be_visible()
+    expect(confirmar).to_be_enabled()
+    caixa = confirmar.bounding_box()
     page.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2)
     expect(page.locator("#tema")).to_contain_text("Voto registrado")
     assert admin.votos_da_urna(uid) == 1
