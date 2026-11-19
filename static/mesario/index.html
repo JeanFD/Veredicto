@@ -13,10 +13,13 @@
                            display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; }
     #estado-atual .info { flex: 1; min-width: 220px; }
     #caso-ativo:not(:empty)::before { content: " · "; }
-    #caso-ativo { display: inline !important; color: var(--primaria); }
+    #caso-ativo { color: var(--primaria); }
     #estado-atual small { display: block; font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
                           letter-spacing: 0.06em; }
-    #ativa { font-size: 1.1rem; }
+    /* rótulo e caso na mesma linha: em blocos separados, o separador "·" começava
+       a linha sozinho, como um marcador de lista solto */
+    #estado-atual .info small { display: inline; }
+    #ativa { display: block; font-size: 1.1rem; }
     .votos strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1; }
     #acoes-estado { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
@@ -122,6 +125,22 @@
     .marcar input { margin-top: 0.2rem; }
     .marcar small { display: block; }
     .marcar-teste { border: 1px dashed #f5b971; background: #fffaf2; margin-bottom: 1rem; }
+
+    /* No celular a faixa comia mais de um terço da tela e continuava grudada lá. O tema
+       para em duas linhas, a trilha vira uma linha só que rola, e o botão do próximo
+       passo ocupa a largura toda — é o alvo que a mão procura. */
+    @media (max-width: 700px) {
+      #estado-atual .faixa { padding: 0.6rem 0.75rem; gap: 0.4rem 0.9rem; }
+      #estado-atual .info { min-width: 100%; }
+      #ativa { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+               overflow: hidden; font-size: 1rem; }
+      /* a trilha das quatro etapas sai: o selo ao lado do tema já diz onde a sessão
+         está, e na tela do celular cada linha da faixa fixa custa caro */
+      .trilha { display: none; }
+      .votos strong { font-size: 1.3rem; }
+      #acoes-estado { flex: 1 1 100%; }
+      #acoes-estado button { width: 100%; }
+    }
     .urna.de-teste { border-style: dashed; }
   </style>
 </head>
@@ -206,7 +225,7 @@
             <button type="button" id="limpar-testes" class="perigo so-admin" hidden></button>
           </div>
         </div>
-        <div id="sessoes"></div>
+        <div id="lista-sessoes"></div>
       </section>
 
       <section data-painel="nova" role="tabpanel" hidden>
@@ -248,7 +267,7 @@
           <p class="suave" data-i18n="mesario.pedidos_ajuda">Confira se o código é o mesmo da tela da urna antes de aprovar.</p>
           <div id="lista-pedidos"></div>
         </div>
-        <div id="urnas" class="grade"></div>
+        <div id="lista-urnas" class="grade"></div>
         <div id="link-urna"></div>
         <div class="colunas">
           <form id="nova-urna" class="cartao">

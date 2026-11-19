@@ -33,8 +33,16 @@ function vazio(texto) {
 }
 
 // ---------- Abas ----------
-// a aba aberta fica no endereço (#urnas): recarregar ou voltar mantém o lugar
+// a aba aberta fica no endereço (#urnas): recarregar ou voltar mantém o lugar. Os
+// blocos da página não usam esses nomes como id — quando usavam, o navegador rolava
+// até o bloco de mesmo nome e a aba abria no meio, escondida atrás da faixa fixa.
 const ABAS = ["sessoes", "nova", "urnas", "cartoes", "telao", "contas", "registro"];
+
+// A faixa de estado é fixa no alto e muda de altura conforme o tema, a trilha e o voto
+// por celular. As abas grudam logo abaixo dela, então o CSS precisa saber quanto ela mede.
+new ResizeObserver(([{ target }]) => {
+  document.documentElement.style.setProperty("--altura-faixa", `${target.offsetHeight}px`);
+}).observe(document.getElementById("estado-atual"));
 
 // clicar numa aba empilha o endereço, então o voltar do navegador desfaz a troca;
 // a volta chega aqui pelo hashchange
@@ -175,7 +183,7 @@ function mostrarSessoes(sessoes) {
 
   const visiveis = sessoes.filter((s) => ($("mostrar-arquivadas").checked || !s.arquivada)
     && (!casoFiltro || (s.caso || "") === casoFiltro));
-  const area = $("sessoes");
+  const area = $("lista-sessoes");
   area.replaceChildren(...porCaso(visiveis).map(blocoDoCaso));
   if (!area.children.length) area.appendChild(vazio(t(casoFiltro ? "mesario.sem_sessoes_no_caso" : "mesario.sem_sessoes")));
 
@@ -654,7 +662,7 @@ let idsDeUrnas = new Set();
 
 window.mostrarUrnas = (urnas) => {
   idsDeUrnas = new Set(urnas.map((u) => u.id));
-  const area = $("urnas");
+  const area = $("lista-urnas");
   area.innerHTML = "";
   for (const u of urnas) {
     const classe = !u.ativa ? "inativa" : u.nunca_conectou ? "nunca" : u.online ? "online" : "offline";
