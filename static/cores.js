@@ -20,10 +20,18 @@
 
   const contraste = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 
+  const valida = (cor) => /^#[0-9a-f]{6}$/i.test(cor ?? "");
+
+  // das cores candidatas, a que mais contrasta com o fundo (empate fica com a primeira)
+  window.maisLegivel = (fundo, candidatas) => {
+    const luz = luminancia(fundo);
+    return candidatas.filter(valida).reduce((melhor, cor) =>
+      contraste(luz, luminancia(cor)) > contraste(luz, luminancia(melhor)) ? cor : melhor);
+  };
+
   window.corDoTexto = (fundo) => {
     // o seletor sempre devolve #rrggbb; qualquer outra coisa fica no branco de antes
-    if (!/^#[0-9a-f]{6}$/i.test(fundo ?? "")) return CLARO;
-    const luz = luminancia(fundo);
-    return contraste(luz, luminancia(ESCURO)) >= contraste(luz, luminancia(CLARO)) ? ESCURO : CLARO;
+    if (!valida(fundo)) return CLARO;
+    return window.maisLegivel(fundo, [ESCURO, CLARO]);
   };
 })();

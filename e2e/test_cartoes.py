@@ -13,7 +13,7 @@ def criar_cartao(painel: Page, titulo: str, pasta: str) -> None:  # noqa: F811
     painel.get_by_role("tab", name="Cartões").click()
     painel.get_by_label("Pasta do caso").fill(pasta)
     painel.get_by_label("Título").fill(titulo)
-    painel.get_by_label("Texto").fill(TEXTO)
+    painel.get_by_label("Texto", exact=True).fill(TEXTO)
     painel.get_by_role("button", name="Salvar cartão").click()
 
 def test_cartao_vai_para_o_telao_e_volta(painel: Page):  # noqa: F811

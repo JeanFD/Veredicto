@@ -91,6 +91,10 @@
     .opcao input:not([type=color]) { flex: 1 1 160px; }
     .links .cartao p { color: var(--texto-2); }
     [data-papel="mesario"] .so-admin { display: none !important; }
+    .aparencia fieldset { border: 1px solid var(--borda); border-radius: 0.6rem; margin: 0 0 1rem; padding: 0.75rem; }
+    .aparencia legend { font-weight: 700; padding: 0 0.35rem; }
+    .aparencia .campo input { width: 100%; }
+    .aparencia .cores input[type=color] { width: 2.5rem; height: 2rem; padding: 0; vertical-align: middle; }
     table.contas, table.registro { width: 100%; border-collapse: collapse; }
     table.registro th, table.registro td { text-align: left; padding: 0.45rem 0.5rem;
                                            border-top: 1px solid var(--borda); font-size: 0.9rem; }
@@ -416,6 +420,46 @@
           <p data-i18n="mesario.telao_ajuda">Abra o telão por este botão para exibir o QR code do voto por celular.</p>
           <button type="button" id="abrir-telao" class="principal" data-i18n="mesario.abrir_telao">Abrir telão com QR do celular</button>
         </div>
+        <form id="form-aparencia" class="cartao aparencia so-admin">
+          <h2 data-i18n="aparencia.titulo">Aparência do telão</h2>
+          <p class="suave" data-i18n="aparencia.ajuda">O telão aberto muda assim que você salva. Texto em branco usa o padrão, no idioma da tela.</p>
+          <fieldset>
+            <legend data-i18n="aparencia.cores">Cores</legend>
+            <div class="linha-form cores">
+              <label><input type="color" id="ap-fundo"> <span data-i18n="aparencia.cor_fundo">Cor do fundo</span></label>
+              <label><input type="color" id="ap-cartao"> <span data-i18n="aparencia.cor_cartao">Cor dos cartões</span></label>
+              <label><input type="color" id="ap-destaque"> <span data-i18n="aparencia.cor_destaque">Cor do destaque e da vencedora</span></label>
+              <label><input type="color" id="ap-texto"> <span data-i18n="aparencia.cor_texto">Cor do texto</span></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="aparencia.textos">Textos</legend>
+            <label class="campo"><span data-i18n="aparencia.texto_votos">Embaixo do total de votos</span>
+              <input id="ap-votos" maxlength="60"></label>
+            <label class="campo"><span data-i18n="aparencia.texto_aguardando">Sem sessão ativa</span>
+              <input id="ap-aguardando" maxlength="60"></label>
+            <label class="campo"><span data-i18n="aparencia.texto_vencedora">Selo da vencedora</span>
+              <input id="ap-vencedora" maxlength="30"></label>
+            <label class="campo"><span data-i18n="aparencia.texto_preferencia">Embaixo da barra de cada opção</span>
+              <input id="ap-preferencia" maxlength="40"></label>
+            <label class="campo"><span data-i18n="aparencia.texto_celular">Ao lado do QR code</span>
+              <input id="ap-celular" maxlength="40"></label>
+          </fieldset>
+          <fieldset>
+            <legend data-i18n="aparencia.revelacao">Revelação</legend>
+            <div class="linha-form">
+              <label><input type="checkbox" id="ap-regressiva"> <span data-i18n="aparencia.regressiva">contagem 3·2·1</span></label>
+              <label><input type="checkbox" id="ap-apuracao"> <span data-i18n="aparencia.apuracao">números correndo até o resultado</span></label>
+              <label><input type="checkbox" id="ap-mostrar-votos"> <span data-i18n="aparencia.mostrar_votos">mostrar quantos votos cada opção teve</span></label>
+              <label class="peso"><span data-i18n="aparencia.duracao">Duração (s)</span>
+                <input id="ap-duracao" type="number" min="2" max="20" step="0.1" required></label>
+            </div>
+          </fieldset>
+          <div class="linha-form fim">
+            <button type="button" id="ap-padrao" data-i18n="aparencia.restaurar">Voltar ao padrão</button>
+            <button class="principal" data-i18n="aparencia.salvar">Salvar aparência</button>
+          </div>
+        </form>
         <div class="cartao">
           <h2 data-i18n="mesario.monitoramento">Monitoramento</h2>
           <p data-i18n="mesario.monitor_ajuda">Votos por minuto, latência e urnas online.</p>
@@ -435,6 +479,6 @@
   <script src="/avisos.js?v=2"></script>
   <script src="/confirmar.js?v=2"></script>
   <script src="/login.js?v=2"></script>
-  <script src="mesario.js?v=2"></script>
+  <script src="mesario.js?v=3"></script>
 </body>
 </html>
