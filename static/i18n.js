@@ -391,7 +391,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.um_preso": "1 voto preso na urna",
     "mesario.n_presos": "{n} votos presos na urna",
     "telao.tela_cheia": "tela cheia",
-    "telao.sair_tela_cheia": "sair da tela cheia"
+    "telao.sair_tela_cheia": "sair da tela cheia",
+    "comum.fechar": "Fechar"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -776,7 +777,8 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.um_preso": "1 vote stuck in the ballot box",
     "mesario.n_presos": "{n} votes stuck in the ballot box",
     "telao.tela_cheia": "full screen",
-    "telao.sair_tela_cheia": "leave full screen"
+    "telao.sair_tela_cheia": "leave full screen",
+    "comum.fechar": "Close"
   }
 } /* textos:fim */;
 

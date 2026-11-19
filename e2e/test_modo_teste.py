@@ -25,12 +25,10 @@ def test_sessao_de_teste_do_painel_ao_limpar(painel: Page, browser, admin):  # n
     telao.goto("/telao/")
     expect(telao.locator("#faixa-teste")).to_be_visible()
 
-    mensagens = []
-    painel.on("dialog", lambda d: mensagens.append(d.message))
     limpar.click()
     expect(painel.locator(".sessao", has_text=tema)).to_have_count(0)
     expect(limpar).to_be_hidden()
     expect(telao.locator("#faixa-teste")).to_be_hidden()
-    assert any("Testes apagados" in m for m in mensagens)
+    expect(painel.locator(".aviso.ok p")).to_contain_text("Testes apagados")
     assert all(s["tema"] != tema for s in admin.http.get("/api/admin/sessoes?arquivadas=true").json())
     telao.close()
