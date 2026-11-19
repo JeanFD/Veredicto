@@ -3,7 +3,7 @@ import uuid
 
 from playwright.sync_api import Page, expect
 
-from e2e.test_mesario import painel  # noqa: F401 (fixture)
+from e2e.test_mesario import confirmar, painel  # noqa: F401 (fixture)
 
 TEXTO = ("Em 2013, o ex-analista da NSA vazou documentos do PRISM.\n\n"
          "- Interceptação de e-mails da Presidência\n"
@@ -55,4 +55,5 @@ def test_editar_e_apagar_cartao(painel: Page):  # noqa: F811
     expect(painel.locator(".sessao", has_text=f"{titulo} revisado")).to_be_visible()
 
     painel.locator(".sessao", has_text=titulo).get_by_role("button", name="Apagar").click()
+    confirmar(painel, "Apagar")
     expect(painel.locator(".sessao", has_text=titulo)).to_have_count(0)

@@ -4,7 +4,7 @@ import uuid
 
 from playwright.sync_api import Page, expect
 
-from e2e.test_mesario import painel  # noqa: F401 (fixture)
+from e2e.test_mesario import confirmar, painel  # noqa: F401 (fixture)
 
 def entrar(page: Page, usuario, senha, tela="/mesario/"):
     page.goto(tela)
@@ -51,6 +51,7 @@ def test_desativar_conta_pelo_painel(painel: Page, admin):  # noqa: F811
     usuario = f"des{uuid.uuid4().hex[:6]}"
     criar_pelo_painel(painel, usuario, "mesario")
     painel.locator("#lista-contas tr", has_text=usuario).get_by_role("button", name="Desativar").click()
+    confirmar(painel, "Desativar")
     expect(painel.locator("#lista-contas tr.inativa", has_text=usuario)).to_be_visible()
     r = admin.http.post("/api/login", json={"usuario": usuario, "senha": "senha-boa-1"}, auth=None)
     assert r.status_code == 401

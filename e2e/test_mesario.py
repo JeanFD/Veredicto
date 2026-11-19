@@ -6,9 +6,22 @@ from playwright.sync_api import Page, expect
 
 from e2e.conftest import SENHA
 
+def confirmar(page: Page, acao: str, digitando: str | None = None) -> None:
+    """Confirma a pergunta do painel; `digitando` preenche o campo que ela pedir."""
+    dialogo = page.locator("dialog.pergunta-modal")
+    expect(dialogo).to_be_visible()
+    if digitando is not None:
+        dialogo.locator("input").fill(digitando)
+    dialogo.get_by_role("button", name=acao, exact=True).click()
+    expect(dialogo).to_have_count(0)
+
+def desistir(page: Page) -> None:
+    dialogo = page.locator("dialog.pergunta-modal")
+    expect(dialogo).to_be_visible()
+    dialogo.get_by_role("button", name="Cancelar", exact=True).click()
+    expect(dialogo).to_have_count(0)
+
 def entrar(page: Page):
-    # confirmações do mesário (abrir, encerrar, revelar) são aceitas
-    page.on("dialog", lambda d: d.accept())
     page.goto("/mesario/")
     page.get_by_placeholder("Usuário").fill("admin")
     page.get_by_placeholder("Senha").fill(SENHA)
@@ -45,6 +58,7 @@ def test_ciclo_completo_da_sessao(painel: Page, admin):
     for acao, estado in (("Abrir votação", "ABERTA"), ("Encerrar votação", "ENCERRADA"),
                          ("Revelar resultado", "REVELADA")):
         cabecalho.get_by_role("button", name=acao).click()
+        confirmar(painel, acao)
         expect(selo).to_have_text(estado)
         expect(selo).to_have_class(re.compile(estado))
     expect(cabecalho.get_by_role("button")).to_have_count(0)

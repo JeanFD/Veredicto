@@ -4,7 +4,7 @@ import uuid
 
 from playwright.sync_api import Page, expect
 
-from e2e.test_mesario import painel  # noqa: F401 (fixture)
+from e2e.test_mesario import confirmar, painel  # noqa: F401 (fixture)
 
 def test_urna_pede_e_mesario_aprova(painel: Page, browser):  # noqa: F811
     urna = browser.new_context(locale="pt-BR").new_page()
@@ -46,11 +46,13 @@ def test_admin_apaga_urna_desativada(painel: Page, admin):  # noqa: F811
     cartao = painel.locator("#urnas .urna", has_text=uid)
     cartao.locator("summary").click()
     cartao.get_by_role("button", name="Desativar").click()
+    confirmar(painel, "Desativar")
 
     # a grade se redesenha sozinha e o bloco de ações continua aberto
     cartao = painel.locator("#urnas .urna", has_text=uid)
     expect(cartao).to_contain_text("desativada")
     expect(cartao.get_by_role("button", name="Gerar novo link")).to_have_count(0)
     cartao.get_by_role("button", name="Apagar urna").click()
+    confirmar(painel, "Apagar urna")
     expect(painel.locator("#urnas .urna", has_text=uid)).to_have_count(0)
     assert all(u["id"] != uid for u in admin.http.get("/api/admin/urnas").json())
