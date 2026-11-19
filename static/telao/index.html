@@ -42,6 +42,9 @@
     .pilula { padding: 0.45em 1.1em; border: 1px solid var(--limao); border-radius: 999px;
               color: var(--limao); white-space: nowrap; }
     #situacao.apurado { background: var(--limao); color: var(--preto); }
+    /* a sala inteira olha para cá: a queda da conexão não pode passar em silêncio */
+    .pilula.alerta { border-color: #f97066; color: #f97066; animation: pisca 1.6s ease-in-out infinite; }
+    @keyframes pisca { 50% { opacity: 0.35; } }
 
     /* palco */
     .palco { display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -180,7 +183,11 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/></svg>
       Veredito
     </div>
-    <div class="acoes"><span id="situacao" class="pilula"></span></div>
+    <div class="acoes">
+      <button type="button" id="ligar-som" hidden data-i18n="telao.ligar_som">ligar o som</button>
+      <span id="sem-rede" class="pilula alerta" hidden data-i18n="telao.sem_rede">sem conexão</span>
+      <span id="situacao" class="pilula"></span>
+    </div>
   </header>
 
   <main class="palco">
