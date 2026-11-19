@@ -3,7 +3,7 @@ import uuid
 
 from playwright.sync_api import Page, expect
 
-from e2e.test_mesario import painel  # noqa: F401 (fixture)
+from e2e.test_mesario import confirmar, painel  # noqa: F401 (fixture)
 
 def test_sessao_de_teste_do_painel_ao_limpar(painel: Page, browser, admin):  # noqa: F811
     tema = f"E2E ensaio {uuid.uuid4().hex[:6]}"
@@ -25,7 +25,9 @@ def test_sessao_de_teste_do_painel_ao_limpar(painel: Page, browser, admin):  # n
     telao.goto("/telao/")
     expect(telao.locator("#faixa-teste")).to_be_visible()
 
+    rotulo = limpar.inner_text()
     limpar.click()
+    confirmar(painel, rotulo)
     expect(painel.locator(".sessao", has_text=tema)).to_have_count(0)
     expect(limpar).to_be_hidden()
     expect(telao.locator("#faixa-teste")).to_be_hidden()

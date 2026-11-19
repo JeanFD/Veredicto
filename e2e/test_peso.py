@@ -4,7 +4,7 @@ import uuid
 
 from playwright.sync_api import Page, expect
 
-from e2e.test_mesario import painel  # noqa: F401 (fixture)
+from e2e.test_mesario import confirmar, painel  # noqa: F401 (fixture)
 from e2e.test_telao import votar_pela_api
 
 def urna_com_peso(admin, peso):
@@ -51,5 +51,6 @@ def test_mudar_peso_da_urna_pelo_painel(painel: Page, admin):  # noqa: F811
     cartao = painel.locator("#urnas .urna", has_text=uid)
     cartao.locator("summary").click()
     cartao.get_by_role("button", name="Mudar peso (atual: 1)").click()
+    confirmar(painel, "Salvar", digitando="3")
     expect(painel.locator("#urnas .urna", has_text=uid)).to_contain_text(f"{uid} · peso 3")
     assert [u["peso"] for u in admin.http.get("/api/admin/urnas").json() if u["id"] == uid] == [3]

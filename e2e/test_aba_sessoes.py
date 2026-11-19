@@ -5,7 +5,7 @@ import uuid
 from playwright.sync_api import Page, expect
 
 from e2e.conftest import OPCOES
-from e2e.test_mesario import painel  # noqa: F401 (fixture)
+from e2e.test_mesario import confirmar, painel  # noqa: F401 (fixture)
 
 def bloco_do_caso(painel: Page, caso: str):
     """Pelo título: o nome do caso também aparece no seletor "Mover para" de cada linha."""
@@ -42,11 +42,13 @@ def test_a_barra_conduz_o_ciclo_com_um_botao_de_cada_vez(painel: Page, admin):  
         expect(barra.get_by_role("button")).to_have_count(1)
         expect(barra.locator(".trilha li.agora")).to_have_count(1)
         barra.get_by_role("button", name=passo).click()
+        confirmar(painel, passo)
         expect(painel.locator("#selo-estado")).to_have_text(estado)
     # revelada, o próximo passo é a pergunta seguinte, com o mesmo verbo da lista
     expect(barra.locator(".trilha li.feito")).to_have_count(3)
     expect(barra.get_by_role("button")).to_have_count(1)
     barra.get_by_role("button", name="Ativar pergunta 2").click()
+    confirmar(painel, "Ativar pergunta 2")
     expect(painel.locator("#ativa")).to_contain_text("pergunta 2")
 
 def test_arquivar_a_sessao_revelada_sem_ativar_outra(painel: Page, admin):  # noqa: F811
@@ -61,6 +63,7 @@ def test_arquivar_a_sessao_revelada_sem_ativar_outra(painel: Page, admin):  # no
     expect(linha.locator(".em-cena")).to_be_visible()
     linha.locator("summary").click()
     linha.get_by_role("button", name="Arquivar").click()
+    confirmar(painel, "Arquivar")
     expect(painel.locator("#ativa")).to_have_text("nenhuma")
     expect(painel.locator("#trilha")).to_be_hidden()
 
@@ -147,6 +150,8 @@ def test_apagar_sessao_definitivamente(painel: Page, admin):  # noqa: F811
     linha = painel.locator(".sessao", has_text=tema)
     linha.locator("summary").click()
     linha.get_by_role("button", name="Apagar definitivamente").click()
+    # apagar de vez pede o tema digitado, como zerar: não tem desfazer
+    confirmar(painel, "Apagar definitivamente", digitando=tema)
 
     expect(painel.locator(".sessao", has_text=tema)).to_have_count(0)
     assert all(s["id"] != sid for s in admin.http.get("/api/admin/sessoes?arquivadas=true").json())

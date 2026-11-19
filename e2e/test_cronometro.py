@@ -3,7 +3,7 @@ import re
 
 from playwright.sync_api import Page, expect
 
-from e2e.test_mesario import painel  # noqa: F401 (fixture)
+from e2e.test_mesario import confirmar, desistir, painel  # noqa: F401 (fixture)
 
 RELOGIO = re.compile(r"^\+?\d+:\d{2}$")
 
@@ -63,13 +63,12 @@ def test_etapas_do_juri_em_um_clique(painel: Page):  # noqa: F811
     expect(painel.locator("#crono-titulo")).to_have_value("Debates e tréplicas")
     expect(painel.locator("#crono-minutos")).to_have_value("20")
 
-    # trocar uma contagem em andamento pede confirmação (o painel aceita os diálogos,
-    # então aqui o confirm é trocado na mão para recusar)
-    painel.evaluate("window.confirm = () => false")
+    # trocar uma contagem em andamento pede confirmação
     painel.get_by_role("button", name="Leitura da denúncia · 5 min").click()
+    desistir(painel)
     expect(telao.locator("#cronometro-titulo")).to_have_text("Debates e tréplicas")
-    painel.evaluate("window.confirm = () => true")
     painel.get_by_role("button", name="Leitura da denúncia · 5 min").click()
+    confirmar(painel, "Trocar a contagem")
     expect(telao.locator("#cronometro-titulo")).to_have_text("Leitura da denúncia")
 
     painel.get_by_role("button", name="Tirar do telão").click()
