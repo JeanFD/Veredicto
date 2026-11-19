@@ -76,7 +76,8 @@
     /* largura proporcional à fatia (o script mexe no flex-grow), com um mínimo para
        o texto não quebrar */
     .opcao { position: relative; overflow: hidden; display: grid; align-content: start;
-             flex: 1 1 0; min-width: clamp(7rem, 11vw, 13rem);
+             container-type: inline-size;
+             flex: 1 1 0; min-width: clamp(9rem, 13vw, 15rem);
              transition: background-color 0.5s ease, color 0.5s ease;
              gap: clamp(0.5rem, 1.2vh, 1rem); padding: clamp(1rem, 1.8vw, 1.9rem);
              border-radius: clamp(1rem, 1.6vw, 1.75rem); background: var(--carvao); text-align: left;
@@ -89,8 +90,17 @@
     .selo-vencedora { padding: 0.5em 1.1em; border-radius: 999px; background: var(--preto);
                       color: var(--limao); white-space: nowrap;
                       animation: selo-entra 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    /* o cartão da perdedora encolhe com a porcentagem e o rótulo ia junto, picado em
+       pedaços de três letras: no cartão estreito a letra diminui, e o corte em três
+       linhas é o limite para um rótulo comprido não empurrar os números para fora */
     .rotulo { margin: 0; font-size: clamp(1.2rem, 2.1vw, 2.1rem); font-weight: 600; line-height: 1.15;
-              letter-spacing: -0.01em; overflow-wrap: anywhere; }
+              letter-spacing: -0.01em; overflow-wrap: anywhere;
+              display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+              overflow: hidden; }
+    @container (max-width: 20rem) {
+      .rotulo { font-size: clamp(0.9rem, 7cqi, 1.5rem); }
+      .porcento { font-size: clamp(2rem, 22cqi, 4rem); }
+    }
     .numeros { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
                flex-wrap: wrap; }
     .porcento { font-size: clamp(3rem, 7.5vw, 7rem); font-weight: 800; line-height: 0.85;
