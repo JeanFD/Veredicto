@@ -16,6 +16,7 @@ ESQUEMA = {
     "cartoes": {"id", "pasta", "titulo", "texto", "fonte", "no_telao", "criado_em"},
     "contas": {"usuario", "nome", "papel", "senha_hash", "ativa", "criada_em"},
     "logins": {"token_hash", "usuario", "expira_em"},
+    "aparencia_telao": {"id", "config"},
 }
 
 def esquema(conexao):
@@ -51,7 +52,7 @@ def test_banco_novo_fica_com_o_esquema_da_app():
     conexao = sqlite3.connect(":memory:")
     migrar(conexao)
     assert esquema(conexao) == ESQUEMA
-    assert versao(conexao) == "0009"
+    assert versao(conexao) == "0010"
     assert not pendente(conexao)
 
 def test_banco_antigo_e_adotado_sem_perder_dados():
@@ -63,7 +64,7 @@ def test_banco_antigo_e_adotado_sem_perder_dados():
         ("Sessão antiga", "REVELADA", 0, None, 1),
     ]
     assert conexao.execute("SELECT id, opcao_chave FROM votos").fetchall() == [("v1", "defesa")]
-    assert versao(conexao) == "0009"
+    assert versao(conexao) == "0010"
 
 def test_migrar_de_novo_nao_muda_nada():
     conexao = banco_antigo()

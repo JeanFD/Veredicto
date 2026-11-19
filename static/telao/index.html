@@ -13,8 +13,11 @@
       --carvao: #17191b;
       --limao: #d7f24e;
       --texto: #f7f8f5;
-      --suave: rgba(247, 248, 245, 0.55);
-      --borda: rgba(247, 248, 245, 0.12);
+      /* as quatro cores acima o admin troca no painel (telao.js põe aqui); o resto
+         sai delas, para uma paleta nova não deixar tons do verde-limão para trás */
+      --suave: color-mix(in srgb, var(--texto) 55%, transparent);
+      --borda: color-mix(in srgb, var(--texto) 12%, transparent);
+      --sobre-destaque: var(--preto);
       --margem: clamp(1.25rem, 3vw, 3rem);
       --qr: clamp(11rem, 15vw, 15rem);
     }
@@ -22,7 +25,7 @@
     body {
       margin: 0; min-height: 100vh; color: var(--texto); overflow: hidden;
       font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: radial-gradient(70% 50% at 50% 0%, #15180f 0%, transparent 70%), var(--preto);
+      background: radial-gradient(70% 50% at 50% 0%, color-mix(in srgb, var(--limao) 6%, var(--preto)) 0%, transparent 70%), var(--preto);
       display: grid; grid-template-rows: auto 1fr auto; gap: 1rem;
       padding: clamp(1rem, 2.2vw, 2rem) clamp(1.25rem, 3vw, 3rem);
     }
@@ -48,7 +51,7 @@
     .topo .acoes button:hover, .topo .acoes button:focus-visible { color: var(--texto); border-color: var(--texto); }
     .pilula { padding: 0.45em 1.1em; border: 1px solid var(--limao); border-radius: 999px;
               color: var(--limao); white-space: nowrap; }
-    #situacao.apurado { background: var(--limao); color: var(--preto); }
+    #situacao.apurado { background: var(--limao); color: var(--sobre-destaque); }
     /* a sala inteira olha para cá: a queda da conexão não pode passar em silêncio */
     .pilula.alerta { border-color: #f97066; color: #f97066; animation: pisca 1.6s ease-in-out infinite; }
     @keyframes pisca { 50% { opacity: 0.35; } }
@@ -82,12 +85,12 @@
              gap: clamp(0.5rem, 1.2vh, 1rem); padding: clamp(1rem, 1.8vw, 1.9rem);
              border-radius: clamp(1rem, 1.6vw, 1.75rem); background: var(--carvao); text-align: left;
              animation: cartao-entra 0.75s cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .opcao.vencedora { background: var(--limao); color: var(--preto); }
+    .opcao.vencedora { background: var(--limao); color: var(--sobre-destaque); }
     .opcao .cabeca { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
                      font-size: clamp(0.6rem, 0.85vw, 0.8rem); font-weight: 700; letter-spacing: 0.2em;
                      text-transform: uppercase; color: var(--suave); min-height: 2em; }
-    .opcao.vencedora .cabeca { color: rgba(11, 12, 10, 0.65); }
-    .selo-vencedora { padding: 0.5em 1.1em; border-radius: 999px; background: var(--preto);
+    .opcao.vencedora .cabeca { color: color-mix(in srgb, var(--sobre-destaque) 65%, transparent); }
+    .selo-vencedora { padding: 0.5em 1.1em; border-radius: 999px; background: var(--sobre-destaque);
                       color: var(--limao); white-space: nowrap;
                       animation: selo-entra 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
     /* o cartão da perdedora encolhe com a porcentagem e o rótulo ia junto, picado em
@@ -107,16 +110,17 @@
                 letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
     .porcento .sinal { font-size: 0.4em; font-weight: 700; letter-spacing: 0; }
     .pontos { font-size: clamp(0.8rem, 1.2vw, 1.1rem); color: var(--suave); white-space: nowrap; }
-    .opcao.vencedora .pontos { color: rgba(11, 12, 10, 0.7); }
+    .opcao.vencedora .pontos { color: color-mix(in srgb, var(--sobre-destaque) 70%, transparent); }
+    body.sem-votos .opcao .pontos { display: none; }
     .trilho { height: clamp(0.4rem, 0.8vh, 0.6rem); border-radius: 999px;
-              background: rgba(247, 248, 245, 0.12); }
-    .opcao.vencedora .trilho { background: rgba(11, 12, 10, 0.18); }
+              background: var(--borda); }
+    .opcao.vencedora .trilho { background: color-mix(in srgb, var(--sobre-destaque) 18%, transparent); }
     .preenchimento { width: 0; height: 100%; border-radius: 999px; background: var(--limao);
                      transition: width 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.45s; }
-    .opcao.vencedora .preenchimento { background: var(--preto); }
+    .opcao.vencedora .preenchimento { background: var(--sobre-destaque); }
     .legenda-opcao { font-size: clamp(0.58rem, 0.8vw, 0.72rem); font-weight: 700; letter-spacing: 0.2em;
                      text-transform: uppercase; color: var(--suave); }
-    .opcao.vencedora .legenda-opcao { color: rgba(11, 12, 10, 0.6); }
+    .opcao.vencedora .legenda-opcao { color: color-mix(in srgb, var(--sobre-destaque) 60%, transparent); }
     /* um brilho passa uma vez pela vencedora, logo depois da barra encher */
     .opcao.vencedora.apurada::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 40%;
                                       background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
@@ -249,13 +253,14 @@
 
   <aside id="celular" hidden>
     <div id="qr"></div>
-    <p data-i18n="telao.vote_celular">Vote pelo celular</p>
+    <p id="texto-celular" data-i18n="telao.vote_celular">Vote pelo celular</p>
   </aside>
 
   <div id="regressiva" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/i18n.js?v=2"></script>
   <script src="/sons.js?v=2"></script>
-  <script src="telao.js?v=4"></script>
+  <script src="/cores.js?v=2"></script>
+  <script src="telao.js?v=5"></script>
 </body>
 </html>

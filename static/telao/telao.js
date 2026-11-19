@@ -2,6 +2,48 @@ const $ = (id) => document.getElementById(id);
 const semMovimento = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let sessaoAtual = null;
 
+// ---------- Aparência ----------
+// O admin troca cores, textos e o jeito da revelação no painel (app/aparencia.py);
+// chega no snapshot e de novo, na hora, quando ele salva. Texto em branco fica com
+// a tradução da tela; texto escrito vale para os dois idiomas.
+let aparencia = {
+  cores: {}, textos: {},
+  revelacao: { regressiva: true, apuracao: true, duracao: 6.6, mostrar_votos: true },
+};
+const TEXTOS_PERSONALIZAVEIS = {
+  aguardando: "telao.aguardando",
+  votos: "telao.legenda.ABERTA",
+  vencedora: "telao.vencedora",
+  preferencia: "telao.preferencia",
+  celular: "telao.vote_celular",
+};
+
+function texto(chave) {
+  const nome = Object.keys(TEXTOS_PERSONALIZAVEIS).find((n) => TEXTOS_PERSONALIZAVEIS[n] === chave);
+  return (nome && aparencia.textos[nome]) || t(chave);
+}
+
+function aplicarAparencia(a) {
+  if (!a) return;
+  aparencia = a;
+  const raiz = document.documentElement.style;
+  const { fundo, cartao, destaque, texto: corTexto } = a.cores;
+  raiz.setProperty("--preto", fundo);
+  raiz.setProperty("--carvao", cartao);
+  raiz.setProperty("--limao", destaque);
+  raiz.setProperty("--texto", corTexto);
+  // o que vai em cima do destaque (vencedora, selo): o fundo, ou o texto se o fundo
+  // não aparecer nele — um destaque escuro com fundo preto apagaria a vencedora
+  raiz.setProperty("--sobre-destaque", maisLegivel(destaque, [fundo, corTexto]));
+  document.body.classList.toggle("sem-votos", !a.revelacao.mostrar_votos);
+  // o que já está na tela troca sem esperar a próxima mudança de estado
+  $("texto-celular").textContent = texto("telao.vote_celular");
+  if (!sessaoAtual) $("tema").textContent = texto("telao.aguardando");
+  if (sessaoAtual?.estado === "ABERTA") $("legenda").textContent = texto("telao.legenda.ABERTA");
+  document.querySelectorAll(".selo-vencedora").forEach((el) => { el.textContent = texto("telao.vencedora"); });
+  document.querySelectorAll(".legenda-opcao").forEach((el) => { el.textContent = texto("telao.preferencia"); });
+}
+
 // ---------- Números animados ----------
 const animacoes = new WeakMap();
 
@@ -204,7 +246,7 @@ function mostrarEstado(m, aoVivo) {
   $("faixa-teste").hidden = !mostrar;
   // a faixa de teste empurra o palco para baixo: o cartão refaz a conta da altura
   if (mostrava !== mostrar) ajustarCartao();
-  $("tema").textContent = m.sessao ? m.sessao.tema : t("telao.aguardando");
+  $("tema").textContent = m.sessao ? m.sessao.tema : texto("telao.aguardando");
   $("caso").hidden = !m.sessao?.caso;
   $("caso").textContent = m.sessao?.caso ?? "";
   mostrarMoldura(m);
@@ -227,7 +269,7 @@ function mostrarEstado(m, aoVivo) {
   }
   // revelada, o resultado fala por si: sem legenda
   const comLegenda = m.sessao && m.sessao.estado !== "REVELADA";
-  $("legenda").textContent = comLegenda ? t(`telao.legenda.${m.sessao.estado}`) : "";
+  $("legenda").textContent = comLegenda ? texto(`telao.legenda.${m.sessao.estado}`) : "";
   atualizarTotal(m.total);
   $("resultado").hidden = true;
   $("contagem").hidden = false;
@@ -235,7 +277,7 @@ function mostrarEstado(m, aoVivo) {
 
 // 3·2·1 em 1,5s: a revelação não atrasa mais que isso
 function regressiva(depois) {
-  if (semMovimento) return depois();
+  if (semMovimento || !aparencia.revelacao.regressiva) return depois();
   const tela = $("regressiva");
   tela.hidden = false;
   let n = 3;
@@ -259,7 +301,6 @@ function regressiva(depois) {
 // Revelação: a apuração corre na tela. Os números sobem de zero, a largura de cada
 // cartão acompanha a porcentagem e, quando a ordem muda, os cartões trocam de lugar.
 // O selo da vencedora só entra no fim, para não entregar o resultado antes da hora.
-const DURACAO_APURACAO = 6600;
 // ritmos diferentes por posição: uma opção sobe mais cedo, outra vem de trás
 const RITMOS = [1, 0.74, 1.26, 0.88, 1.12, 0.96];
 
@@ -302,7 +343,7 @@ function cartaoDaOpcao(o, i) {
 
   const legenda = document.createElement("small");
   legenda.className = "legenda-opcao";
-  legenda.textContent = t("telao.preferencia");
+  legenda.textContent = texto("telao.preferencia");
 
   cartao.append(cabeca, rotulo, numeros, trilho, legenda);
   return cartao;
@@ -338,7 +379,7 @@ function coroar(cartoes, opcoes, vencedora) {
     if (!ganhou) return;
     const selo = document.createElement("span");
     selo.className = "selo-vencedora";
-    selo.textContent = t("telao.vencedora");
+    selo.textContent = texto("telao.vencedora");
     cartao.querySelector(".cabeca").append(selo);
   });
 }
@@ -349,7 +390,7 @@ function correrApuracao(cartoes, opcoes, ponderado, aoTerminar) {
   const comeco = performance.now();
   let proximoTique = 0;
   const quadro = (agora) => {
-    const t = Math.min(1, (agora - comeco) / DURACAO_APURACAO);
+    const t = Math.min(1, (agora - comeco) / (aparencia.revelacao.duracao * 1000));
     // os tiques vão espaçando junto com a desaceleração da apuração
     if (t < 1 && agora >= proximoTique) {
       Sons.apuracao(t);
@@ -389,7 +430,7 @@ function mostrarResultado(opcoes, aoVivo = false) {
   };
   // sem animação, a revelação ao vivo ainda toca o fecho; um telão que abre já com
   // o resultado na tela não toca nada
-  if (semMovimento || maior === 0) {
+  if (semMovimento || maior === 0 || !aparencia.revelacao.apuracao) {
     fechar(aoVivo && maior > 0);
     return;
   }
@@ -450,6 +491,7 @@ function conectar() {
   ws.onopen = () => mostrarConexao(true);
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
+    if (m.aparencia) aplicarAparencia(m.aparencia);
     if (m.cronometro) mostrarCronometro(m.cronometro);
     if (m.tipo === "cartao" || m.tipo === "snapshot") mostrarCartao(m.cartao);
     if (m.tipo === "snapshot" || m.tipo === "estado") mostrarEstado(m, m.tipo === "estado");

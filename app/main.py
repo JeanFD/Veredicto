@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 
-from app import cronometro, noticia
+from app import aparencia, cronometro, noticia
 from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets, responsavel
 from app.ws import gerente
 from app.config import EM_PRODUCAO
@@ -294,7 +294,7 @@ def mensagem_cronometro() -> dict:
 def estado_publico(tipo: str = "estado") -> dict:
     s=buscar_sessao_ativa()
     msg = {"tipo": tipo, "sessao": s, "total": total_votos(s["id"]) if s else 0,
-           "cronometro": cronometro.ler(), "cartao": cartao_no_telao()}
+           "cronometro": cronometro.ler(), "cartao": cartao_no_telao(), "aparencia": aparencia.ler()}
     if s and s["estado"] == "REVELADA":
         msg["resultado"] = contar_por_opcao(s["id"])
     return msg
@@ -1058,6 +1058,22 @@ async def ajustar_cronometro(a: AjusteCronometro):
 @app.delete("/api/admin/cronometro", dependencies=[Depends(exigir_mesario)])
 async def encerrar_cronometro():
     return await avisar_cronometro(cronometro.encerrar())
+
+# ---------- Aparência do telão ----------
+# ver app/aparencia.py: o admin muda cores, textos e revelação; o telão aberto troca na hora
+@app.get("/api/admin/telao/aparencia", dependencies=[Depends(exigir_mesario)])
+async def ler_aparencia():
+    return aparencia.ler()
+
+@app.put("/api/admin/telao/aparencia", dependencies=[Depends(exigir_admin)])
+async def gravar_aparencia(nova: aparencia.Aparencia):
+    antes = aparencia.ler()
+    salva = aparencia.gravar(nova)
+    mudou = aparencia.diferencas(antes, salva)
+    if mudou:
+        registrar_evento("telao_aparencia_alterada", f"campos={','.join(mudou)}")
+        await gerente.broadcast({"tipo": "aparencia", "aparencia": salva}, "telao")
+    return salva
 
 @app.post("/api/urnas/heartbeat")
 async def heartbeat(hb: Heartbeat, urna_id: str = Depends(exigir_urna)):
