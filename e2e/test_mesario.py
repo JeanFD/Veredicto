@@ -1,12 +1,12 @@
 import re
 
+import httpx
 import pytest
 from playwright.sync_api import Page, expect
 
 from e2e.conftest import SENHA
 
-@pytest.fixture
-def painel(page: Page):
+def entrar(page: Page):
     # confirmações do mesário (abrir, encerrar, revelar) são aceitas
     page.on("dialog", lambda d: d.accept())
     page.goto("/mesario/")
@@ -15,6 +15,10 @@ def painel(page: Page):
     page.get_by_role("button", name="Entrar").click()
     expect(page.locator("#painel")).to_be_visible()
     return page
+
+@pytest.fixture
+def painel(page: Page):
+    return entrar(page)
 
 def test_senha_errada_nao_entra(page: Page):
     page.goto("/mesario/")
@@ -60,3 +64,32 @@ def test_criar_questionario_pelo_formulario(painel: Page):
     segunda = painel.locator(".sessao", has_text="E2E segunda")
     expect(segunda).to_contain_text("aguarda a revelação da pergunta anterior")
     expect(segunda.get_by_role("button", name="Ativar")).to_have_count(0)
+
+def test_painel_avisa_quando_a_conexao_cai(page: Page):
+    """#122: um total parado por queda de rede parecia um total parado por falta de votos."""
+    tomadas = []
+
+    def interceptar(ws):
+        tomadas.append(ws)
+        ws.connect_to_server()
+
+    page.route_web_socket("**/ws/mesario", interceptar)
+    painel = entrar(page)
+    expect(painel.locator("#sem-rede")).to_be_hidden()
+
+    tomadas[0].close()
+    expect(painel.locator("#sem-rede")).to_be_visible()
+    # o painel religa sozinho e a marca some
+    expect(painel.locator("#sem-rede")).to_be_hidden(timeout=15000)
+
+def test_urna_offline_mostra_os_votos_presos(painel: Page, base_url, admin):
+    """#122: offline é justo quando o número de pendentes decide ir buscar o arquivo."""
+    uid, token = admin.nova_urna()
+    httpx.post(f"{base_url}/api/urnas/heartbeat", headers={"X-Urna-Token": token},
+               json={"pendentes": 3, "recusados": 0}).raise_for_status()
+    cartao = painel.locator(".urna", has_text=uid)
+    expect(cartao).to_contain_text("3 pendentes", timeout=15000)
+
+    # passados 15s sem sinal a urna conta como offline, e o número não pode sumir
+    expect(cartao).to_contain_text("offline há", timeout=30000)
+    expect(cartao.locator(".presos")).to_have_text("3 votos presos na urna")
