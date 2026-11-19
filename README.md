@@ -70,6 +70,20 @@ it shows what is on, the four-step trail (waiting → open → closed → reveal
 single button, the next step. Rows only choose what goes on stage; archiving, resetting
 a count and moving a session to another case live under "Ações".
 
+"Editar" (under "Ações") reopens the session in the creation form. The rules, checked
+on the server and question by question in a questionnaire:
+
+- **Waiting and no votes:** everything changes — topic, case, options (label, colour,
+  how many) and, while no question of the questionnaire has opened, adding, removing
+  or reordering questions.
+- **Opened once** (open, closed or revealed) **or holding votes:** the options are
+  frozen, because every vote points to an option key. Only the topic text and the case
+  change, after a confirmation; the edit is logged and, for an opened question, shows
+  in the public audit.
+
+Every edit goes to the panel's log as "Sessão editada", and editing the session on
+stage updates the big screen right away.
+
 ### Accounts
 
 Each person signs in with their own username and password; the browser keeps only a

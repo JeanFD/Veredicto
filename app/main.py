@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 import httpx
 
 from app import aparencia, cronometro, noticia
-from app.db import db, agora, registrar_evento, inserir_sessao, ler_presets, responsavel
+from app.db import db, agora, registrar_evento, inserir_sessao, inserir_opcoes, ler_presets, responsavel
 from app.ws import gerente
 from app.config import EM_PRODUCAO
 from app.compartilhado import sinais
@@ -181,6 +181,17 @@ class NovoQuestionario(BaseModel):
 class SessaoAlterada(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     caso: str = Field(max_length=60)
+
+class PerguntaEditada(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    id: int | None = None  # sem id: pergunta nova, incluída na edição
+    tema: str = Field(min_length=1, max_length=200)
+    opcoes: list[NovaOpcao] = Field(min_length=2, max_length=10)
+
+class SessaoEditada(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    caso: str = Field("", max_length=60)
+    perguntas: list[PerguntaEditada] = Field(min_length=1, max_length=10)
 
 class Celular(BaseModel):
     ativo: bool
@@ -434,7 +445,8 @@ async def modelo_da_sessao(sid: int):
 
 @app.patch("/api/admin/sessoes/{sid}", dependencies=[Depends(exigir_mesario)])
 async def alterar_sessao(sid: int, mudanca: SessaoAlterada):
-    """Só o caso: o tema e as opções ficam como foram criados, para a auditoria bater."""
+    """Só move de caso (o seletor "Mover para"). Tema, opções e perguntas mudam pela
+    edição, em editar_sessao, que tem as regras de quando cada coisa pode mudar."""
     sessao = db.execute("SELECT grupo_id FROM sessoes WHERE id = ?", (sid,)).fetchone()
     if not sessao:
         raise HTTPException(404, msg("sessao_inexistente"))
@@ -443,6 +455,142 @@ async def alterar_sessao(sid: int, mudanca: SessaoAlterada):
         db.execute("UPDATE sessoes SET caso = ? WHERE id = ? OR grupo_id = ?", (mudanca.caso, grupo, grupo))
     registrar_evento("sessao_movida", f"sessao={sid} caso={mudanca.caso or '-'}")
     return {"id": sid, "caso": mudanca.caso}
+
+# ---------- Edição ----------
+# Regras de quando a sessão pode ser editada (valem pergunta a pergunta, num questionário):
+#   - AGUARDANDO e sem nenhum voto: tudo muda — tema, opções (rótulo, cor, quantas).
+#   - aberta uma vez (ABERTA, ENCERRADA, REVELADA) ou com voto gravado: as opções
+#     ficam como estão, porque cada voto aponta para uma opcao_chave e o resultado
+#     já pode ter sido visto. Só o texto do tema muda, e o painel avisa antes; a
+#     mudança vai para o registro e, para a pergunta já aberta, para a auditoria pública.
+#   - o caso vale para o questionário inteiro e muda sempre, como no "Mover para".
+#   - incluir, tirar ou reordenar perguntas só enquanto todas estão livres: depois
+#     que uma pergunta abriu, a numeração dela é a que a plateia viu.
+
+def livre_para_editar(s) -> bool:
+    """Pergunta que nunca foi aberta e não tem voto: tudo nela pode mudar."""
+    return s["estado"] == "AGUARDANDO" and not total_votos(s["id"])
+
+def perguntas_do_grupo(sessao) -> tuple[int, list]:
+    grupo = sessao["grupo_id"] or sessao["id"]
+    return grupo, db.execute(
+        "SELECT * FROM sessoes WHERE id = ? OR grupo_id = ? ORDER BY pergunta", (grupo, grupo),
+    ).fetchall()
+
+def opcoes_da_sessao(sid: int) -> list[dict]:
+    return [dict(o) for o in db.execute(
+        "SELECT chave, rotulo, cor FROM opcoes WHERE sessao_id = ? ORDER BY ordem", (sid,))]
+
+@app.get("/api/admin/sessoes/{sid}/edicao", dependencies=[Depends(exigir_mesario)])
+async def edicao_da_sessao(sid: int):
+    """O formulário de edição: o questionário inteiro, com o que cada pergunta ainda deixa mudar."""
+    sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, msg("sessao_inexistente"))
+    _, perguntas = perguntas_do_grupo(sessao)
+    livres = [livre_para_editar(p) for p in perguntas]
+    return {
+        "id": sid,
+        "caso": sessao["caso"] or "",
+        "estrutura_livre": all(livres),
+        "perguntas": [
+            {"id": p["id"], "tema": p["tema"], "estado": p["estado"], "votos": total_votos(p["id"]),
+             "ativa": bool(p["ativa"]), "livre": livre, "opcoes": opcoes_da_sessao(p["id"])}
+            for p, livre in zip(perguntas, livres)
+        ],
+    }
+
+@app.put("/api/admin/sessoes/{sid}", dependencies=[Depends(exigir_mesario)])
+async def editar_sessao(sid: int, edicao: SessaoEditada):
+    """Grava a edição do questionário inteiro (ou da sessão avulsa), nas regras acima.
+    Pergunta sem id é nova; pergunta que some da lista é apagada."""
+    sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
+    if not sessao:
+        raise HTTPException(404, msg("sessao_inexistente"))
+    grupo, atuais = perguntas_do_grupo(sessao)
+    por_id = {p["id"]: p for p in atuais}
+    livres = {p["id"]: livre_para_editar(p) for p in atuais}
+
+    pedidas = [p.id for p in edicao.perguntas if p.id is not None]
+    if len(set(pedidas)) != len(pedidas) or any(i not in por_id for i in pedidas):
+        raise HTTPException(400, msg("pergunta_de_outra_sessao"))
+    if pedidas != list(por_id) or len(pedidas) != len(edicao.perguntas):
+        if not all(livres.values()):
+            raise HTTPException(409, msg("perguntas_com_votos"))
+    removidas = [p for p in atuais if p["id"] not in pedidas]
+    if any(p["ativa"] for p in removidas):
+        raise HTTPException(409, msg("pergunta_em_cena"))
+
+    # None: a pergunta já abriu e fica com as opções que tem
+    opcoes: list[list[dict] | None] = []
+    for p in edicao.perguntas:
+        novas = validar_opcoes(p)
+        if p.id is not None and not livres[p.id]:
+            atuais_ops = opcoes_da_sessao(p.id)
+            if [(o["rotulo"], o["cor"].lower()) for o in atuais_ops] != \
+               [(o["rotulo"], o["cor"].lower()) for o in novas]:
+                raise HTTPException(409, msg("opcoes_com_votos", tema=por_id[p.id]["tema"]))
+            novas = None
+        opcoes.append(novas)
+
+    temas = [p.tema for p in edicao.perguntas]
+    if len({t.casefold() for t in temas}) != len(temas):
+        raise HTTPException(400, msg("perguntas_repetidas"))
+    do_grupo = list(por_id)
+    outros = {r[0].casefold() for r in db.execute(
+        f"SELECT tema FROM sessoes WHERE id NOT IN ({','.join('?' * len(do_grupo))})", do_grupo)}
+    if any(t.casefold() in outros for t in temas):
+        raise HTTPException(409, msg("tema_existente"))
+
+    # questionário de uma pergunta só volta a ser sessão avulsa, e vice-versa
+    novo_grupo = grupo if len(edicao.perguntas) > 1 else None
+    ids, criadas, editadas = [], [], []
+    with db:
+        for p in removidas:  # livres: não têm voto nem cédula usada
+            db.execute("DELETE FROM cedulas WHERE sessao_id = ?", (p["id"],))
+            db.execute("DELETE FROM opcoes WHERE sessao_id = ?", (p["id"],))
+            db.execute("DELETE FROM sessoes WHERE id = ?", (p["id"],))
+        for n, (p, ops) in enumerate(zip(edicao.perguntas, opcoes), start=1):
+            if p.id is None:
+                nova = inserir_sessao(p.tema, ops, grupo_id=novo_grupo, pergunta=n, teste=bool(sessao["teste"]),
+                                      celular=bool(sessao["celular"]), peso_celular=sessao["peso_celular"],
+                                      caso=edicao.caso)
+                ids.append(nova)
+                criadas.append(nova)
+                continue
+            antiga = por_id[p.id]
+            mudou = []
+            if p.tema != antiga["tema"]:
+                mudou.append("tema")
+            if edicao.caso != (antiga["caso"] or ""):
+                mudou.append("caso")
+            if ops is not None and ops != opcoes_da_sessao(p.id):
+                mudou.append("opcoes")
+                db.execute("DELETE FROM opcoes WHERE sessao_id = ?", (p.id,))
+                inserir_opcoes(p.id, ops)
+            if antiga["pergunta"] != n:
+                mudou.append("ordem")
+            db.execute("UPDATE sessoes SET tema = ?, caso = ?, pergunta = ?, grupo_id = ? WHERE id = ?",
+                       (p.tema, edicao.caso, n, novo_grupo, p.id))
+            ids.append(p.id)
+            if mudou:
+                editadas.append((p.id, mudou, not livres[p.id]))
+        # o grupo é conhecido pelo id da pergunta que o fundou; se ela saiu, a primeira
+        # assume, senão o id solto poderia ser reaproveitado por uma sessão qualquer
+        if novo_grupo is not None and novo_grupo not in ids:
+            novo_grupo = ids[0]
+            db.execute(f"UPDATE sessoes SET grupo_id = ? WHERE id IN ({','.join('?' * len(ids))})",
+                       (novo_grupo, *ids))
+
+    for p in removidas:
+        registrar_evento("sessao_apagada", f"sessao={p['id']} perguntas=1 votos=0")
+    for nova in criadas:
+        registrar_evento("sessao_criada", f"sessao={nova} grupo={novo_grupo}")
+    for pid, mudou, aberta in editadas:
+        registrar_evento("sessao_editada", f"sessao={pid} mudou={','.join(mudou)}" + (" apos_abrir=1" if aberta else ""))
+    if any(p["ativa"] for p in atuais):
+        await gerente.broadcast(estado_publico(), "telao", "mesario")
+    return {"ids": ids, "editadas": len(editadas), "criadas": len(criadas), "removidas": len(removidas)}
 
 @app.post("/api/admin/sessoes/{sid}/arquivar", dependencies=[Depends(exigir_mesario)])
 async def arquivar_sessao(sid: int):
@@ -1217,6 +1365,11 @@ def descrever_evento(tipo: str, campos: dict) -> str | None:
         return "Voto por celular ligado"
     if tipo == "celular_desligado":
         return "Voto por celular desligado"
+    if tipo == "sessao_editada" and campos.get("apos_abrir"):
+        # antes de abrir, a edição é preparação; depois, quem confere precisa saber
+        nomes = {"tema": "tema", "caso": "caso"}
+        mudou = ", ".join(nomes[c] for c in campos.get("mudou", "").split(",") if c in nomes)
+        return f"Texto alterado pelo mesário depois da abertura ({mudou})"
     if tipo == "celular_peso_alterado":
         return f"Peso do voto por celular alterado para {campos.get('peso')}"
     return None

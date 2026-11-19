@@ -271,6 +271,7 @@ function acoesDaSessao(s) {
   acoes.appendChild(titulo);
   acoes.open = sessoesComAcoesAbertas.has(s.id);
   acoes.ontoggle = () => (acoes.open ? sessoesComAcoesAbertas.add(s.id) : sessoesComAcoesAbertas.delete(s.id));
+  acoes.appendChild(criarBotao(t("mesario.editar"), () => editarSessao(s)));
   acoes.appendChild(criarBotao(t("mesario.clonar"), () => clonarSessao(s)));
   if (s.estado === "REVELADA") acoes.appendChild(criarBotao(t("mesario.baixar_votos"), () => baixarVotos(s)));
   acoes.appendChild(apagarSessao(s));
@@ -349,6 +350,7 @@ function escolherCaso(valor) {
 $("filtro-caso").onchange = (e) => escolherCaso(e.target.value);
 $("filtro-caso-cartoes").onchange = (e) => escolherCaso(e.target.value);
 $("atalho-nova").onclick = () => {
+  if (edicao) reiniciarFormularioSessao();
   mostrarAba("nova");
   $("nova-caso").value = casoFiltro;
 };
@@ -417,10 +419,12 @@ function adicionarOpcao(area, rotulo = "", cor = "#64748b") {
   const seletor = document.createElement("input");
   seletor.type = "color";
   seletor.value = cor;
-  linha.append(campo, seletor, criarBotao(t("mesario.remover"), () => {
+  const remover = criarBotao(t("mesario.remover"), () => {
     if (area.children.length > 2) linha.remove();
-  }));
+  });
+  linha.append(campo, seletor, remover);
   area.appendChild(linha);
+  return { campo, seletor, remover };
 }
 
 // Com mais de uma pergunta, a sessão vira um questionário: perguntas encadeadas,
@@ -437,12 +441,27 @@ function adicionarPergunta(dados) {
   const opcoes = document.createElement("div");
   const remover = criarBotao(t("mesario.remover_pergunta"), () => { bloco.remove(); numerarPerguntas(); });
   remover.className = "remover-pergunta";
-  bloco.append(titulo, tema, opcoes, criarBotao(t("mesario.mais_opcao"), () => adicionarOpcao(opcoes)), remover);
+  const maisOpcao = criarBotao(t("mesario.mais_opcao"), () => adicionarOpcao(opcoes));
+  bloco.append(titulo, tema, opcoes, maisOpcao, remover);
   const iniciais = dados?.opcoes ?? [
     { rotulo: t("mesario.opcao_padrao_1"), cor: "#dc2626" },
     { rotulo: t("mesario.opcao_padrao_2"), cor: "#2563eb" },
   ];
-  for (const o of iniciais) adicionarOpcao(opcoes, o.rotulo, o.cor);
+  const linhas = iniciais.map((o) => adicionarOpcao(opcoes, o.rotulo, o.cor));
+  // na edição: a pergunta guarda o id, e a que já foi aberta fica com as opções travadas
+  if (dados?.id) bloco.dataset.id = dados.id;
+  if (dados?.livre === false) {
+    bloco.classList.add("travada");
+    for (const { campo, seletor, remover: tirar } of linhas) {
+      campo.disabled = seletor.disabled = true;
+      tirar.hidden = true;
+    }
+    maisOpcao.hidden = true;
+    const aviso = document.createElement("p");
+    aviso.className = "suave aviso-travada";
+    aviso.textContent = t("mesario.pergunta_travada", { votos: dados.votos });
+    tema.after(aviso);
+  }
   $("perguntas").appendChild(bloco);
   numerarPerguntas();
 }
@@ -451,14 +470,85 @@ function numerarPerguntas() {
   const blocos = [...$("perguntas").children];
   blocos.forEach((b, i) => {
     b.querySelector("legend").textContent = blocos.length > 1 ? t("mesario.legenda_pergunta", { n: i + 1 }) : "";
-    b.querySelector(".remover-pergunta").hidden = blocos.length === 1;
+    b.querySelector(".remover-pergunta").hidden = blocos.length === 1 || edicao?.estrutura_livre === false;
   });
 }
 
 function reiniciarFormularioSessao() {
+  if (edicao) $("nova-caso").value = "";
+  edicao = null;
+  modoEdicao(false);
   $("perguntas").innerHTML = "";
   adicionarPergunta();
 }
+
+// ---------- Editar sessão ----------
+// O mesmo formulário da criação, preenchido com a sessão (o questionário inteiro, se
+// for um). As regras ficam no servidor (ver editar_sessao em app/main.py); aqui só se
+// trava o que ele não aceitaria: as opções da pergunta já aberta e, se alguma abriu,
+// incluir ou tirar perguntas. Mexer no texto do que já foi aberto pede confirmação.
+let edicao = null;
+
+function trocarTexto(el, chave) {
+  el.dataset.i18n = chave;
+  el.textContent = t(chave);
+}
+
+function modoEdicao(ligado) {
+  const form = $("nova-sessao");
+  form.classList.toggle("editando", ligado);
+  trocarTexto(form.querySelector("h2"), ligado ? "mesario.editar_sessao" : "mesario.criar_sessao");
+  trocarTexto(form.querySelector("h2 + p"), ligado ? "mesario.editar_ajuda" : "mesario.nova_ajuda");
+  trocarTexto(form.querySelector("button.principal"), ligado ? "mesario.salvar_edicao" : "mesario.criar_sessao");
+  // celular, peso e teste têm controle próprio na lista; os modelos prontos são de criação
+  for (const marca of form.querySelectorAll(".marcar")) marca.hidden = ligado;
+  $("presets").closest(".cartao").hidden = ligado;
+  $("cancelar-edicao-sessao").hidden = !ligado;
+  $("mais-pergunta").hidden = ligado && !edicao.estrutura_livre;
+}
+
+async function editarSessao(s) {
+  let dados;
+  try {
+    dados = await api("GET", `/api/admin/sessoes/${s.id}/edicao`);
+  } catch (e) {
+    return avisarErro(e.message);
+  }
+  edicao = dados;
+  modoEdicao(true);
+  $("perguntas").innerHTML = "";
+  for (const pergunta of dados.perguntas) adicionarPergunta(pergunta);
+  $("nova-caso").value = dados.caso;
+  mostrarAba("nova", true);
+  $("perguntas").querySelector("input").focus();
+}
+
+async function salvarEdicao(perguntas, caso) {
+  const mudouCaso = caso !== edicao.caso;
+  const abertas = edicao.perguntas.filter((p) => !p.livre
+    && (mudouCaso || perguntas.find((q) => q.id === p.id)?.tema !== p.tema));
+  if (abertas.length) {
+    const sim = await confirmar({
+      titulo: t("mesario.editar_sessao"), acao: t("mesario.salvar_edicao"),
+      texto: t("mesario.confirmar_edicao_aberta", { temas: abertas.map((p) => `"${p.tema}"`).join(", ") }),
+    });
+    if (sim === null) return;
+  }
+  try {
+    await api("PUT", `/api/admin/sessoes/${edicao.id}`, { caso, perguntas });
+  } catch (e) {
+    return avisarErro(e.message);
+  }
+  avisarFeito(t("mesario.sessao_editada"));
+  reiniciarFormularioSessao();
+  await carregarSessoes();
+  mostrarAba("sessoes");
+}
+
+$("cancelar-edicao-sessao").onclick = () => {
+  reiniciarFormularioSessao();
+  mostrarAba("sessoes");
+};
 
 $("mais-pergunta").onclick = () => adicionarPergunta();
 
@@ -495,6 +585,7 @@ async function clonarSessao(s) {
   } catch (e) {
     return avisarErro(e.message);
   }
+  reiniciarFormularioSessao();
   $("perguntas").innerHTML = "";
   for (const pergunta of modelo.perguntas) adicionarPergunta(pergunta);
   $("nova-caso").value = modelo.caso;
@@ -518,8 +609,9 @@ $("nova-sessao").onsubmit = async (e) => {
     if (new Set(opcoes.map((o) => o.rotulo.toLowerCase())).size !== opcoes.length) {
       return avisarErro(t("mesario.opcoes_repetidas", { tema }));
     }
-    perguntas.push({ tema, opcoes });
+    perguntas.push(bloco.dataset.id ? { id: Number(bloco.dataset.id), tema, opcoes } : { tema, opcoes });
   }
+  if (edicao) return salvarEdicao(perguntas, $("nova-caso").value.trim());
   const teste = $("nova-teste").checked;
   const celular = $("nova-celular").checked;
   const peso_celular = Number($("nova-peso-celular").value);
