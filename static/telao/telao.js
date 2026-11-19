@@ -115,20 +115,33 @@ function formatarTempo(restante) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+// Um contexto só, criado ao abrir o telão e retomado no primeiro clique ou tecla da
+// janela. Criado na hora do apito ele nasceria suspenso — sem erro nenhum, só sem
+// som — e o telão é aberto por window.open, então nunca recebe um clique sozinho.
+// Enquanto não estiver pronto, o cabeçalho pede o clique.
+const som = new (window.AudioContext || window.webkitAudioContext)();
+
+function mostrarBotaoDoSom() {
+  $("ligar-som").hidden = som.state === "running";
+}
+
+function ligarSom() {
+  som.resume().then(mostrarBotaoDoSom, () => {});
+}
+
 function apitar() {
+  if (som.state !== "running") return; // sem o clique: o vermelho na tela já avisa
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscilador = ctx.createOscillator();
-    const ganho = ctx.createGain();
+    const oscilador = som.createOscillator();
+    const ganho = som.createGain();
     oscilador.frequency.value = 880;
-    ganho.gain.setValueAtTime(0.25, ctx.currentTime);
-    ganho.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
-    oscilador.connect(ganho).connect(ctx.destination);
+    ganho.gain.setValueAtTime(0.25, som.currentTime);
+    ganho.gain.exponentialRampToValueAtTime(0.001, som.currentTime + 0.7);
+    oscilador.connect(ganho).connect(som.destination);
     oscilador.start();
-    oscilador.stop(ctx.currentTime + 0.7);
-    setTimeout(() => ctx.close(), 1000);
+    oscilador.stop(som.currentTime + 0.7);
   } catch {
-    // navegador sem áudio ou sem permissão: o vermelho na tela já avisa
+    // navegador sem áudio: o vermelho na tela já avisa
   }
 }
 
@@ -378,9 +391,16 @@ async function atualizarQr() {
   }
 }
 
+// Caindo a conexão, o telão congelava no último número e a sala achava que ninguém
+// estava votando. A marca fica piscando até o WebSocket voltar.
+function mostrarConexao(ligada) {
+  $("sem-rede").hidden = ligada;
+}
+
 function conectar() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws/telao`);
+  ws.onopen = () => mostrarConexao(true);
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (m.cronometro) mostrarCronometro(m.cronometro);
@@ -390,8 +410,17 @@ function conectar() {
       atualizarTotal(m.total);
     }
   };
-  ws.onclose = () => setTimeout(conectar, 2000);
+  ws.onclose = () => {
+    mostrarConexao(false);
+    setTimeout(conectar, 2000);
+  };
 }
+
+som.onstatechange = mostrarBotaoDoSom;
+addEventListener("pointerdown", ligarSom);
+addEventListener("keydown", ligarSom);
+$("ligar-som").onclick = ligarSom;
+mostrarBotaoDoSom();
 
 conectar();
 atualizarQr();

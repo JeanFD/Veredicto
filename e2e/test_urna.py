@@ -76,3 +76,57 @@ def test_voto_offline_fica_na_fila_e_e_reenviado(page: Page, admin, urna, sessao
     page.context.set_offline(False)
     esperar(lambda: admin.votos_da_urna(uid) == 1)
     esperar(lambda: page.evaluate("JSON.parse(localStorage.getItem('fila')).length") == 0)
+
+def test_toque_duplo_na_opcao_nao_confirma(page: Page, admin, urna, sessao_aberta):
+    """#120: o "Confirmar" nasce onde estava a primeira opção; o segundo toque não vota."""
+    uid = abrir_urna(page, urna)
+    caixa = page.get_by_role("button", name="Acusação").bounding_box()
+    x, y = caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2
+    page.mouse.click(x, y)
+    page.mouse.click(x, y)
+    expect(page.locator("#tema")).to_have_text("Confirmar voto em Acusação?")
+    page.wait_for_timeout(300)
+    assert admin.votos_da_urna(uid) == 0
+    # passada a trava, o mesmo lugar confirma
+    page.get_by_role("button", name="Confirmar").click()
+    expect(page.locator("#tema")).to_contain_text("Voto registrado")
+    assert admin.votos_da_urna(uid) == 1
+
+def test_cedula_volta_sozinha_se_o_eleitor_se_afastar(page: Page, admin, urna, sessao_aberta):
+    """#120: voto armado na tela viraria voto do próximo eleitor."""
+    page.add_init_script("window.TEMPOS_URNA = { confirmacao: 3, avisar: 3 }")
+    uid = abrir_urna(page, urna)
+    page.get_by_role("button", name="Defesa").click()
+    expect(page.locator("#tema")).to_have_text("Confirmar voto em Defesa?")
+    expect(page.locator("#aviso")).to_contain_text("A cédula volta em")
+    expect(page.get_by_role("button", name="Defesa")).to_be_visible(timeout=8000)
+    assert admin.votos_da_urna(uid) == 0
+
+def test_urna_sem_autorizacao_assume_a_tela(page: Page, urna, sessao_aberta):
+    """#120: recusada pelo servidor, a urna não pode seguir mostrando a pergunta guardada."""
+    abrir_urna(page, urna)
+    expect(page.get_by_role("button", name="Defesa")).to_be_visible()
+    page.route("**/api/urnas/heartbeat", lambda route: route.fulfill(
+        status=401, content_type="application/json", body="{}"))
+    expect(page.locator("#tema")).to_have_text(
+        "Esta urna perdeu a autorização. Chame o mesário.", timeout=15000)
+    expect(page.get_by_role("button", name="Defesa")).to_have_count(0)
+
+    # o repareamento pede uma segunda confirmação e não desconfigura sem ela
+    page.get_by_role("button", name="Parear de novo").click()
+    page.get_by_role("button", name="Cancelar").click()
+    assert page.evaluate("localStorage.getItem('urna_token')")
+
+    # autorizada de novo, a cédula volta sem ninguém tocar na urna
+    page.unroute("**/api/urnas/heartbeat")
+    expect(page.get_by_role("button", name="Defesa")).to_be_visible(timeout=15000)
+
+def test_desconfigurar_devolve_a_urna_ao_pareamento(page: Page, urna, sessao_aberta):
+    """#120: o caminho de volta quando o token da urna não vale mais."""
+    abrir_urna(page, urna)
+    page.route("**/api/urnas/heartbeat", lambda route: route.fulfill(
+        status=401, content_type="application/json", body="{}"))
+    page.get_by_role("button", name="Parear de novo").click(timeout=15000)
+    page.get_by_role("button", name="Desconfigurar").click()
+    expect(page.get_by_role("button", name="Pedir para virar urna")).to_be_visible()
+    assert page.evaluate("localStorage.getItem('urna_token')") is None
