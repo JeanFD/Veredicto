@@ -13,7 +13,7 @@ Object.defineProperty(window, "Sons", {
   set(sons) {
     window.tocados = [];
     for (const nome of Object.keys(sons)) {
-      if (typeof sons[nome] === "function" && !["preparar", "prepararNoToque", "pronto", "obter", "ligar"].includes(nome)) {
+      if (typeof sons[nome] === "function" && !["preparar", "prepararNoToque", "pronto", "obter", "ligar", "latencia"].includes(nome)) {
         sons[nome] = (...a) => window.tocados.push(nome);
       }
     }
@@ -74,3 +74,35 @@ def test_mensagem_atrasada_do_servidor_nao_repete_apito_nem_tique(page: Page, ad
         assert tocados(page) == ["cronometroInicio"] + ["cronometroTique"] * 5 + ["cronometroFim"]
     finally:
         admin.http.delete("/api/admin/cronometro")
+
+def test_numero_do_321_espera_o_atraso_da_caixa_de_som(browser, browser_context_args, base_url, admin, urna, sessao_aberta):
+    """No projetor o bipe chegava depois do número: a tela espera o atraso do áudio."""
+    _, token = urna
+    votar_pela_api(base_url, token, sessao_aberta, "defesa")
+    contexto = browser.new_context(**{**browser_context_args, "reduced_motion": "no-preference"})
+    page = contexto.new_page()
+    page.add_init_script(ESPIAO + """
+        addEventListener("DOMContentLoaded", () => {
+            Sons.latencia = () => 0.25;
+            const tocar = Sons.regressiva;
+            window.bipes = [];
+            Sons.regressiva = (n) => { window.bipes.push([n, performance.now()]); tocar(n); };
+        });
+    """)
+    page.goto("/telao/")
+    admin.avancar(sessao_aberta)
+    expect(page.locator("#legenda")).to_contain_text("votação encerrada")
+    page.evaluate("""() => {
+        window.numeros = [];
+        new MutationObserver(() => {
+            const n = document.querySelector('#regressiva span')?.textContent;
+            if (n && n !== String(window.numeros.at(-1)?.[0])) window.numeros.push([Number(n), performance.now()]);
+        }).observe(document.getElementById('regressiva'), { childList: true, subtree: true });
+    }""")
+    admin.avancar(sessao_aberta)
+    expect(page.locator("#resultado")).to_be_visible(timeout=10000)
+    bipes, numeros = page.evaluate("[window.bipes, window.numeros]")
+    assert [n for n, _ in bipes] == [n for n, _ in numeros] == [3, 2, 1]
+    for (_, som), (_, tela) in zip(bipes, numeros):
+        assert 200 <= tela - som <= 400, (som, tela)
+    contexto.close()

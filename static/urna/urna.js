@@ -91,7 +91,10 @@ function renderizar() {
 // confirmacao: segundos até a cédula voltar sozinha; avisar: segundos finais contados
 // na tela; trava: ms em que o "Confirmar" ignora o toque. Os testes de ponta a ponta
 // encurtam os dois primeiros por window.TEMPOS_URNA, que em produção não existe.
-const TEMPOS = { confirmacao: 30, avisar: 10, trava: 600, ...(window.TEMPOS_URNA ?? {}) };
+// A trava era de 600 ms, mas a tela termina de entrar em 250 ms: o "Confirmar" já
+// parecia pronto e o toque entre os dois sumia, e o eleitor tinha de tocar de novo.
+// 300 ms ainda segura o segundo toque de um toque duplo, que vem antes disso.
+const TEMPOS = { confirmacao: 30, avisar: 10, trava: 300, ...(window.TEMPOS_URNA ?? {}) };
 
 let esperaConfirmacao = null;
 let travaConfirmar = null;

@@ -162,3 +162,13 @@ def test_texto_da_opcao_acompanha_a_cor(page: Page, admin, urna):
     assert claro.evaluate("b => getComputedStyle(b).color") == "rgb(11, 20, 36)"
     escuro = page.get_by_role("button", name="Azul escuro")
     assert escuro.evaluate("b => getComputedStyle(b).color") == "rgb(255, 255, 255)"
+
+def test_confirmar_logo_depois_da_tela_entrar_vota_no_primeiro_toque(page: Page, admin, urna, sessao_aberta):
+    """A trava de 600 ms engolia o toque de quem confirmava logo que o botão aparecia."""
+    uid = abrir_urna(page, urna)
+    page.get_by_role("button", name="Defesa").click()
+    page.wait_for_timeout(400)
+    caixa = page.get_by_role("button", name="Confirmar").bounding_box()
+    page.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2)
+    expect(page.locator("#tema")).to_contain_text("Voto registrado")
+    assert admin.votos_da_urna(uid) == 1
