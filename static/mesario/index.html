@@ -93,6 +93,9 @@
                                            border-top: 1px solid var(--borda); font-size: 0.9rem; }
     table.registro td.quando, table.registro td.quem { white-space: nowrap; color: var(--texto-2); }
     table.registro td.detalhe { color: var(--texto-2); }
+    table.registro td.vazio { padding: 1.25rem 0.5rem; }
+    #busca-registro { flex: 1 1 16rem; }
+    #mais-registro { margin-top: 0.75rem; }
     table.contas th, table.contas td { text-align: left; padding: 0.5rem; border-top: 1px solid var(--borda); }
     table.contas td:last-child { text-align: right; white-space: nowrap; }
     table.contas select { width: auto; }
@@ -352,11 +355,17 @@
             <h2 data-i18n="registro.titulo">Registro do que foi feito</h2>
             <small data-i18n="registro.ajuda">Tudo o que o painel registrou, do mais recente para o mais antigo, com quem fez.</small>
           </div>
+          <div class="linha-form">
+            <input id="busca-registro" type="search" placeholder="buscar no registro"
+                   data-i18n-placeholder="registro.buscar">
+            <span id="conta-registro" class="suave"></span>
+          </div>
           <table class="registro">
             <thead><tr><th data-i18n="registro.col_hora">Quando</th><th data-i18n="registro.col_acao">O que</th>
               <th data-i18n="registro.col_detalhe">Detalhes</th><th data-i18n="registro.col_quem">Quem</th></tr></thead>
             <tbody id="lista-registro"></tbody>
           </table>
+          <button type="button" id="mais-registro" hidden data-i18n="registro.mais">Mostrar mais</button>
         </div>
       </section>
 

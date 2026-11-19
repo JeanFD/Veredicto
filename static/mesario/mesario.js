@@ -45,12 +45,13 @@ function mostrarAba(nome, empilhar = false) {
   const endereco = nome === ABAS[0] ? location.pathname : `#${nome}`;
   const mudou = endereco !== (location.hash || location.pathname);
   history[empilhar && mudou ? "pushState" : "replaceState"](null, "", endereco);
+  // o Registro busca os eventos toda vez que a aba abre — por clique, pelo endereço
+  // ou pelo voltar do navegador. Antes só o clique carregava, então recarregar a
+  // página em #registro mostrava a tabela vazia.
+  if (nome === "registro" && lerLogin()) carregarRegistro();
 }
 
-for (const b of document.querySelectorAll("[data-aba]")) b.onclick = () => {
-  mostrarAba(b.dataset.aba, true);
-  if (b.dataset.aba === "registro") carregarRegistro();
-};
+for (const b of document.querySelectorAll("[data-aba]")) b.onclick = () => mostrarAba(b.dataset.aba, true);
 mostrarAba(location.hash.slice(1));
 addEventListener("hashchange", () => mostrarAba(location.hash.slice(1)));
 
@@ -887,27 +888,77 @@ function campos(detalhe) {
   return Object.fromEntries(detalhe.split(" ").filter((p) => p.includes("=")).map((p) => p.split(/=(.*)/)));
 }
 
+// O registro guarda tudo o que já foi feito e só crescia: depois de alguns júris
+// eram centenas de linhas de uma vez, sem busca e sem fim. Agora vem de 50 em 50,
+// e a busca passa por tudo o que a linha mostra — o que foi, o detalhe e quem fez.
+const PAGINA_REGISTRO = 50;
+let eventosDoRegistro = [];
+let visiveisNoRegistro = PAGINA_REGISTRO;
+
+// o detalhe cru ("sessao=3 votos=12") vira texto legível, e é por ele que a busca
+// passa: procurar pelo que está escrito na tela é o que a pessoa espera
+function detalheDoRegistro(e) {
+  const { por, ...resto } = campos(e.detalhe);
+  return { por, texto: Object.entries(resto).map(([c, v]) => `${c}: ${v}`).join(" · ") };
+}
+
+function linhaDoRegistro(e) {
+  const { por, texto } = detalheDoRegistro(e);
+  const linha = document.createElement("tr");
+  linha.append(
+    celulaRegistro(new Date(e.em).toLocaleString(document.documentElement.lang), "quando"),
+    celulaRegistro(t(`registro.${e.tipo}`)),
+    celulaRegistro(texto, "detalhe"),
+    celulaRegistro(por ?? "—", "quem"),
+  );
+  return linha;
+}
+
+function linhaVaziaDoRegistro(texto) {
+  const linha = document.createElement("tr");
+  const celula = celulaRegistro(texto, "vazio");
+  celula.colSpan = 4;
+  linha.appendChild(celula);
+  return linha;
+}
+
+function procurado(e, termo) {
+  const { por, texto } = detalheDoRegistro(e);
+  return `${t(`registro.${e.tipo}`)} ${texto} ${por ?? ""}`.toLowerCase().includes(termo);
+}
+
+function desenharRegistro() {
+  const termo = $("busca-registro").value.trim().toLowerCase();
+  const achados = termo ? eventosDoRegistro.filter((e) => procurado(e, termo)) : eventosDoRegistro;
+  const mostrados = achados.slice(0, visiveisNoRegistro);
+  $("lista-registro").replaceChildren(...(mostrados.length
+    ? mostrados.map(linhaDoRegistro)
+    : [linhaVaziaDoRegistro(t(termo ? "registro.nada_encontrado" : "registro.sem_eventos"))]));
+  $("conta-registro").textContent = achados.length
+    ? t("registro.contagem", { n: mostrados.length, total: achados.length })
+    : "";
+  $("mais-registro").hidden = mostrados.length >= achados.length;
+}
+
 async function carregarRegistro() {
-  let eventos;
   try {
-    eventos = await api("GET", "/api/admin/eventos");
+    eventosDoRegistro = (await api("GET", "/api/admin/eventos")).reverse();
   } catch (e) {
     return avisarErro(e.message);
   }
-  const linhas = eventos.reverse().map((e) => {
-    const { por, ...resto } = campos(e.detalhe);
-    const linha = document.createElement("tr");
-    linha.append(
-      celulaRegistro(new Date(e.em).toLocaleString(document.documentElement.lang), "quando"),
-      celulaRegistro(t(`registro.${e.tipo}`)),
-      celulaRegistro(Object.entries(resto).map(([c, v]) => `${c}: ${v}`).join(" · "), "detalhe"),
-      celulaRegistro(por ?? "—", "quem"),
-    );
-    return linha;
-  });
-  $("lista-registro").replaceChildren(...linhas);
-  if (!linhas.length) $("lista-registro").appendChild(vazio(t("registro.sem_eventos")));
+  visiveisNoRegistro = PAGINA_REGISTRO;
+  desenharRegistro();
 }
+
+$("busca-registro").setAttribute("aria-label", t("registro.buscar"));
+$("busca-registro").oninput = () => {
+  visiveisNoRegistro = PAGINA_REGISTRO;
+  desenharRegistro();
+};
+$("mais-registro").onclick = () => {
+  visiveisNoRegistro += PAGINA_REGISTRO;
+  desenharRegistro();
+};
 
 // ---------- Contas ----------
 const PAPEIS = ["admin", "mesario", "monitor"];
