@@ -97,10 +97,32 @@ function mostrarCartao(cartao) {
   if (!cartao) return;
   $("cartao-titulo").textContent = cartao.titulo;
   $("cartao-texto").replaceChildren(...blocosDoTexto(cartao.texto));
-  $("cartao").classList.toggle("longo", cartao.texto.length > 1200);
   $("cartao-fonte").hidden = !cartao.fonte;
   $("cartao-fonte").textContent = cartao.fonte ? t("telao.fonte", { fonte: dominio(cartao.fonte) }) : "";
+  ajustarCartao();
 }
+
+// O cartão era cortado em silêncio no 68vh: o texto acabava no meio de uma frase e
+// ninguém no telão ficava sabendo. Agora a letra encolhe de 5% em 5% até caber. Só
+// abaixo do piso o corte acontece, e aí o "…" diz que o texto continua.
+const PISO_ESCALA = 0.6;
+
+function ajustarCartao() {
+  const cartao = $("cartao");
+  if (cartao.hidden) return;
+  let escala = 1;
+  cartao.classList.remove("cortado");
+  cartao.style.setProperty("--escala", escala);
+  while (escala > PISO_ESCALA && cartao.scrollHeight > cartao.clientHeight) {
+    escala -= 0.05;
+    cartao.style.setProperty("--escala", escala.toFixed(2));
+  }
+  cartao.classList.toggle("cortado", cartao.scrollHeight > cartao.clientHeight);
+}
+
+addEventListener("resize", ajustarCartao);
+
+let comQr = null;
 
 // ---------- Cronômetro das falas ----------
 // O servidor manda quanto falta e reenvia a cada poucos segundos; entre uma mensagem
@@ -172,7 +194,11 @@ function mostrarEstado(m, aoVivo) {
   const revelandoAgora = aoVivo && m.resultado && sessaoAtual?.id === m.sessao?.id
     && sessaoAtual?.estado === "ENCERRADA";
   sessaoAtual = m.sessao;
-  $("faixa-teste").hidden = !m.sessao?.teste;
+  const mostrava = !$("faixa-teste").hidden;
+  const mostrar = Boolean(m.sessao?.teste);
+  $("faixa-teste").hidden = !mostrar;
+  // a faixa de teste empurra o palco para baixo: o cartão refaz a conta da altura
+  if (mostrava !== mostrar) ajustarCartao();
   $("tema").textContent = m.sessao ? m.sessao.tema : t("telao.aguardando");
   $("caso").hidden = !m.sessao?.caso;
   $("caso").textContent = m.sessao?.caso ?? "";
@@ -382,6 +408,12 @@ async function atualizarQr() {
     const area = $("qr");
     area.innerHTML = "";
     $("celular").hidden = !codigo;
+    // o QR entrando ou saindo muda a largura do texto: o cartão refaz a conta
+    if (comQr !== Boolean(codigo)) {
+      comQr = Boolean(codigo);
+      document.body.classList.toggle("com-qr", comQr);
+      ajustarCartao();
+    }
     if (codigo) {
       const link = `${location.origin}/celular/#s=${sessao_id}&c=${codigo}`;
       new QRCode(area, { text: link, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
@@ -415,6 +447,18 @@ function conectar() {
     setTimeout(conectar, 2000);
   };
 }
+
+// Tela cheia: no projetor era F11 na mão, e o telão abre por window.open numa janela
+// comum, com a barra do navegador à mostra.
+function mostrarBotaoDaTela() {
+  $("tela-cheia").textContent = t(document.fullscreenElement ? "telao.sair_tela_cheia" : "telao.tela_cheia");
+}
+
+$("tela-cheia").onclick = () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+};
+addEventListener("fullscreenchange", mostrarBotaoDaTela);
 
 som.onstatechange = mostrarBotaoDoSom;
 addEventListener("pointerdown", ligarSom);

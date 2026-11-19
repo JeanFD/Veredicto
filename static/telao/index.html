@@ -15,6 +15,8 @@
       --texto: #f7f8f5;
       --suave: rgba(247, 248, 245, 0.55);
       --borda: rgba(247, 248, 245, 0.12);
+      --margem: clamp(1.25rem, 3vw, 3rem);
+      --qr: clamp(11rem, 15vw, 15rem);
     }
     * { box-sizing: border-box; }
     body {
@@ -30,6 +32,8 @@
                      font-size: clamp(0.65rem, 0.95vw, 0.85rem); font-weight: 700;
                      letter-spacing: 0.22em; text-transform: uppercase; }
     .topo { border-bottom: 1px solid var(--borda); padding-bottom: clamp(0.75rem, 1.5vw, 1.25rem); }
+    /* a faixa de teste é fixa no topo: o cabeçalho desce para não ficar por baixo dela */
+    #faixa-teste:not([hidden]) ~ .topo { margin-top: 2.9rem; }
     .rodape { border-top: 1px solid var(--borda); padding-top: clamp(0.75rem, 1.5vw, 1.25rem);
               color: var(--suave); }
     .rodape span:nth-child(2) { color: var(--texto); }
@@ -109,16 +113,27 @@
     #resultado.muitas .rotulo { font-size: clamp(1rem, 1.5vw, 1.4rem); }
 
     /* cartão de conteúdo: pano de fundo do caso, notícia ou laudo */
-    #cartao { width: min(1200px, 100%); max-height: 68vh; overflow: hidden; text-align: left; }
-    #cartao h2 { margin: 0 0 1.25rem; text-align: center; font-size: clamp(1.6rem, 3.2vw, 2.9rem);
-                 letter-spacing: -0.02em; }
-    #cartao-texto { font-size: clamp(1rem, 1.75vw, 1.75rem); line-height: 1.5; }
-    #cartao.longo h2 { font-size: clamp(1.4rem, 2.4vw, 2.1rem); margin-bottom: 0.9rem; }
-    #cartao.longo #cartao-texto { font-size: clamp(0.9rem, 1.35vw, 1.35rem); line-height: 1.45; }
-    #cartao-texto p { margin: 0 0 1rem; }
-    #cartao-texto ul { margin: 0 0 1rem; padding-left: 1.5rem; }
-    #cartao-texto li { margin-bottom: 0.5rem; }
-    #cartao-fonte { margin: 1.25rem 0 0; text-align: right; color: var(--suave); font-size: 0.95rem; }
+    /* O texto encolhe até o cartão caber inteiro (--escala, posta pelo telao.js): uma
+       frase cortada no meio é pior do que uma letra um pouco menor. As medidas vão em
+       em, para as entrelinhas acompanharem a letra. */
+    #cartao { position: relative; width: min(1200px, 100%); max-height: 68vh; overflow: hidden;
+              text-align: left; }
+    /* com o QR na tela, o texto não invade a coluna dele; a caixa do cartão é transparente,
+       então reservar essa faixa não aparece */
+    body.com-qr #cartao { padding-right: calc(var(--qr) + var(--margem)); }
+    #cartao h2 { margin: 0 0 0.6em; text-align: center; letter-spacing: -0.02em;
+                 font-size: calc(clamp(1.6rem, 3.2vw, 2.9rem) * var(--escala, 1)); }
+    #cartao-texto { font-size: calc(clamp(1rem, 1.75vw, 1.75rem) * var(--escala, 1)); line-height: 1.5; }
+    #cartao-texto p { margin: 0 0 1em; }
+    #cartao-texto ul { margin: 0 0 1em; padding-left: 1.5em; }
+    #cartao-texto li { margin-bottom: 0.5em; }
+    #cartao-fonte { margin: 1.25em 0 0; text-align: right; color: var(--suave);
+                    font-size: calc(0.95rem * var(--escala, 1)); }
+    /* longo até no menor tamanho: a sala precisa saber que o texto continua */
+    #cartao.cortado::after { content: "…"; position: absolute; right: 0; bottom: 0; left: 0;
+                             padding: 2.5rem 0 0; text-align: center; font-size: 2rem; font-weight: 800;
+                             color: var(--suave);
+                             background: linear-gradient(transparent, var(--preto) 70%); }
     body.com-cartao #pergunta, body.com-cartao #tema,
     body.com-cartao #contagem, body.com-cartao #resultado { display: none !important; }
 
@@ -138,12 +153,13 @@
     #cronometro.esgotado { background: #7f1d1d; border-color: #dc2626; animation: alerta 1.4s ease-in-out infinite; }
 
     /* QR do voto por celular */
-    #celular { position: fixed; right: clamp(1.25rem, 3vw, 3rem); bottom: clamp(3.5rem, 7vh, 5.5rem);
-               z-index: 2; padding: 1rem 1rem 0.8rem; border-radius: 1.25rem; background: #fff;
-               color: var(--preto); text-align: center; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); }
+    #celular { position: fixed; right: var(--margem); bottom: clamp(3.5rem, 7vh, 5.5rem);
+               z-index: 2; width: var(--qr); padding: 1rem 1rem 0.8rem; border-radius: 1.25rem;
+               background: #fff; color: var(--preto); text-align: center;
+               box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); }
     #celular p { margin: 0.6rem 0 0; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.1em;
                  text-transform: uppercase; }
-    #qr img, #qr canvas { display: block; }
+    #qr img, #qr canvas { display: block; width: 100%; height: auto; }
 
     .faixa-teste { position: fixed; top: 0; left: 0; right: 0; z-index: 4; padding: 0.6rem;
                    font-size: 1.3rem; font-weight: 700; letter-spacing: 0.1em; text-align: center;
@@ -184,6 +200,7 @@
       Veredito
     </div>
     <div class="acoes">
+      <button type="button" id="tela-cheia" data-i18n="telao.tela_cheia">tela cheia</button>
       <button type="button" id="ligar-som" hidden data-i18n="telao.ligar_som">ligar o som</button>
       <span id="sem-rede" class="pilula alerta" hidden data-i18n="telao.sem_rede">sem conexão</span>
       <span id="situacao" class="pilula"></span>
