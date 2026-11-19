@@ -158,3 +158,9 @@ def test_redefinir_pela_linha_de_comando(cliente, monkeypatch, capsys):
     app.contas.principal(["redefinir", "maria"])
     assert "redefinida" in capsys.readouterr().out
     assert cliente.post("/api/login", json={"usuario": "maria", "senha": "recuperada-3"}).status_code == 200
+
+def test_login_fica_no_registro_com_quem_entrou(cliente):
+    nova_conta(cliente, "maria", "mesario")
+    cliente.post("/api/login", json={"usuario": "admin", "senha": "errada"})
+    logins = [e for e in cliente.get("/api/admin/eventos", auth=ADMIN).json() if e["tipo"] == "login"]
+    assert [e["detalhe"] for e in logins] == ["por=maria"]
