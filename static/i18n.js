@@ -376,7 +376,15 @@ const TEXTOS = /* textos:inicio */ {
     "telao.situacao.AGUARDANDO": "aguardando",
     "telao.situacao.ABERTA": "votação aberta",
     "telao.situacao.ENCERRADA": "votação encerrada",
-    "telao.situacao.REVELADA": "apuração concluída"
+    "telao.situacao.REVELADA": "apuração concluída",
+    "urna.volta_em": "A cédula volta em {s}s",
+    "urna.sem_autorizacao": "Esta urna perdeu a autorização. Chame o mesário.",
+    "urna.sem_autorizacao_ajuda": "Os votos já enviados estão guardados no servidor.",
+    "urna.parear_de_novo": "Parear de novo",
+    "urna.confirmar_repareamento": "Desconfigurar esta urna e pedir um cadastro novo?",
+    "urna.repareamento_fila": "Votos ainda não enviados: {n}. Eles continuam guardados e vão pela urna nova.",
+    "urna.desconfigurar": "Desconfigurar",
+    "urna.cancelar": "Cancelar"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -746,7 +754,15 @@ const TEXTOS = /* textos:inicio */ {
     "telao.situacao.AGUARDANDO": "waiting",
     "telao.situacao.ABERTA": "voting open",
     "telao.situacao.ENCERRADA": "voting closed",
-    "telao.situacao.REVELADA": "count complete"
+    "telao.situacao.REVELADA": "count complete",
+    "urna.volta_em": "The ballot comes back in {s}s",
+    "urna.sem_autorizacao": "This ballot box lost its authorization. Call a poll worker.",
+    "urna.sem_autorizacao_ajuda": "Votes already sent are safe on the server.",
+    "urna.parear_de_novo": "Pair again",
+    "urna.confirmar_repareamento": "Unset this ballot box and request a new registration?",
+    "urna.repareamento_fila": "Votes not sent yet: {n}. They stay saved and go with the new ballot box.",
+    "urna.desconfigurar": "Unset",
+    "urna.cancelar": "Cancel"
   }
 } /* textos:fim */;
 
