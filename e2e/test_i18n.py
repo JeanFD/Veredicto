@@ -76,13 +76,11 @@ def test_mensagem_do_servidor_no_idioma_da_tela(pagina_en: Page, sessao_aberta):
     pagina_en.get_by_placeholder("Password").fill(SENHA)
     pagina_en.get_by_role("button", name="Sign in").click()
     pagina_en.get_by_role("tab", name="New session").click()
-    # um tema que já existe: o servidor recusa e o alerta vem em inglês
+    # um tema que já existe: o servidor recusa e o aviso vem em inglês
     tema = pagina_en.locator("#ativa").inner_text()
     pagina_en.locator(".pergunta > input").fill(tema)
-    with pagina_en.expect_event("dialog") as alerta:
-        pagina_en.locator("#nova-sessao").get_by_role("button", name="Create session").click()
-    assert alerta.value.message == "A session with this topic already exists"
-    alerta.value.dismiss()
+    pagina_en.locator("#nova-sessao").get_by_role("button", name="Create session").click()
+    expect(pagina_en.locator(".aviso.erro p")).to_have_text("A session with this topic already exists")
 
 def test_seletor_troca_e_lembra_o_idioma(page: Page):
     page.goto("/mesario/")
