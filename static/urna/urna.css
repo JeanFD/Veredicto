@@ -18,6 +18,11 @@ h1 { font-size: clamp(1.5rem, 4vw, 3rem); text-align: center; margin: 0; letter-
   display: grid; gap: 1.5rem; width: 100%; max-width: 900px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
+/* confirmação: os botões guardam o lugar sem aparecer nem receber toque até a
+   espera passar; ao surgir, já funcionam (a animação é só de opacidade) */
+#opcoes.esperando { visibility: hidden; }
+#opcoes.surgindo { animation: surgir-botoes 0.15s ease-out; }
+@keyframes surgir-botoes { from { opacity: 0.3; } }
 button {
   font-family: inherit; font-size: clamp(1.5rem, 5vw, 3rem); font-weight: 600; line-height: 1.2;
   padding: 2.5rem 1rem;

@@ -295,18 +295,27 @@ function mostrarEstado(m, aoVivo) {
 function regressiva(depois) {
   if (semMovimento || !aparencia.revelacao.regressiva) return depois();
   const tela = $("regressiva");
-  tela.hidden = false;
+  // o som sai no tique e a tela espera o atraso da caixa de som: no projetor, o
+  // bipe chegava depois do número
+  const atraso = Sons.latencia() * 1000;
+  const naTela = (desenhar) => setTimeout(desenhar, atraso);
+  naTela(() => { tela.hidden = false; });
   let n = 3;
   const tique = () => {
     if (n === 0) {
-      tela.hidden = true;
-      return depois();
+      naTela(() => {
+        tela.hidden = true;
+        depois();
+      });
+      return;
     }
-    tela.innerHTML = "";
-    const numero = document.createElement("span");
-    Sons.regressiva(n);
-    numero.textContent = n--;
-    tela.appendChild(numero);
+    const valor = n--;
+    Sons.regressiva(valor);
+    naTela(() => {
+      const numero = document.createElement("span");
+      numero.textContent = valor;
+      tela.replaceChildren(numero);
+    });
     setTimeout(tique, 1000);
   };
   tique();

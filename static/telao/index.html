@@ -186,7 +186,9 @@
     #regressiva { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center;
                   justify-content: center; background: var(--preto); color: var(--limao);
                   font-size: 32rem; font-weight: 800; letter-spacing: -0.06em; }
-    #regressiva span { animation: batida 0.5s ease-out both; }
+    /* o número aparece inteiro no instante do bipe e só dá um pulso: antes entrava
+       transparente e só assentava meio segundo depois, e o som parecia adiantado */
+    #regressiva span { animation: batida 0.35s ease-out both; }
     .entrando { animation: surgir 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
     [hidden] { display: none !important; }
 
@@ -199,7 +201,7 @@
     @keyframes brilho { from { transform: translateX(-120%) skewX(-14deg); }
                         to { transform: translateX(260%) skewX(-14deg); } }
     @keyframes pulso { from { transform: scale(1.06); color: var(--limao); } to { transform: scale(1); } }
-    @keyframes batida { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes batida { from { transform: scale(1.18); } to { transform: scale(1); } }
     @keyframes alerta { 50% { background: #dc2626; } }
 
     @media (prefers-reduced-motion: reduce) {
@@ -259,8 +261,8 @@
   <div id="regressiva" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/i18n.js?v=2"></script>
-  <script src="/sons.js?v=2"></script>
+  <script src="/sons.js?v=3"></script>
   <script src="/cores.js?v=2"></script>
-  <script src="telao.js?v=7"></script>
+  <script src="telao.js?v=8"></script>
 </body>
 </html>

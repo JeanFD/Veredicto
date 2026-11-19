@@ -71,6 +71,16 @@ window.Sons = (() => {
     return ligado && contexto?.state === "running";
   }
 
+  // Quanto o som demora a sair da caixa depois de tocado, em segundos: no projetor
+  // com áudio por HDMI ou caixa Bluetooth passa de um décimo. Quem desenha algo junto
+  // com um som (o 3·2·1) espera isso para os dois chegarem juntos. Limitado a meio
+  // segundo, para um valor estranho do navegador não travar a tela.
+  function latencia() {
+    if (!pronto()) return 0;
+    const total = (contexto.baseLatency || 0) + (contexto.outputLatency || 0);
+    return Math.min(Math.max(total, 0), 0.5);
+  }
+
   // uma nota: frequência, início (s a partir de agora), duração, volume e timbre
   function nota(freq, { em = 0, dura = 0.2, volume = 0.2, tipo = "sine" } = {}) {
     if (!pronto()) return;
@@ -134,6 +144,7 @@ window.Sons = (() => {
     preparar,
     prepararNoToque,
     pronto,
+    latencia,
     obter,
     ligar(sim) { ligado = sim; },
     get ligado() { return ligado; },
