@@ -1,0 +1,142 @@
+# Veredicto
+
+*Português: [README.md](README.md)*
+
+Live voting for a mock jury: touchscreen ballot boxes, voting by phone through a
+QR code, a big screen with the live total and the reveal, and a poll-worker panel
+that runs the session. Ballot boxes keep working offline and resend their votes
+when the network comes back; no vote is lost or counted twice.
+
+The interface is in Portuguese and English (it follows the browser language;
+there is a PT/EN switch in the corner of every screen).
+
+## Screens
+
+| Path | Who uses it | What it does |
+|---|---|---|
+| `/urna/` | voters | Ballot box. Open it on the device and tap "Request to become a ballot box": it shows a 4-letter code that the poll worker approves in the panel (or configure it with a link/QR from the panel). Installable as an app (PWA); queues votes offline. |
+| `/telao/` | the room | Big screen: topic, live vote count, 3·2·1 reveal with one card per option — the winner filled in lime, with its share, votes and bar —, QR code for phone voting, the speech timer the poll worker starts (red, counting the overtime, once time is up), and the cards they put on screen — case background, news, expert reports. With vote weights (1 to 10 per ballot box, and per session for phones), bars and winner follow the points and each option also shows its number of votes. The admin sets colours, texts and how the reveal plays in the panel. |
+| `/celular/` | voters | Phone voting, opened from the QR code on the big screen; one vote per phone per question. Off by default: the mesário turns it on per session ("Allow phone voting", or the switch on the active-session bar). |
+| `/mesario/` | poll worker | Panel behind individual accounts: create and edit sessions and questionnaires, open/close/reveal, register ballot boxes, watch their status, import an offline queue, manage accounts, run the speech timer and the big-screen cards (written there, or fetched from a news link the server reads for you). |
+| `/monitor/` | poll worker | Votes per minute, vote latency (p50/p95) and ballot boxes online. |
+| `/auditoria/` | anyone | Public audit of revealed sessions: per-box counts and the event log. |
+
+## How a session works
+
+`AGUARDANDO` (waiting) → `ABERTA` (open) → `ENCERRADA` (closed) → `REVELADA` (revealed).
+
+- Only the active session receives votes. Votes cast offline before the close are
+  still accepted for 10 minutes after it (later than that, the poll worker imports
+  the exported queue).
+- Before revealing, the panel lists pending issues (a box that never connected, a
+  box offline, votes still queued) and asks for confirmation.
+- A questionnaire is a chain of questions: each one is opened and revealed on its
+  own, and the poll worker releases the next one after revealing the previous.
+- Each vote has a client-generated UUID, so resending is idempotent.
+- Test mode: sessions and ballot boxes can be created as *test*. They are hidden
+  from the public audit, a test ballot box cannot vote in a real session, and
+  **Clear tests** in the panel deletes everything they produced (votes, ballots,
+  events), leaving the database as it was. The load and chaos scripts use it.
+
+## Running locally
+
+Requires Python 3.12.
+
+```bash
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt     # Windows: .venv\Scripts\pip
+ADMIN_SENHA=secret .venv/bin/uvicorn app.main:app --reload
+```
+
+Open http://127.0.0.1:8000/mesario/, sign in as `admin` with that password, open /urna/ in another
+tab, request it and approve the code in the Ballot boxes tab. The database (`veredicto.db`) is created and migrated on
+startup. In Docker the variables come from `.env` (see [.env.example](.env.example)).
+
+### Configuration
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ADMIN_SENHA` | (required) | Password of the first `admin` account, created when there are no accounts yet (change it later in the panel). Also signs the big-screen key and the phone codes. |
+| `AMBIENTE` | `desenvolvimento` | `producao` hides `/docs` and the OpenAPI schema. |
+| `DB_PATH` | `veredicto.db` | SQLite file. |
+| `SESSOES_PATH` | `sessoes.json` | Session presets shown in the panel, each with its case. |
+| `CARTOES_PATH` | `cartoes.json` | Big-screen cards loaded the first time the panel has none. |
+| `REDIS_URL` | (empty) | Enables several processes sharing state through Redis ([deploy/ESCALA.md](deploy/ESCALA.md)). |
+| `WORKERS` | `1` | Uvicorn workers in the container; more than one only with `REDIS_URL`. |
+
+
+### Running a session
+
+Sessions are grouped by **case** (the trial), the same name the big-screen cards use,
+so the case picker at the top of the panel narrows both at once. A questionnaire shows
+up as one block with its questions numbered in order. The bar at the top is the stage:
+it shows what is on, the four-step trail (waiting → open → closed → revealed) and a
+single button, the next step. Rows only choose what goes on stage; archiving, resetting
+a count and moving a session to another case live under "Ações".
+
+"Editar" (under "Ações") reopens the session in the creation form. The rules, checked
+on the server and question by question in a questionnaire:
+
+- **Waiting and no votes:** everything changes — topic, case, options (label, colour,
+  how many) and, while no question of the questionnaire has opened, adding, removing
+  or reordering questions.
+- **Opened once** (open, closed or revealed) **or holding votes:** the options are
+  frozen, because every vote points to an option key. Only the topic text and the case
+  change, after a confirmation; the edit is logged and, for an opened question, shows
+  in the public audit.
+
+Every edit goes to the panel's log as "Sessão editada", and editing the session on
+stage updates the big screen right away.
+
+### Accounts
+
+Each person signs in with their own username and password; the browser keeps only a
+12-hour token, never the password. Roles: **admin** (everything, including accounts,
+resetting a count and clearing tests), **mesário** (runs sessions, registers ballot
+boxes) and **monitor** (only `/monitor/`: ballot box status and metrics). The internal
+audit (`/api/admin/eventos`) records who did each action, and the panel log also shows
+when each account signed in. Forgot the admin password?
+
+```bash
+docker compose exec veredicto python -m app.contas redefinir admin
+```
+
+## Tests
+
+```bash
+pytest                    # backend, including load and chaos (kill -9) checks
+pytest e2e                # end to end with Playwright: see e2e/README.md
+```
+
+## Load, chaos and rehearsal
+
+- `python -m scripts.carga --url URL --senha PASSWORD --urnas 20 --votos 50`: N
+  ballot boxes voting at once, with resends; at the end it reveals the session,
+  downloads the CSV and checks every vote is there exactly once.
+- `python -m scripts.caos`: the same load while the server is killed and
+  restarted; against the VPS, `--falha` runs your command to take it down and
+  `--vigiar URL` checks the other services on the machine stay up.
+
+The full checklist (VPS chaos runs and the on-site rehearsal) is in
+[deploy/ENSAIO.md](deploy/ENSAIO.md) (Portuguese).
+
+## Deploy
+
+Docker Compose with Caddy as the HTTPS proxy ([docker-compose.yml](docker-compose.yml),
+[deploy/Caddyfile](deploy/Caddyfile)). Every push to `main` that passes the tests is
+deployed by GitHub Actions over SSH: build, database backup and migrations
+(`python -m app.migrar`, Alembic), then the container is swapped. Backups:
+[deploy/backup.sh](deploy/backup.sh). After each deploy, reload the open ballot boxes:
+they only pick up the new version when reloaded.
+
+## Project layout
+
+```
+app/          FastAPI app: routes (main.py), database, migrations, security,
+              WebSocket fan-out, metrics, server messages (i18n.py)
+static/       the screens (vanilla JS, no build step) and i18n.js, the translations
+tests/        backend tests (pytest)
+e2e/          browser tests (Playwright)
+scripts/      load and chaos scripts
+deploy/       Caddy, backup, scaling and rehearsal docs
+```

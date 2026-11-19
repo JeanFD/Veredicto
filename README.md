@@ -1,138 +1,143 @@
 # Veredicto
 
-Live voting for a mock jury: touchscreen ballot boxes, voting by phone through a
-QR code, a big screen with the live total and the reveal, and a poll-worker panel
-that runs the session. Ballot boxes keep working offline and resend their votes
-when the network comes back; no vote is lost or counted twice.
+*English: [README.en.md](README.en.md)*
 
-The interface is in Portuguese and English (it follows the browser language;
-there is a PT/EN switch in the corner of every screen).
+Votação ao vivo para júri simulado: urnas em tela de toque, voto pelo celular por QR
+code, um telão com o total ao vivo e a revelação, e um painel do mesário que conduz a
+sessão. As urnas continuam funcionando sem rede e reenviam os votos quando a conexão
+volta; nenhum voto se perde nem é contado duas vezes.
 
-## Screens
+A interface está em português e inglês (segue o idioma do navegador; há um seletor
+PT/EN no canto de cada tela).
 
-| Path | Who uses it | What it does |
+## Telas
+
+| Endereço | Quem usa | O que faz |
 |---|---|---|
-| `/urna/` | voters | Ballot box. Open it on the device and tap "Request to become a ballot box": it shows a 4-letter code that the poll worker approves in the panel (or configure it with a link/QR from the panel). Installable as an app (PWA); queues votes offline. |
-| `/telao/` | the room | Big screen: topic, live vote count, 3·2·1 reveal with one card per option — the winner filled in lime, with its share, votes and bar —, QR code for phone voting, the speech timer the poll worker starts (red, counting the overtime, once time is up), and the cards they put on screen — case background, news, expert reports. With vote weights (1 to 10 per ballot box, and per session for phones), bars and winner follow the points and each option also shows its number of votes. |
-| `/celular/` | voters | Phone voting, opened from the QR code on the big screen; one vote per phone per question. Off by default: the mesário turns it on per session ("Allow phone voting", or the switch on the active-session bar). |
-| `/mesario/` | poll worker | Panel behind individual accounts: create sessions and questionnaires, open/close/reveal, register ballot boxes, watch their status, import an offline queue, manage accounts, run the speech timer and the big-screen cards (written there, or fetched from a news link the server reads for you). |
-| `/monitor/` | poll worker | Votes per minute, vote latency (p50/p95) and ballot boxes online. |
-| `/auditoria/` | anyone | Public audit of revealed sessions: per-box counts and the event log. |
+| `/urna/` | eleitores | Urna. Abra no dispositivo e toque em "Pedir para virar urna": aparece um código de 4 letras que o mesário aprova no painel (ou configure por link/QR gerado no painel). Instalável como app (PWA); guarda os votos numa fila quando está sem rede. |
+| `/telao/` | a plateia | Telão: tema, contagem de votos ao vivo, revelação com 3·2·1 e um cartão por opção — a vencedora preenchida em verde-limão, com porcentagem, votos e barra —, QR code do voto por celular, o cronômetro das falas que o mesário inicia (vermelho, contando o tempo excedido, quando o tempo acaba) e os cartões que ele põe na tela — pano de fundo do caso, notícias, laudos. Com pesos de voto (1 a 10 por urna, e por sessão para os celulares), barras e vencedora seguem os pontos, e cada opção mostra também quantos votos teve. O admin configura cores, textos e o jeito da revelação no painel. |
+| `/celular/` | eleitores | Voto pelo celular, aberto pelo QR code do telão; um voto por celular em cada pergunta. Desligado por padrão: o mesário liga por sessão ("Permitir voto por celular", ou a chave na barra da sessão ativa). |
+| `/mesario/` | mesário | Painel com contas individuais: criar e editar sessões e questionários, abrir/encerrar/revelar, cadastrar urnas e acompanhar o estado delas, importar uma fila offline, gerenciar contas, conduzir o cronômetro das falas e os cartões do telão (escritos ali, ou buscados de um link de notícia que o servidor lê por você). |
+| `/monitor/` | mesário | Votos por minuto, latência do voto (p50/p95) e urnas online. |
+| `/auditoria/` | qualquer pessoa | Auditoria pública das sessões reveladas: contagem por urna e linha do tempo dos eventos. |
 
-## How a session works
+## Como uma sessão funciona
 
-`AGUARDANDO` (waiting) → `ABERTA` (open) → `ENCERRADA` (closed) → `REVELADA` (revealed).
+`AGUARDANDO` → `ABERTA` → `ENCERRADA` → `REVELADA`.
 
-- Only the active session receives votes. Votes cast offline before the close are
-  still accepted for 10 minutes after it (later than that, the poll worker imports
-  the exported queue).
-- Before revealing, the panel lists pending issues (a box that never connected, a
-  box offline, votes still queued) and asks for confirmation.
-- A questionnaire is a chain of questions: each one is opened and revealed on its
-  own, and the poll worker releases the next one after revealing the previous.
-- Each vote has a client-generated UUID, so resending is idempotent.
-- Test mode: sessions and ballot boxes can be created as *test*. They are hidden
-  from the public audit, a test ballot box cannot vote in a real session, and
-  **Clear tests** in the panel deletes everything they produced (votes, ballots,
-  events), leaving the database as it was. The load and chaos scripts use it.
+- Só a sessão ativa recebe votos. Votos dados sem rede antes do encerramento ainda
+  são aceitos por 10 minutos depois dele (passado isso, o mesário importa a fila
+  exportada pela urna).
+- Antes de revelar, o painel lista as pendências (urna que nunca conectou, urna sem
+  sinal, votos ainda na fila) e pede confirmação.
+- Um questionário é uma sequência de perguntas: cada uma é aberta e revelada
+  separadamente, e o mesário libera a próxima depois de revelar a anterior.
+- Cada voto tem um UUID gerado no cliente, então reenviar não duplica.
+- Modo teste: sessões e urnas podem ser criadas como *teste*. Elas não aparecem na
+  auditoria pública, uma urna de teste não vota em sessão real, e **Limpar testes** no
+  painel apaga tudo o que elas produziram (votos, cédulas, eventos), deixando o banco
+  como estava. Os scripts de carga e de caos usam esse modo.
 
-## Running locally
+## Rodando localmente
 
-Requires Python 3.12.
+Requer Python 3.12.
 
 ```bash
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt     # Windows: .venv\Scripts\pip
-ADMIN_SENHA=secret .venv/bin/uvicorn app.main:app --reload
+ADMIN_SENHA=segredo .venv/bin/uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000/mesario/, sign in as `admin` with that password, open /urna/ in another
-tab, request it and approve the code in the Ballot boxes tab. The database (`veredicto.db`) is created and migrated on
-startup. In Docker the variables come from `.env` (see [.env.example](.env.example)).
+Abra http://127.0.0.1:8000/mesario/, entre como `admin` com essa senha, abra /urna/ em
+outra aba, peça para virar urna e aprove o código na aba Urnas. O banco (`veredicto.db`)
+é criado e migrado na inicialização. No Docker, as variáveis vêm do `.env` (veja o
+[.env.example](.env.example)).
 
-### Configuration
+### Configuração
 
-| Variable | Default | Meaning |
+| Variável | Padrão | Para que serve |
 |---|---|---|
-| `ADMIN_SENHA` | (required) | Password of the first `admin` account, created when there are no accounts yet (change it later in the panel). Also signs the big-screen key and the phone codes. |
-| `AMBIENTE` | `desenvolvimento` | `producao` hides `/docs` and the OpenAPI schema. |
-| `DB_PATH` | `veredicto.db` | SQLite file. |
-| `SESSOES_PATH` | `sessoes.json` | Session presets shown in the panel, each with its case. |
-| `CARTOES_PATH` | `cartoes.json` | Big-screen cards loaded the first time the panel has none. |
+| `ADMIN_SENHA` | (obrigatória) | Senha da primeira conta `admin`, criada quando ainda não há contas (troque depois no painel). Também assina a chave do telão e os códigos do celular. |
+| `AMBIENTE` | `desenvolvimento` | `producao` esconde o `/docs` e o esquema OpenAPI. |
+| `DB_PATH` | `veredicto.db` | Arquivo SQLite. |
+| `SESSOES_PATH` | `sessoes.json` | Sessões prontas mostradas no painel, cada uma com seu caso. |
+| `CARTOES_PATH` | `cartoes.json` | Cartões do telão carregados na primeira vez que o painel não tem nenhum. |
+| `REDIS_URL` | (vazio) | Liga vários processos compartilhando o estado pelo Redis ([deploy/ESCALA.md](deploy/ESCALA.md)). |
+| `WORKERS` | `1` | Workers do Uvicorn no container; mais de um só com `REDIS_URL`. |
 
+### Conduzindo uma sessão
 
-### Running a session
+As sessões são agrupadas por **caso** (o júri), o mesmo nome usado pelos cartões do
+telão, então o seletor de caso no alto do painel filtra os dois de uma vez. Um
+questionário aparece como um bloco só, com as perguntas numeradas em ordem. A barra do
+alto é o palco: mostra o que está no ar, a trilha de quatro passos (aguardando → aberta
+→ encerrada → revelada) e um único botão, o próximo passo. As linhas só escolhem o que
+vai para o palco; arquivar, zerar a contagem e mover a sessão para outro caso ficam em
+"Ações".
 
-Sessions are grouped by **case** (the trial), the same name the big-screen cards use,
-so the case picker at the top of the panel narrows both at once. A questionnaire shows
-up as one block with its questions numbered in order. The bar at the top is the stage:
-it shows what is on, the four-step trail (waiting → open → closed → revealed) and a
-single button, the next step. Rows only choose what goes on stage; archiving, resetting
-a count and moving a session to another case live under "Ações".
+"Editar" (em "Ações") reabre a sessão no formulário de criação. As regras, conferidas
+no servidor e pergunta por pergunta num questionário:
 
-"Editar" (under "Ações") reopens the session in the creation form. The rules, checked
-on the server and question by question in a questionnaire:
+- **Aguardando e sem votos:** tudo muda — tema, caso, opções (rótulo, cor, quantas) e,
+  enquanto nenhuma pergunta do questionário foi aberta, incluir, tirar ou reordenar
+  perguntas.
+- **Já aberta alguma vez** (aberta, encerrada ou revelada) **ou com votos:** as opções
+  ficam travadas, porque cada voto aponta para a chave de uma opção. Só o texto do tema
+  e o caso mudam, depois de uma confirmação; a edição fica registrada e, numa pergunta
+  já aberta, aparece na auditoria pública.
 
-- **Waiting and no votes:** everything changes — topic, case, options (label, colour,
-  how many) and, while no question of the questionnaire has opened, adding, removing
-  or reordering questions.
-- **Opened once** (open, closed or revealed) **or holding votes:** the options are
-  frozen, because every vote points to an option key. Only the topic text and the case
-  change, after a confirmation; the edit is logged and, for an opened question, shows
-  in the public audit.
+Toda edição vai para o registro do painel como "Sessão editada", e editar a sessão que
+está no palco atualiza o telão na hora.
 
-Every edit goes to the panel's log as "Sessão editada", and editing the session on
-stage updates the big screen right away.
+### Contas
 
-### Accounts
-
-Each person signs in with their own username and password; the browser keeps only a
-12-hour token, never the password. Roles: **admin** (everything, including accounts,
-resetting a count and clearing tests), **mesário** (runs sessions, registers ballot
-boxes) and **monitor** (only `/monitor/`: ballot box status and metrics). The internal
-audit (`/api/admin/eventos`) records who did each action. Forgot the admin password?
+Cada pessoa entra com o próprio usuário e senha; o navegador guarda só um token de 12
+horas, nunca a senha. Papéis: **admin** (tudo, inclusive contas, zerar contagem e
+limpar testes), **mesário** (conduz as sessões, cadastra urnas) e **monitor** (só o
+`/monitor/`: estado das urnas e métricas). A auditoria interna (`/api/admin/eventos`)
+registra quem fez cada ação, e o registro do painel mostra também quando cada conta
+entrou. Esqueceu a senha do admin?
 
 ```bash
 docker compose exec veredicto python -m app.contas redefinir admin
 ```
-| `REDIS_URL` | (empty) | Enables several processes sharing state through Redis ([deploy/ESCALA.md](deploy/ESCALA.md)). |
-| `WORKERS` | `1` | Uvicorn workers in the container; more than one only with `REDIS_URL`. |
 
-## Tests
+## Testes
 
 ```bash
-pytest                    # backend, including load and chaos (kill -9) checks
-pytest e2e                # end to end with Playwright: see e2e/README.md
+pytest                    # backend, incluindo as verificações de carga e de caos (kill -9)
+pytest e2e                # ponta a ponta com Playwright: veja e2e/README.md
 ```
 
-## Load, chaos and rehearsal
+## Carga, caos e ensaio
 
-- `python -m scripts.carga --url URL --senha PASSWORD --urnas 20 --votos 50`: N
-  ballot boxes voting at once, with resends; at the end it reveals the session,
-  downloads the CSV and checks every vote is there exactly once.
-- `python -m scripts.caos`: the same load while the server is killed and
-  restarted; against the VPS, `--falha` runs your command to take it down and
-  `--vigiar URL` checks the other services on the machine stay up.
+- `python -m scripts.carga --url URL --senha SENHA --urnas 20 --votos 50`: N urnas
+  votando ao mesmo tempo, com reenvios; no fim revela a sessão, baixa o CSV e confere
+  que cada voto está lá exatamente uma vez.
+- `python -m scripts.caos`: a mesma carga enquanto o servidor é derrubado e
+  reiniciado; contra a VPS, `--falha` roda o seu comando para derrubá-lo e
+  `--vigiar URL` confere que os outros serviços da máquina continuam no ar.
 
-The full checklist (VPS chaos runs and the on-site rehearsal) is in
-[deploy/ENSAIO.md](deploy/ENSAIO.md) (Portuguese).
+O roteiro completo (caos na VPS e ensaio no local) está em
+[deploy/ENSAIO.md](deploy/ENSAIO.md).
 
 ## Deploy
 
-Docker Compose with Caddy as the HTTPS proxy ([docker-compose.yml](docker-compose.yml),
-[deploy/Caddyfile](deploy/Caddyfile)). Every push to `main` that passes the tests is
-deployed by GitHub Actions over SSH: build, database backup and migrations
-(`python -m app.migrar`, Alembic), then the container is swapped. Backups:
-[deploy/backup.sh](deploy/backup.sh).
+Docker Compose com o Caddy como proxy HTTPS ([docker-compose.yml](docker-compose.yml),
+[deploy/Caddyfile](deploy/Caddyfile)). Todo push no `main` que passa nos testes é
+publicado pelo GitHub Actions via SSH: build, backup do banco e migrações
+(`python -m app.migrar`, Alembic), e então o container é trocado. Backups:
+[deploy/backup.sh](deploy/backup.sh). Depois de cada deploy, recarregue as urnas
+abertas: elas só pegam a versão nova ao recarregar.
 
-## Project layout
+## Organização do projeto
 
 ```
-app/          FastAPI app: routes (main.py), database, migrations, security,
-              WebSocket fan-out, metrics, server messages (i18n.py)
-static/       the screens (vanilla JS, no build step) and i18n.js, the translations
-tests/        backend tests (pytest)
-e2e/          browser tests (Playwright)
-scripts/      load and chaos scripts
-deploy/       Caddy, backup, scaling and rehearsal docs
+app/          app FastAPI: rotas (main.py), banco, migrações, segurança,
+              distribuição pelo WebSocket, métricas, mensagens do servidor (i18n.py)
+static/       as telas (JS puro, sem etapa de build) e o i18n.js, com as traduções
+tests/        testes do backend (pytest)
+e2e/          testes no navegador (Playwright)
+scripts/      scripts de carga e de caos
+deploy/       Caddy, backup e documentos de escala e de ensaio
 ```
