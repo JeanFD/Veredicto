@@ -49,7 +49,10 @@ function tela(texto, classe) {
 function botao(texto, cor, aoClicar, classe) {
   const b = document.createElement("button");
   b.textContent = texto;
-  if (cor) b.style.background = cor;
+  if (cor) {
+    b.style.background = cor;
+    b.style.color = corDoTexto(cor);
+  }
   if (classe) b.className = classe;
   b.onclick = aoClicar;
   b.onpointerdown = () => b.classList.add("tocado");

@@ -846,7 +846,10 @@ window.fetch = (recurso, opcoes = {}) => {
   return fetchOriginal(recurso, { ...opcoes, headers: cabecalhos });
 };
 
-function seletorIdioma() {
+// Sem destino, o botão vai para o cabeçalho da tela ou flutua no canto. A urna pede
+// um destino na mão: lá o seletor fica guardado com os controles do mesário, porque
+// um toque sem querer virava a cédula inteira para inglês no meio da votação.
+function seletorIdioma(destino) {
   const outro = IDIOMA === "pt" ? "en" : "pt";
   const b = document.createElement("button");
   b.type = "button";
@@ -862,6 +865,10 @@ function seletorIdioma() {
     }
     location.reload();
   };
+  if (destino) {
+    destino.append(b);
+    return;
+  }
   // telas com cabeçalho (mesário, início): o botão vai nele, sem flutuar sobre o conteúdo
   const cabecalho = document.querySelector(".topo .acoes");
   if (cabecalho) {
@@ -879,4 +886,5 @@ function seletorIdioma() {
 
 document.documentElement.lang = IDIOMA === "en" ? "en" : "pt-BR";
 traduzirPagina();
-seletorIdioma();
+// a tela que marca data-sem-idioma chama o seletor na hora que quiser
+if (!document.body.dataset.semIdioma) seletorIdioma();

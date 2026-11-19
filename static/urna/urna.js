@@ -39,7 +39,11 @@ function limpar() {
 function botao(texto, cor, aoClicar, classe) {
   const b = document.createElement("button");
   b.textContent = texto;
-  if (cor) b.style.background = cor;
+  if (cor) {
+    b.style.background = cor;
+    // a cor vem de um seletor livre: o texto acompanha para continuar legível
+    b.style.color = corDoTexto(cor);
+  }
   if (classe) b.className = classe;
   b.onclick = aoClicar;
   // :active falha em algumas telas touch; pointerdown dá o retorno no instante do toque
@@ -277,13 +281,22 @@ async function cicloEnvio() {
 // e aparece com 5 toques rápidos no id da urna, no rodapé.
 let toques = [];
 
+// O mesmo gesto traz o seletor de idioma: configurar a urna é tarefa de quem monta a
+// sala. Solto no canto da tela, ele virava a cédula inteira para inglês com um toque.
+function alternarControlesDoMesario() {
+  const mostrar = $("exportar").hidden;
+  $("exportar").hidden = !mostrar;
+  $("exportar").textContent = t("urna.exportar", { n: ler("fila", []).length });
+  if (!mostrar) return $("idioma")?.remove();
+  if (!$("idioma")) seletorIdioma(document.querySelector("footer"));
+}
+
 $("urna-id").onclick = () => {
   const agora = Date.now();
   toques = [...toques.filter((t) => agora - t < 3000), agora];
   if (toques.length >= 5) {
     toques = [];
-    $("exportar").hidden = !$("exportar").hidden;
-    $("exportar").textContent = t("urna.exportar", { n: ler("fila", []).length });
+    alternarControlesDoMesario();
   }
 };
 
@@ -302,7 +315,7 @@ $("exportar").onclick = () => {
   link.click();
   URL.revokeObjectURL(link.href);
   // a fila continua na urna: reimportar ou reenviar não duplica (id por voto)
-  $("exportar").hidden = true;
+  alternarControlesDoMesario();
 };
 
 // ---------- Início ----------
