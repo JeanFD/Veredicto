@@ -376,7 +376,10 @@ const TEXTOS = /* textos:inicio */ {
     "telao.situacao.AGUARDANDO": "aguardando",
     "telao.situacao.ABERTA": "votação aberta",
     "telao.situacao.ENCERRADA": "votação encerrada",
-    "telao.situacao.REVELADA": "apuração concluída"
+    "telao.situacao.REVELADA": "apuração concluída",
+    "mesario.sem_rede": "sem conexão",
+    "mesario.um_preso": "1 voto preso na urna",
+    "mesario.n_presos": "{n} votos presos na urna"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -746,7 +749,10 @@ const TEXTOS = /* textos:inicio */ {
     "telao.situacao.AGUARDANDO": "waiting",
     "telao.situacao.ABERTA": "voting open",
     "telao.situacao.ENCERRADA": "voting closed",
-    "telao.situacao.REVELADA": "count complete"
+    "telao.situacao.REVELADA": "count complete",
+    "mesario.sem_rede": "no connection",
+    "mesario.um_preso": "1 vote stuck in the ballot box",
+    "mesario.n_presos": "{n} votes stuck in the ballot box"
   }
 } /* textos:fim */;
 

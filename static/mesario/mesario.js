@@ -517,10 +517,19 @@ async function avancar(id, estado) {
 }
 
 // ---------- WebSocket ----------
+// Reconectava em silêncio: o mesário ficava olhando um total parado achando que
+// ninguém estava votando. A marca fica na faixa de estado até a conexão voltar.
+function mostrarConexao(ligada) {
+  $("sem-rede").hidden = ligada;
+}
+
 function conectarWs() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws/mesario`);
-  ws.onopen = () => ws.send(JSON.stringify({ token: lerLogin()?.token }));
+  ws.onopen = () => {
+    mostrarConexao(true);
+    ws.send(JSON.stringify({ token: lerLogin()?.token }));
+  };
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (m.tipo === "snapshot" || m.tipo === "estado") {
@@ -535,6 +544,7 @@ function conectarWs() {
   };
   ws.onclose = (e) => {
     if (e.code === 4401) return sair();
+    mostrarConexao(false);
     setTimeout(conectarWs, 2000);
   };
 }
@@ -594,6 +604,14 @@ window.mostrarUrnas = (urnas) => {
       const linha = document.createElement("div");
       linha.textContent = texto;
       cartao.appendChild(linha);
+    }
+    // offline a urna para de informar: vale o último número que ela mandou, porque é
+    // ele que diz se compensa ir até lá buscar o arquivo exportado
+    if (u.ativa && !u.online && !u.nunca_conectou && u.pendentes) {
+      const presos = document.createElement("div");
+      presos.className = "presos";
+      presos.textContent = t(u.pendentes === 1 ? "mesario.um_preso" : "mesario.n_presos", { n: u.pendentes });
+      cartao.appendChild(presos);
     }
     if (u.recusados) {
       const alerta = document.createElement("div");
