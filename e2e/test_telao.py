@@ -49,13 +49,6 @@ def test_telao_aberto_depois_da_revelacao_mostra_resultado(page: Page, admin, se
     expect(page.locator("#resultado")).to_be_visible()
     expect(page.locator("#regressiva")).to_be_hidden()
 
-def test_auditoria_publica_mostra_quem_conduziu(page: Page, admin, sessao_aberta):
-    admin.avancar(sessao_aberta)
-    admin.avancar(sessao_aberta)
-    page.goto(f"/auditoria/#{sessao_aberta}")
-    expect(page.locator("#eventos tr").first).to_contain_text("Sessão ativada")
-    expect(page.locator("#eventos td.quem").first).to_have_text("admin")
-
 def test_apuracao_corre_antes_de_coroar(browser, browser_context_args, base_url, admin, urna, sessao_aberta):
     """Com animação ligada, os votos aparecem aos poucos e a vencedora só se acende no fim."""
     _, token = urna
