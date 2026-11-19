@@ -2,11 +2,17 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- API ----------
 async function api(metodo, caminho, corpo) {
-  const r = await fetch(caminho, {
-    method: metodo,
-    headers: { ...autorizacao(), "Content-Type": "application/json" },
-    body: corpo ? JSON.stringify(corpo) : undefined,
-  });
+  let r;
+  try {
+    r = await fetch(caminho, {
+      method: metodo,
+      headers: { ...autorizacao(), "Content-Type": "application/json" },
+      body: corpo ? JSON.stringify(corpo) : undefined,
+    });
+  } catch {
+    // sem isso a falha de rede chega à tela como "Failed to fetch", em inglês
+    throw new Error(t("login.sem_conexao"));
+  }
   const dados = await r.json().catch(() => ({}));
   if (r.status === 401 && !$("painel").hidden) sair();
   if (!r.ok) {
@@ -131,7 +137,7 @@ function mostrarEstado(sessao, total) {
       await carregarSessoes();
     } catch (erro) {
       e.target.value = sessao.peso_celular;
-      alert(erro.status === 422 ? t("mesario.peso_invalido") : erro.message);
+      avisarErro(erro.status === 422 ? t("mesario.peso_invalido") : erro.message);
     }
   };
   $("alternar-celular").checked = !!sessao?.celular;
@@ -141,7 +147,7 @@ function mostrarEstado(sessao, total) {
       await carregarSessoes();
     } catch (erro) {
       e.target.checked = !e.target.checked;
-      alert(erro.message);
+      avisarErro(erro.message);
     }
   };
   $("total").textContent = total;
@@ -319,11 +325,11 @@ $("limpar-testes").onclick = async () => {
   if (!confirm(t("mesario.confirmar_limpar", testes))) return;
   try {
     const r = await api("POST", "/api/admin/testes/limpar");
-    alert(t("mesario.testes_limpos", r));
+    avisarFeito(t("mesario.testes_limpos", r));
     await carregarSessoes();
     window.mostrarUrnas(await api("GET", "/api/admin/urnas"));
   } catch (e) {
-    alert(e.message);
+    avisarErro(e.message);
   }
 };
 
@@ -347,7 +353,7 @@ async function criarSessao(dados, caminho = "/api/admin/sessoes") {
     await carregarSessoes();
     return true;
   } catch (e) {
-    alert(e.message);
+    avisarErro(e.message);
     return false;
   }
 }
@@ -422,10 +428,10 @@ function apagarSessao(s) {
     if (!confirm(aviso)) return;
     try {
       const r = await api("DELETE", `/api/admin/sessoes/${s.id}`);
-      alert(t("mesario.sessao_apagada", r));
+      avisarFeito(t("mesario.sessao_apagada", r));
       await carregarSessoes();
     } catch (e) {
-      alert(e.message);
+      avisarErro(e.message);
     }
   }, "perigo so-admin");
 }
@@ -435,7 +441,7 @@ async function clonarSessao(s) {
   try {
     modelo = await api("GET", `/api/admin/sessoes/${s.id}/modelo`);
   } catch (e) {
-    return alert(e.message);
+    return avisarErro(e.message);
   }
   $("perguntas").innerHTML = "";
   for (const pergunta of modelo.perguntas) adicionarPergunta(pergunta);
@@ -456,9 +462,9 @@ $("nova-sessao").onsubmit = async (e) => {
       return { rotulo: rotulo.value.trim(), cor: cor.value };
     });
     const tema = bloco.querySelector("input").value.trim();
-    if (opcoes.some((o) => !o.rotulo)) return alert(t("mesario.preencha_opcoes", { tema }));
+    if (opcoes.some((o) => !o.rotulo)) return avisarErro(t("mesario.preencha_opcoes", { tema }));
     if (new Set(opcoes.map((o) => o.rotulo.toLowerCase())).size !== opcoes.length) {
-      return alert(t("mesario.opcoes_repetidas", { tema }));
+      return avisarErro(t("mesario.opcoes_repetidas", { tema }));
     }
     perguntas.push({ tema, opcoes });
   }
@@ -482,7 +488,7 @@ async function acao(caminho, metodo = "POST", corpo) {
     await api(metodo, caminho, corpo);
     await carregarSessoes();
   } catch (e) {
-    alert(e.message);
+    avisarErro(e.message);
   }
 }
 
@@ -491,10 +497,10 @@ async function zerar(s) {
   if (confirmacao === null) return;
   try {
     const { apagados } = await api("POST", `/api/admin/sessoes/${s.id}/zerar`, { confirmacao });
-    alert(t("mesario.votos_apagados", { n: apagados }));
+    avisarFeito(t("mesario.votos_apagados", { n: apagados }));
     await carregarSessoes();
   } catch (e) {
-    alert(e.message);
+    avisarErro(e.message);
   }
 }
 
@@ -509,7 +515,7 @@ async function avancar(id, estado) {
       if (!confirm(texto)) return;
       await api("POST", `/api/admin/sessoes/${id}/avancar?forcar=true`);
     } else {
-      alert(e.message);
+      avisarErro(e.message);
       return;
     }
   }
@@ -637,7 +643,7 @@ window.mostrarUrnas = (urnas) => {
           const { id, token } = await api("POST", `/api/admin/urnas/${u.id}/novo-token`);
           prepararLink(id, token);
         } catch (e) {
-          alert(e.message);
+          avisarErro(e.message);
         }
       }, "perigo"));
       acoes.appendChild(criarBotao(t("mesario.mudar_peso", { n: u.peso }), async () => {
@@ -647,7 +653,7 @@ window.mostrarUrnas = (urnas) => {
           await api("POST", `/api/admin/urnas/${u.id}/peso`, { peso: Number(peso) });
           window.mostrarUrnas(await api("GET", "/api/admin/urnas"));
         } catch (e) {
-          alert(e.status === 422 ? t("mesario.peso_invalido") : e.message);
+          avisarErro(e.status === 422 ? t("mesario.peso_invalido") : e.message);
         }
       }));
       acoes.appendChild(criarBotao(t("mesario.desativar"), () => {
@@ -664,7 +670,7 @@ window.mostrarUrnas = (urnas) => {
           window.mostrarUrnas(await api("DELETE", `/api/admin/urnas/${u.id}`).then(
             () => api("GET", "/api/admin/urnas")));
         } catch (e) {
-          alert(e.message);
+          avisarErro(e.message);
         }
       }, "perigo so-admin"));
     }
@@ -688,7 +694,7 @@ $("nova-urna").onsubmit = async (e) => {
     prepararLink(id, token);
     e.target.reset();
   } catch (err) {
-    alert(err.message);
+    avisarErro(err.message);
   }
 };
 
@@ -751,7 +757,7 @@ function linhaPedido(p) {
       linha.remove();
       $("pedidos").hidden = !$("lista-pedidos").children.length;
     } catch (e) {
-      alert(e.message);
+      avisarErro(e.message);
     }
   }, "perigo");
   linha.onsubmit = async (e) => {
@@ -764,7 +770,7 @@ function linhaPedido(p) {
       $("pedidos").hidden = !$("lista-pedidos").children.length;
       window.mostrarUrnas(await api("GET", "/api/admin/urnas"));
     } catch (err) {
-      alert(err.message);
+      avisarErro(err.message);
     }
   };
   const comPeso = document.createElement("label");
@@ -794,7 +800,7 @@ async function carregarRegistro() {
   try {
     eventos = await api("GET", "/api/admin/eventos");
   } catch (e) {
-    return alert(e.message);
+    return avisarErro(e.message);
   }
   const linhas = eventos.reverse().map((e) => {
     const { por, ...resto } = campos(e.detalhe);
@@ -818,7 +824,7 @@ async function alterarConta(usuario, mudanca) {
   try {
     await api("PATCH", `/api/admin/contas/${usuario}`, mudanca);
   } catch (e) {
-    alert(e.message);
+    avisarErro(e.message);
   }
   carregarContas();
 }
@@ -850,9 +856,9 @@ async function carregarContas() {
         if (nova === null) return;
         try {
           await api("POST", `/api/admin/contas/${c.usuario}/senha`, { nova });
-          alert(t("mesario.senha_redefinida", { usuario: c.usuario }));
+          avisarFeito(t("mesario.senha_redefinida", { usuario: c.usuario }));
         } catch (e) {
-          alert(e.status === 422 ? t("mesario.senha_curta") : e.message);
+          avisarErro(e.status === 422 ? t("mesario.senha_curta") : e.message);
         }
       }), " ", c.ativa
         ? criarBotao(t("mesario.desativar"), () => {
@@ -876,7 +882,7 @@ $("nova-conta").onsubmit = async (e) => {
     e.target.reset();
     carregarContas();
   } catch (err) {
-    alert(err.message);
+    avisarErro(err.message);
   }
 };
 
@@ -885,9 +891,9 @@ $("minha-senha").onsubmit = async (e) => {
   try {
     await api("POST", "/api/eu/senha", { atual: $("senha-atual").value, nova: $("senha-nova").value });
     e.target.reset();
-    alert(t("mesario.senha_trocada"));
+    avisarFeito(t("mesario.senha_trocada"));
   } catch (err) {
-    alert(err.message);
+    avisarErro(err.message);
   }
 };
 
@@ -949,7 +955,7 @@ async function comandarCartao(metodo, caminho, corpo) {
     await carregarCartoes();
     return true;
   } catch (e) {
-    alert(e.message);
+    avisarErro(e.message);
     return false;
   }
 }
@@ -1001,7 +1007,7 @@ $("trazer-link").onclick = async () => {
     $("cartao-titulo").value = noticia.titulo;
     $("cartao-texto").value = noticia.texto;
   } catch (e) {
-    alert(e.message);
+    avisarErro(e.message);
   } finally {
     botao.disabled = false;
     botao.textContent = t("mesario.trazer_link");
@@ -1036,7 +1042,7 @@ async function comandarCronometro(metodo, caminho, corpo) {
   try {
     mostrarCronometro(await api(metodo, `/api/admin/cronometro${caminho}`, corpo));
   } catch (e) {
-    alert(e.message);
+    avisarErro(e.message);
   }
 }
 
@@ -1080,7 +1086,7 @@ $("abrir-telao").onclick = async () => {
     aba.location = `/telao/#chave=${encodeURIComponent(chave)}`;
   } catch (e) {
     aba.close();
-    alert(e.message);
+    avisarErro(e.message);
   }
 };
 

@@ -175,5 +175,21 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
                       padding: 0.4rem; color: var(--texto-2); }
 .senha-campo button svg { width: 20px; height: 20px; }
 .senha-campo button[aria-pressed="true"] { color: var(--primaria); }
+/* ---------- avisos ---------- */
+/* pilha no canto, no lugar dos alertas que travavam a tela */
+#avisos { position: fixed; right: 1rem; bottom: 1rem; z-index: 20; display: grid; gap: 0.5rem;
+          width: min(26rem, calc(100vw - 2rem)); }
+.aviso { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.7rem 0.5rem 0.7rem 0.85rem;
+         border-radius: var(--raio); border: 1px solid var(--borda); background: var(--superficie);
+         box-shadow: var(--sombra); animation: aviso-entra 0.2s ease-out; }
+.aviso p { flex: 1; margin: 0; font-size: 0.92rem; }
+.aviso .vezes { color: var(--texto-2); font-size: 0.8rem; font-weight: 700; }
+.aviso button { padding: 0 0.4rem; border: none; background: none; color: var(--texto-2);
+                font-size: 1.15rem; line-height: 1; }
+.aviso.erro { border-color: var(--perigo); background: var(--perigo-suave); }
+.aviso.ok { border-color: var(--sucesso); background: var(--sucesso-suave); }
+@keyframes aviso-entra { from { opacity: 0; transform: translateY(0.5rem); } }
+@media (prefers-reduced-motion: reduce) { .aviso { animation: none; } }
+
 .aviso-caps { color: var(--alerta); font-weight: 600; }
 .aviso-caps::before { content: "⇪ "; }
