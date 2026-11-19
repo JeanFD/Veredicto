@@ -384,7 +384,9 @@ const TEXTOS = /* textos:inicio */ {
     "urna.confirmar_repareamento": "Desconfigurar esta urna e pedir um cadastro novo?",
     "urna.repareamento_fila": "Votos ainda não enviados: {n}. Eles continuam guardados e vão pela urna nova.",
     "urna.desconfigurar": "Desconfigurar",
-    "urna.cancelar": "Cancelar"
+    "urna.cancelar": "Cancelar",
+    "telao.sem_rede": "sem conexão",
+    "telao.ligar_som": "ligar o som"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -762,7 +764,9 @@ const TEXTOS = /* textos:inicio */ {
     "urna.confirmar_repareamento": "Unset this ballot box and request a new registration?",
     "urna.repareamento_fila": "Votes not sent yet: {n}. They stay saved and go with the new ballot box.",
     "urna.desconfigurar": "Unset",
-    "urna.cancelar": "Cancel"
+    "urna.cancelar": "Cancel",
+    "telao.sem_rede": "no connection",
+    "telao.ligar_som": "turn sound on"
   }
 } /* textos:fim */;
 
