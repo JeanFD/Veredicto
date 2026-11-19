@@ -187,3 +187,24 @@ def test_rodape_nao_repete_o_que_ja_esta_na_tela(page: Page, admin):
     cartao_no_telao(admin, PARAGRAFO)
     expect(page.locator("#rodape-tema")).to_have_text(tema)
     expect(rodape).not_to_contain_text(caso)
+
+def test_rotulo_longo_cabe_no_cartao_estreito(page: Page, admin):
+    """#142: com 95 a 5 o cartão da perdedora picava o rótulo em pedaços de três letras."""
+    admin.post("/api/admin/cartoes/ocultar")  # os testes acima deixam cartões na tela
+    page.set_viewport_size({"width": 1366, "height": 768})
+    page.goto("/telao/")
+    expect(page.locator("#cartao")).to_be_hidden()
+    page.evaluate("""() => mostrarResultado([
+      { rotulo: "Culpado por negligência grave", chave: "a", cor: "#dc2626", votos: 19, pontos: 19 },
+      { rotulo: "Inocente de todas as acusações", chave: "b", cor: "#2563eb", votos: 1, pontos: 1 },
+    ])""")
+    perdedora = page.locator("#resultado .opcao").nth(1)
+    expect(perdedora).to_be_visible()
+    medidas = perdedora.evaluate("""(cartao) => {
+      const rotulo = cartao.querySelector('.rotulo');
+      const linha = parseFloat(getComputedStyle(rotulo).lineHeight);
+      return { transborda: cartao.scrollHeight - cartao.clientHeight,
+               linhas: Math.round(rotulo.getBoundingClientRect().height / linha) };
+    }""")
+    assert medidas["transborda"] <= 0, medidas
+    assert medidas["linhas"] <= 3, medidas

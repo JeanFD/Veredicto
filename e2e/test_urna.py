@@ -130,3 +130,35 @@ def test_desconfigurar_devolve_a_urna_ao_pareamento(page: Page, urna, sessao_abe
     page.get_by_role("button", name="Desconfigurar").click()
     expect(page.get_by_role("button", name="Pedir para virar urna")).to_be_visible()
     assert page.evaluate("localStorage.getItem('urna_token')") is None
+
+def test_seletor_de_idioma_fica_com_os_controles_do_mesario(page: Page, urna, sessao_aberta):
+    """#142: solto no canto, um toque virava a cédula inteira para inglês."""
+    abrir_urna(page, urna)
+    expect(page.get_by_role("button", name="Defesa")).to_be_visible()
+    expect(page.locator("#idioma")).to_have_count(0)
+
+    # o mesmo gesto que revela o exportar traz o seletor
+    page.locator("#urna-id").click(click_count=5, delay=60)
+    expect(page.locator("#idioma")).to_be_visible()
+    expect(page.locator("#exportar")).to_be_visible()
+
+    page.locator("#urna-id").click(click_count=5, delay=60)
+    expect(page.locator("#idioma")).to_have_count(0)
+
+def test_texto_da_opcao_acompanha_a_cor(page: Page, admin, urna):
+    """#142: a cor vem de um seletor livre, e o texto era sempre branco."""
+    import uuid as _uuid
+    sid = admin.post("/api/admin/sessoes", json={
+        "tema": f"E2E cores {_uuid.uuid4().hex[:6]}",
+        "opcoes": [{"rotulo": "Amarelo claro", "cor": "#f5e642"},
+                   {"rotulo": "Azul escuro", "cor": "#2563eb"}],
+    })["id"]
+    admin.post(f"/api/admin/sessoes/{sid}/ativar")
+    admin.avancar(sid)
+
+    abrir_urna(page, urna)
+    claro = page.get_by_role("button", name="Amarelo claro")
+    expect(claro).to_be_visible()
+    assert claro.evaluate("b => getComputedStyle(b).color") == "rgb(11, 20, 36)"
+    escuro = page.get_by_role("button", name="Azul escuro")
+    assert escuro.evaluate("b => getComputedStyle(b).color") == "rgb(255, 255, 255)"
