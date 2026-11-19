@@ -172,3 +172,25 @@ def test_botao_de_tela_cheia(page: Page):
     page.get_by_role("button", name="tela cheia").click()
     expect(page.get_by_role("button", name="sair da tela cheia")).to_be_visible()
     assert page.evaluate("Boolean(document.fullscreenElement)")
+
+def test_rodape_nao_repete_o_que_ja_esta_na_tela(page: Page, admin):
+    """#128: situação e caso apareciam duas vezes; o tema, que o cartão cobre, nenhuma."""
+    caso = f"E2E caso {uuid.uuid4().hex[:6]}"
+    tema = f"E2E rodapé {uuid.uuid4().hex[:8]}"
+    sid = admin.post("/api/admin/sessoes", json={"tema": tema, "opcoes": OPCOES, "caso": caso})["id"]
+    admin.post(f"/api/admin/sessoes/{sid}/ativar")
+    admin.avancar(sid)
+    admin.post("/api/admin/cartoes/ocultar")  # os testes acima deixam cartões na tela
+
+    page.goto("/telao/")
+    expect(page.locator("#situacao")).to_have_text("votação aberta")
+    expect(page.locator("#caso")).to_have_text(caso)
+    rodape = page.locator(".rodape")
+    expect(rodape).not_to_contain_text("votação aberta")
+    expect(rodape).not_to_contain_text(caso)
+    expect(page.locator("#rodape-tema")).to_be_empty()
+
+    # com o cartão cobrindo o palco, o rodapé resgata o tema — e só ele
+    cartao_no_telao(admin, PARAGRAFO)
+    expect(page.locator("#rodape-tema")).to_have_text(tema)
+    expect(rodape).not_to_contain_text(caso)
