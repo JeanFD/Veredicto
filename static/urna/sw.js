@@ -8,9 +8,9 @@
 // - Só os arquivos da própria urna (e as traduções, /i18n.js) passam por aqui; /api/ vai sempre direto à
 //   rede. A fila de votos continua no localStorage, sem mudança.
 // Trocar a estrutura do cache (lista de arquivos, nome) pede subir a VERSAO.
-const VERSAO = "urna-v4";
+const VERSAO = "urna-v6";
 const ARQUIVOS = ["/urna/", "/urna/urna.css", "/urna/urna.js", "/urna/pareamento.js", "/urna/manifest.json",
-  "/urna/icone-192.png", "/urna/icone-512.png", "/i18n.js", "/cores.js"];
+  "/urna/icone-192.png", "/urna/icone-512.png", "/i18n.js", "/cores.js", "/sons.js"];
 const LIMITE_REDE = 3000;
 
 self.addEventListener("install", (e) => {

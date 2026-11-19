@@ -128,6 +128,7 @@ function confirmar(op) {
 }
 
 async function votar(op) {
+  Sons.preparar(); // ainda dentro do toque no "Confirmar": depois do envio já não vale
   const voto = {
     id: crypto.randomUUID(),
     sessao_id: sessao.id,
@@ -151,6 +152,7 @@ async function votar(op) {
     $("tema").innerHTML = '<span class="carimbo">✓</span>';
     $("tema").append(t("comum.voto_registrado"));
     sinalizar("sucesso", 1500);
+    Sons.voto();
   }
   setTimeout(() => { ocupada = false; renderizar(); }, naFila ? 3000 : 1500);
 }
@@ -327,3 +329,5 @@ renderizar();
 buscarSessao();
 setInterval(buscarSessao, 5000);
 cicloEnvio();
+
+Sons.prepararNoToque();

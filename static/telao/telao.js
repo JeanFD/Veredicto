@@ -144,37 +144,28 @@ function formatarTempo(restante) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-// Um contexto só, criado ao abrir o telão e retomado no primeiro clique ou tecla da
-// janela. Criado na hora do apito ele nasceria suspenso — sem erro nenhum, só sem
-// som — e o telão é aberto por window.open, então nunca recebe um clique sozinho.
-// Enquanto não estiver pronto, o cabeçalho pede o clique.
-const som = new (window.AudioContext || window.webkitAudioContext)();
+// Um contexto só (em /sons.js), criado ao abrir o telão e retomado no primeiro
+// clique ou tecla da janela. Criado na hora do apito ele nasceria suspenso — sem
+// erro nenhum, só sem som — e o telão é aberto por window.open, então nunca recebe
+// um clique sozinho. Enquanto não estiver pronto, o cabeçalho pede o clique.
+const som = Sons.obter();
 
 function mostrarBotaoDoSom() {
-  $("ligar-som").hidden = som.state === "running";
+  $("ligar-som").hidden = !som || !Sons.ligado || som.state === "running";
 }
 
+// só o resume(): o destrave do Sons.preparar() toca um buffer dentro do clique, e
+// no Chromium isso tirava do botão de tela cheia o gesto de que ele precisa
 function ligarSom() {
-  som.resume().then(mostrarBotaoDoSom, () => {});
+  if (som) som.resume().then(mostrarBotaoDoSom, () => {});
 }
 
-function apitar() {
-  if (som.state !== "running") return; // sem o clique: o vermelho na tela já avisa
-  try {
-    const oscilador = som.createOscillator();
-    const ganho = som.createGain();
-    oscilador.frequency.value = 880;
-    ganho.gain.setValueAtTime(0.25, som.currentTime);
-    ganho.gain.exponentialRampToValueAtTime(0.001, som.currentTime + 0.7);
-    oscilador.connect(ganho).connect(som.destination);
-    oscilador.start();
-    oscilador.stop(som.currentTime + 0.7);
-  } catch {
-    // navegador sem áudio: o vermelho na tela já avisa
-  }
-}
+// tiques nos últimos segundos: um por segundo inteiro, só enquanto corre
+const TIQUES_FINAIS = 5;
+let ultimoTique = null;
 
 function mostrarCronometro(c) {
+  if (c.visivel && c.rodando && !(cronometro?.visivel && cronometro?.rodando)) Sons.cronometroInicio();
   cronometro = { ...c, recebido: performance.now() };
   desenharCronometro();
   clearInterval(tiqueCronometro);
@@ -191,8 +182,15 @@ function desenharCronometro() {
   $("cronometro-tempo").textContent = (esgotado ? "+" : "") + formatarTempo(restante);
   $("cronometro").classList.toggle("esgotado", esgotado);
   $("cronometro-esgotado").hidden = !esgotado;
-  if (esgotado && !apitou) apitar();
+  if (esgotado && !apitou) Sons.cronometroFim();
   apitou = esgotado;
+  // tica ao virar cada um dos últimos segundos; um telão que abre no meio da
+  // contagem espera a próxima virada, sem tique solto
+  const segundo = c.rodando && !esgotado ? Math.ceil(restante) : null;
+  if (segundo !== null && segundo <= TIQUES_FINAIS && ultimoTique !== null && segundo < ultimoTique) {
+    Sons.cronometroTique();
+  }
+  ultimoTique = segundo;
 }
 
 // ---------- Estado ----------
@@ -223,7 +221,7 @@ function mostrarEstado(m, aoVivo) {
   }
   if (m.resultado) {
     // snapshot (telão aberto ou reconectado depois da revelação): sem contagem regressiva
-    if (revelandoAgora) regressiva(() => mostrarResultado(m.resultado));
+    if (revelandoAgora) regressiva(() => mostrarResultado(m.resultado, true));
     else mostrarResultado(m.resultado);
     return;
   }
@@ -248,6 +246,7 @@ function regressiva(depois) {
     }
     tela.innerHTML = "";
     const numero = document.createElement("span");
+    Sons.regressiva(n);
     numero.textContent = n--;
     tela.appendChild(numero);
     setTimeout(tique, 500);
@@ -348,8 +347,14 @@ function coroar(cartoes, opcoes, vencedora) {
 // uma apuração que fecha.
 function correrApuracao(cartoes, opcoes, ponderado, aoTerminar) {
   const comeco = performance.now();
+  let proximoTique = 0;
   const quadro = (agora) => {
     const t = Math.min(1, (agora - comeco) / DURACAO_APURACAO);
+    // os tiques vão espaçando junto com a desaceleração da apuração
+    if (t < 1 && agora >= proximoTique) {
+      Sons.apuracao(t);
+      proximoTique = agora + 70 + t * 230;
+    }
     const suave = 1 - (1 - t) ** 2.2;
     desenharParciais(cartoes, opcoes.map((o, i) => {
       const avanco = suave ** RITMOS[i % RITMOS.length];
@@ -361,7 +366,7 @@ function correrApuracao(cartoes, opcoes, ponderado, aoTerminar) {
   requestAnimationFrame(quadro);
 }
 
-function mostrarResultado(opcoes) {
+function mostrarResultado(opcoes, aoVivo = false) {
   const soma = opcoes.reduce((s, o) => s + o.pontos, 0) || 1;
   const ponderado = opcoes.some((o) => o.pontos !== o.votos);
   // empate não tem vencedora: só acende quando uma opção está sozinha na frente
@@ -377,17 +382,20 @@ function mostrarResultado(opcoes) {
   area.hidden = false;
 
   const finais = opcoes.map((o) => ({ opcao: o, pontos: o.pontos, votos: o.votos }));
-  const fechar = () => {
+  const fechar = (comSom) => {
     desenharParciais(cartoes, finais, ponderado);
     coroar(cartoes, opcoes, vencedora);
+    if (comSom) vencedora ? Sons.vencedora() : Sons.empate();
   };
+  // sem animação, a revelação ao vivo ainda toca o fecho; um telão que abre já com
+  // o resultado na tela não toca nada
   if (semMovimento || maior === 0) {
-    fechar();
+    fechar(aoVivo && maior > 0);
     return;
   }
   desenharParciais(cartoes, opcoes.map((o) => ({ opcao: o, pontos: 0, votos: 0 })), ponderado);
   // a corrida começa depois que o último cartão terminou de subir
-  setTimeout(() => correrApuracao(cartoes, opcoes, ponderado, fechar),
+  setTimeout(() => correrApuracao(cartoes, opcoes, ponderado, () => fechar(true)),
              900 + opcoes.length * 120);
 }
 
@@ -467,7 +475,7 @@ $("tela-cheia").onclick = () => {
 };
 addEventListener("fullscreenchange", mostrarBotaoDaTela);
 
-som.onstatechange = mostrarBotaoDoSom;
+if (som) som.onstatechange = mostrarBotaoDoSom;
 addEventListener("pointerdown", ligarSom);
 addEventListener("keydown", ligarSom);
 $("ligar-som").onclick = ligarSom;

@@ -51,4 +51,4 @@ def test_api_nao_passa_pelo_cache(page: Page, urna):
         (await (await caches.open(versao)).keys()).map((r) => new URL(r.url).pathname)""",
         versao_do_cache(page))
     # só os arquivos da urna e os compartilhados que ela usa; nada de /api/
-    assert chaves and all(c.startswith("/urna/") or c in ("/i18n.js", "/cores.js") for c in chaves)
+    assert chaves and all(c.startswith("/urna/") or c in ("/i18n.js", "/cores.js", "/sons.js") for c in chaves)
