@@ -645,7 +645,10 @@ function iniciar() {
   api("GET", "/api/admin/urnas").then((u) => window.mostrarUrnas(u), () => {});
   api("GET", "/api/admin/pedidos").then(mostrarPedidos, () => {});
   carregarCartoes().catch(() => {});
-  if (conta.papel === "admin") carregarContas();
+  if (conta.papel === "admin") {
+    carregarContas();
+    carregarAparencia();
+  }
   conectarWs();
 }
 
@@ -1255,6 +1258,69 @@ $("abrir-telao").onclick = async () => {
     aba.close();
     avisarErro(e.message);
   }
+};
+
+// ---------- Aparência do telão ----------
+// Só o admin vê o formulário. O padrão de cada campo vem do servidor (PUT com o
+// corpo vazio devolve tudo no padrão), então o painel não guarda uma segunda cópia.
+const CAMPOS_APARENCIA = {
+  cores: { fundo: "ap-fundo", cartao: "ap-cartao", destaque: "ap-destaque", texto: "ap-texto" },
+  textos: { votos: "ap-votos", aguardando: "ap-aguardando", vencedora: "ap-vencedora",
+            preferencia: "ap-preferencia", celular: "ap-celular" },
+  revelacao: { regressiva: "ap-regressiva", apuracao: "ap-apuracao", mostrar_votos: "ap-mostrar-votos",
+               duracao: "ap-duracao" },
+};
+
+function preencherAparencia(a) {
+  for (const [grupo, campos] of Object.entries(CAMPOS_APARENCIA)) {
+    for (const [campo, id] of Object.entries(campos)) {
+      const el = $(id);
+      if (el.type === "checkbox") el.checked = a[grupo][campo];
+      else el.value = a[grupo][campo];
+    }
+  }
+}
+
+function lerFormularioAparencia() {
+  const a = {};
+  for (const [grupo, campos] of Object.entries(CAMPOS_APARENCIA)) {
+    a[grupo] = {};
+    for (const [campo, id] of Object.entries(campos)) {
+      const el = $(id);
+      a[grupo][campo] = el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value;
+    }
+  }
+  return a;
+}
+
+async function carregarAparencia() {
+  try {
+    preencherAparencia(await api("GET", "/api/admin/telao/aparencia"));
+  } catch (e) {
+    avisarErro(e.message);
+  }
+}
+
+async function salvarAparencia(corpo, aviso) {
+  try {
+    preencherAparencia(await api("PUT", "/api/admin/telao/aparencia", corpo));
+    avisarFeito(aviso);
+  } catch (e) {
+    avisarErro(e.message);
+  }
+}
+
+$("form-aparencia").onsubmit = (e) => {
+  e.preventDefault();
+  salvarAparencia(lerFormularioAparencia(), t("aparencia.salva"));
+};
+
+$("ap-padrao").onclick = async () => {
+  const sim = await confirmar({
+    titulo: t("aparencia.restaurar"), acao: t("aparencia.restaurar"), texto: t("aparencia.confirmar_padrao"),
+  });
+  if (sim === null) return;
+  salvarAparencia({}, t("aparencia.restaurada"));
 };
 
 // ---------- Importar fila ----------
