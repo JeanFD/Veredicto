@@ -1,7 +1,9 @@
 """Aba Sessões: blocos por caso, questionário em passos e a barra conduzindo o ciclo."""
 import re
 import uuid
+from datetime import datetime, timezone
 
+import httpx
 from playwright.sync_api import Page, expect
 
 from e2e.conftest import OPCOES
@@ -168,3 +170,34 @@ def test_registro_mostra_quem_fez_cada_acao(painel: Page, admin):  # noqa: F811
     linha = painel.locator("#lista-registro tr", has_text=f"sessao: {sid}").first
     expect(linha).to_contain_text("Sessão ativada")
     expect(linha.locator("td.quem")).to_have_text("admin")
+
+def test_baixar_os_votos_em_csv(painel: Page, base_url, admin, urna):  # noqa: F811
+    """#134: o CSV existia no servidor e não tinha botão nenhum no painel."""
+    _, token = urna
+    tema = f"E2E csv {uuid.uuid4().hex[:6]}"
+    sid = admin.post("/api/admin/sessoes", json={"tema": tema, "opcoes": OPCOES})["id"]
+    admin.post(f"/api/admin/sessoes/{sid}/ativar")
+    admin.avancar(sid)
+    httpx.post(f"{base_url}/api/votos", headers={"X-Urna-Token": token}, json={
+        "id": str(uuid.uuid4()), "sessao_id": sid, "opcao": "defesa",
+        "votado_em": datetime.now(timezone.utc).isoformat(),
+    }).raise_for_status()
+
+    painel.reload()
+    linha = painel.locator(".sessao", has_text=tema)
+    linha.locator("summary").click()
+    # o servidor só entrega o CSV depois da revelação, e o botão segue essa regra
+    expect(linha.get_by_role("button", name="Baixar votos (CSV)")).to_have_count(0)
+
+    admin.avancar(sid)
+    admin.avancar(sid)
+    painel.reload()
+    linha = painel.locator(".sessao", has_text=tema)
+    linha.locator("summary").click()
+    with painel.expect_download() as baixa:
+        linha.get_by_role("button", name="Baixar votos (CSV)").click()
+    assert baixa.value.suggested_filename == f"sessao-{sid}-votos.csv"
+    with open(baixa.value.path(), encoding="utf-8") as arquivo:
+        linhas = arquivo.read().splitlines()
+    assert linhas[0].startswith("id,urna_id,opcao")
+    assert len(linhas) == 2, linhas

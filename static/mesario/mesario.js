@@ -263,6 +263,7 @@ function acoesDaSessao(s) {
   acoes.open = sessoesComAcoesAbertas.has(s.id);
   acoes.ontoggle = () => (acoes.open ? sessoesComAcoesAbertas.add(s.id) : sessoesComAcoesAbertas.delete(s.id));
   acoes.appendChild(criarBotao(t("mesario.clonar"), () => clonarSessao(s)));
+  if (s.estado === "REVELADA") acoes.appendChild(criarBotao(t("mesario.baixar_votos"), () => baixarVotos(s)));
   acoes.appendChild(apagarSessao(s));
   if (s.arquivada) return acoes;
   // revelada, a sessão em cena já pode ser guardada sem precisar ativar outra
@@ -281,6 +282,30 @@ function acoesDaSessao(s) {
   }
   acoes.appendChild(seletorDeCaso(s));
   return acoes;
+}
+
+// O CSV existe no servidor desde sempre e não tinha botão nenhum. Pela barra de
+// endereços também não dava: o download precisa do cabeçalho de autorização. O
+// servidor só o entrega depois da revelação, então o botão só aparece aí.
+async function baixarVotos(s) {
+  let r;
+  try {
+    r = await fetch(`/api/admin/sessoes/${s.id}/votos.csv`, { headers: autorizacao() });
+  } catch {
+    return avisarErro(t("login.sem_conexao"));
+  }
+  if (!r.ok) {
+    const dados = await r.json().catch(() => ({}));
+    const detalhe = typeof dados.detail === "string" ? dados.detail : dados.detail?.mensagem;
+    return avisarErro(detalhe ?? t("mesario.erro", { status: r.status }));
+  }
+  const endereco = URL.createObjectURL(await r.blob());
+  const link = document.createElement("a");
+  link.href = endereco;
+  link.download = `sessao-${s.id}-votos.csv`;
+  link.click();
+  URL.revokeObjectURL(endereco);
+  avisarFeito(t("mesario.votos_baixados", { arquivo: link.download }));
 }
 
 function seletorDeCaso(s) {
@@ -755,6 +780,25 @@ function mostrarPedidos(pedidos) {
   const desenhados = new Set([...lista.children].map((l) => l.dataset.codigo));
   for (const p of pedidos) if (!desenhados.has(p.codigo)) lista.appendChild(linhaPedido(p));
   $("pedidos").hidden = !pedidos.length;
+  marcarPedidosNaAba(pedidos.length);
+}
+
+// O pedido só aparecia dentro da aba Urnas: quem estava em Sessões não via nada e a
+// urna ficava esperando na tela, com o código à mostra, sem ninguém aprovar.
+function marcarPedidosNaAba(n) {
+  const aba = document.querySelector('[data-aba="urnas"]');
+  let marca = aba.querySelector(".contador");
+  if (!n) {
+    marca?.remove();
+    return aba.removeAttribute("aria-label");
+  }
+  if (!marca) {
+    marca = document.createElement("span");
+    marca.className = "contador";
+    aba.appendChild(marca);
+  }
+  marca.textContent = n;
+  aba.setAttribute("aria-label", t("mesario.aba_urnas_pedidos", { n }));
 }
 
 // primeiro "urnaN" livre, contando também os sugeridos nos outros pedidos abertos
