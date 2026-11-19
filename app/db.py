@@ -34,13 +34,16 @@ def inserir_sessao(tema: str, opcoes: list[dict], grupo_id: int | None = None, p
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
         (tema, grupo_id, pergunta, int(teste), int(celular), peso_celular, caso),
     )
+    inserir_opcoes(cur.lastrowid, opcoes)
+    return cur.lastrowid
+
+def inserir_opcoes(sessao_id: int, opcoes: list[dict]):
     for ordem, op in enumerate(opcoes):
         db.execute(
             "INSERT INTO opcoes (sessao_id, chave, rotulo, cor, ordem) "
             "VALUES (?, ?, ?, ?, ?)",
-            (cur.lastrowid, op["chave"], op["rotulo"], op["cor"], ordem),
+            (sessao_id, op["chave"], op["rotulo"], op["cor"], ordem),
         )
-    return cur.lastrowid
 
 def ler_cartoes() -> list[dict]:
     """Cartões prontos do júri; sem o arquivo, o painel começa sem nenhum."""
