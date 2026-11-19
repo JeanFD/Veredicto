@@ -208,3 +208,27 @@ def test_rotulo_longo_cabe_no_cartao_estreito(page: Page, admin):
     }""")
     assert medidas["transborda"] <= 0, medidas
     assert medidas["linhas"] <= 3, medidas
+
+def test_regressiva_conta_um_numero_por_segundo(browser, browser_context_args, base_url, admin, urna, sessao_aberta):
+    """O 3·2·1 corria em meio segundo por número e a sala não acompanhava."""
+    _, token = urna
+    votar_pela_api(base_url, token, sessao_aberta, "defesa")
+    contexto = browser.new_context(**{**browser_context_args, "reduced_motion": "no-preference"})
+    page = contexto.new_page()
+    page.goto("/telao/")
+    admin.avancar(sessao_aberta)
+    expect(page.locator("#legenda")).to_contain_text("votação encerrada")
+    page.evaluate("""() => {
+        window.marcas = [];
+        new MutationObserver(() => {
+            const n = document.querySelector('#regressiva span')?.textContent;
+            if (n && n !== window.marcas.at(-1)?.[0]) window.marcas.push([n, performance.now()]);
+        }).observe(document.getElementById('regressiva'), { childList: true, subtree: true });
+    }""")
+    admin.avancar(sessao_aberta)
+    expect(page.locator("#resultado")).to_be_visible(timeout=10000)
+    marcas = page.evaluate("window.marcas")
+    assert [n for n, _ in marcas] == ["3", "2", "1"]
+    intervalos = [b - a for (_, a), (_, b) in zip(marcas, marcas[1:])]
+    assert all(900 <= i <= 1300 for i in intervalos), intervalos
+    contexto.close()
