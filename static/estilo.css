@@ -175,6 +175,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
                       padding: 0.4rem; color: var(--texto-2); }
 .senha-campo button svg { width: 20px; height: 20px; }
 .senha-campo button[aria-pressed="true"] { color: var(--primaria); }
+/* ---------- confirmações ---------- */
+/* o foco entra em "Cancelar": o caminho sem querer é o que não faz nada */
+.pergunta-modal { width: min(30rem, calc(100vw - 2rem)); padding: 1.5rem; color: var(--texto);
+                  background: var(--superficie); border: 1px solid var(--borda);
+                  border-radius: var(--raio); box-shadow: 0 24px 60px rgba(16, 24, 40, 0.24); }
+.pergunta-modal::backdrop { background: rgba(16, 24, 40, 0.45); }
+.pergunta-modal h2 { font-size: 1.15rem; margin: 0 0 0.6rem; }
+.pergunta-modal p { margin: 0 0 0.5rem; color: var(--texto-2); }
+.pergunta-modal .campo { margin-top: 1rem; }
+.pergunta-modal .campo input { width: 100%; }
+.linha-form.fim { justify-content: flex-end; margin-top: 1.25rem; }
+
 /* ---------- avisos ---------- */
 /* pilha no canto, no lugar dos alertas que travavam a tela */
 #avisos { position: fixed; right: 1rem; bottom: 1rem; z-index: 20; display: grid; gap: 0.5rem;

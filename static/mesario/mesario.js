@@ -68,10 +68,12 @@ function criarBotao(texto, aoClicar, classe) {
 // único botão, o próximo passo. A lista abaixo serve para escolher quem entra em
 // cena; arquivar, zerar e mover de caso ficam guardados em "Ações".
 const ESTADOS = ["AGUARDANDO", "ABERTA", "ENCERRADA", "REVELADA"];
+// cada passo leva o aviso do que ele faz: antes a confirmação era só "Revelar
+// resultado?", a mesma pergunta seca para abrir a votação e para revelá-la
 const PROXIMO = {
-  AGUARDANDO: t("mesario.abrir_votacao"),
-  ABERTA: t("mesario.encerrar_votacao"),
-  ENCERRADA: t("mesario.revelar_resultado"),
+  AGUARDANDO: { rotulo: t("mesario.abrir_votacao"), aviso: t("mesario.aviso_abrir") },
+  ABERTA: { rotulo: t("mesario.encerrar_votacao"), aviso: t("mesario.aviso_encerrar") },
+  ENCERRADA: { rotulo: t("mesario.revelar_resultado"), aviso: t("mesario.aviso_revelar") },
 };
 // revelar é irreversível: sai em vermelho
 const PERIGOSO = new Set(["ENCERRADA"]);
@@ -94,14 +96,17 @@ function selo(classe, texto) {
 // ---------- Barra: o que está em cena ----------
 function botaoProximoPasso(s) {
   if (PROXIMO[s.estado]) {
-    return criarBotao(PROXIMO[s.estado], () => avancar(s.id, s.estado), PERIGOSO.has(s.estado) ? "perigo" : "principal");
+    return criarBotao(PROXIMO[s.estado].rotulo, () => avancar(s), PERIGOSO.has(s.estado) ? "perigo" : "principal");
   }
   // revelada a pergunta, o próximo passo é a seguinte do mesmo questionário
   if (s.estado === "REVELADA" && s.proxima_pergunta) {
-    return criarBotao(t("mesario.ativar_pergunta", { n: s.pergunta + 1 }), () => {
-      if (confirm(t("mesario.confirmar_liberar", { n: s.pergunta + 1, total: s.total_perguntas }))) {
-        acao(`/api/admin/sessoes/${s.proxima_pergunta}/ativar`);
-      }
+    const liberar = t("mesario.ativar_pergunta", { n: s.pergunta + 1 });
+    return criarBotao(liberar, async () => {
+      const sim = await confirmar({
+        titulo: liberar, acao: liberar,
+        texto: t("mesario.confirmar_liberar", { n: s.pergunta + 1, total: s.total_perguntas }),
+      });
+      if (sim !== null) acao(`/api/admin/sessoes/${s.proxima_pergunta}/ativar`);
     }, "principal");
   }
   return null;
@@ -262,8 +267,12 @@ function acoesDaSessao(s) {
   if (s.arquivada) return acoes;
   // revelada, a sessão em cena já pode ser guardada sem precisar ativar outra
   if (!s.ativa || s.estado === "REVELADA") {
-    acoes.appendChild(criarBotao(t("mesario.arquivar"), () => {
-      if (confirm(t("mesario.confirmar_arquivar", { tema: s.tema }))) acao(`/api/admin/sessoes/${s.id}/arquivar`);
+    acoes.appendChild(criarBotao(t("mesario.arquivar"), async () => {
+      const sim = await confirmar({
+        titulo: t("mesario.arquivar"), acao: t("mesario.arquivar"),
+        texto: t("mesario.confirmar_arquivar", { tema: s.tema }),
+      });
+      if (sim !== null) acao(`/api/admin/sessoes/${s.id}/arquivar`);
     }, "perigo"));
   }
   // zerar só faz sentido com votos para apagar
@@ -322,7 +331,12 @@ function mostrarLimparTestes() {
 }
 
 $("limpar-testes").onclick = async () => {
-  if (!confirm(t("mesario.confirmar_limpar", testes))) return;
+  const rotulo = t("mesario.limpar_testes", { n: testes.sessoes + testes.urnas });
+  const sim = await confirmar({
+    titulo: rotulo, acao: rotulo, perigo: true,
+    texto: t("mesario.confirmar_limpar", testes),
+  });
+  if (sim === null) return;
   try {
     const r = await api("POST", "/api/admin/testes/limpar");
     avisarFeito(t("mesario.testes_limpos", r));
@@ -425,7 +439,11 @@ function apagarSessao(s) {
     const aviso = perguntas
       ? t("mesario.confirmar_apagar_questionario", { tema: s.tema, n: perguntas, votos: s.votos })
       : t("mesario.confirmar_apagar_sessao", { tema: s.tema, votos: s.votos });
-    if (!confirm(aviso)) return;
+    const sim = await confirmar({
+      titulo: t("mesario.apagar_sessao"), acao: t("mesario.apagar_sessao"),
+      texto: aviso, perigo: true, campo: { rotulo: t("mesario.digite_o_tema") }, digitar: s.tema,
+    });
+    if (sim === null) return;
     try {
       const r = await api("DELETE", `/api/admin/sessoes/${s.id}`);
       avisarFeito(t("mesario.sessao_apagada", r));
@@ -493,7 +511,11 @@ async function acao(caminho, metodo = "POST", corpo) {
 }
 
 async function zerar(s) {
-  const confirmacao = prompt(t("mesario.confirmar_zerar", { tema: s.tema }));
+  const confirmacao = await confirmar({
+    titulo: t("mesario.zerar"), acao: t("mesario.zerar"), perigo: true,
+    texto: t("mesario.confirmar_zerar", { tema: s.tema }),
+    campo: { rotulo: t("mesario.digite_o_tema") }, digitar: s.tema,
+  });
   if (confirmacao === null) return;
   try {
     const { apagados } = await api("POST", `/api/admin/sessoes/${s.id}/zerar`, { confirmacao });
@@ -504,16 +526,29 @@ async function zerar(s) {
   }
 }
 
-async function avancar(id, estado) {
-  if (!confirm(t("mesario.confirmar_acao", { acao: PROXIMO[estado] }))) return;
+async function avancar(s) {
+  const passo = PROXIMO[s.estado];
+  const perigo = PERIGOSO.has(s.estado);
+  const sim = await confirmar({
+    titulo: t("mesario.confirmar_acao", { acao: passo.rotulo }),
+    texto: `${s.tema}\n${passo.aviso}`,
+    acao: passo.rotulo,
+    perigo,
+  });
+  if (sim === null) return;
   try {
-    await api("POST", `/api/admin/sessoes/${id}/avancar`);
+    await api("POST", `/api/admin/sessoes/${s.id}/avancar`);
   } catch (e) {
     const problemas = e.dados?.detail?.problemas;
     if (e.status === 409 && problemas) {
-      const texto = t("mesario.pendencias", { problemas: problemas.join("\n") });
-      if (!confirm(texto)) return;
-      await api("POST", `/api/admin/sessoes/${id}/avancar?forcar=true`);
+      const forcar = await confirmar({
+        titulo: t("mesario.pendencias_titulo"),
+        texto: problemas.join("\n"),
+        acao: passo.rotulo,
+        perigo: true,
+      });
+      if (forcar === null) return;
+      await api("POST", `/api/admin/sessoes/${s.id}/avancar?forcar=true`);
     } else {
       avisarErro(e.message);
       return;
@@ -638,7 +673,11 @@ window.mostrarUrnas = (urnas) => {
     cartao.appendChild(acoes);
     if (u.ativa) {
       acoes.appendChild(criarBotao(t("mesario.gerar_link"), async () => {
-        if (!confirm(t("mesario.confirmar_link", { id: u.id }))) return;
+        const sim = await confirmar({
+          titulo: t("mesario.gerar_link"), acao: t("mesario.gerar_link"), perigo: true,
+          texto: t("mesario.confirmar_link", { id: u.id }),
+        });
+        if (sim === null) return;
         try {
           const { id, token } = await api("POST", `/api/admin/urnas/${u.id}/novo-token`);
           prepararLink(id, token);
@@ -647,7 +686,10 @@ window.mostrarUrnas = (urnas) => {
         }
       }, "perigo"));
       acoes.appendChild(criarBotao(t("mesario.mudar_peso", { n: u.peso }), async () => {
-        const peso = prompt(t("mesario.pedir_peso", { id: u.id }), u.peso);
+        const peso = await confirmar({
+          titulo: t("mesario.mudar_peso", { n: u.peso }), acao: t("comum.salvar"),
+          campo: { rotulo: t("mesario.pedir_peso", { id: u.id }), valor: u.peso, tipo: "number" },
+        });
         if (peso === null) return;
         try {
           await api("POST", `/api/admin/urnas/${u.id}/peso`, { peso: Number(peso) });
@@ -656,16 +698,22 @@ window.mostrarUrnas = (urnas) => {
           avisarErro(e.status === 422 ? t("mesario.peso_invalido") : e.message);
         }
       }));
-      acoes.appendChild(criarBotao(t("mesario.desativar"), () => {
-        if (confirm(t("mesario.confirmar_desativar", { id: u.id }))) {
-          acao(`/api/admin/urnas/${u.id}/desativar`);
-        }
+      acoes.appendChild(criarBotao(t("mesario.desativar"), async () => {
+        const sim = await confirmar({
+          titulo: t("mesario.desativar"), acao: t("mesario.desativar"), perigo: true,
+          texto: t("mesario.confirmar_desativar", { id: u.id }),
+        });
+        if (sim !== null) acao(`/api/admin/urnas/${u.id}/desativar`);
       }, "perigo"));
     }
     // urna com votos fica: a auditoria mostra o nome dela ao lado dos votos
     if (!u.votos_total) {
       acoes.appendChild(criarBotao(t("mesario.apagar_urna"), async () => {
-        if (!confirm(t("mesario.confirmar_apagar_urna", { id: u.id }))) return;
+        const sim = await confirmar({
+          titulo: t("mesario.apagar_urna"), acao: t("mesario.apagar_urna"), perigo: true,
+          texto: t("mesario.confirmar_apagar_urna", { id: u.id }),
+        });
+        if (sim === null) return;
         try {
           window.mostrarUrnas(await api("DELETE", `/api/admin/urnas/${u.id}`).then(
             () => api("GET", "/api/admin/urnas")));
@@ -852,7 +900,10 @@ async function carregarContas() {
     const acoes = celula("");
     if (c.usuario !== eu) {
       acoes.append(criarBotao(t("mesario.redefinir_senha"), async () => {
-        const nova = prompt(t("mesario.pedir_nova_senha", { usuario: c.usuario }));
+        const nova = await confirmar({
+          titulo: t("mesario.redefinir_senha"), acao: t("comum.salvar"),
+          campo: { rotulo: t("mesario.pedir_nova_senha", { usuario: c.usuario }) },
+        });
         if (nova === null) return;
         try {
           await api("POST", `/api/admin/contas/${c.usuario}/senha`, { nova });
@@ -861,8 +912,12 @@ async function carregarContas() {
           avisarErro(e.status === 422 ? t("mesario.senha_curta") : e.message);
         }
       }), " ", c.ativa
-        ? criarBotao(t("mesario.desativar"), () => {
-          if (confirm(t("mesario.confirmar_desativar_conta", { usuario: c.usuario }))) alterarConta(c.usuario, { ativa: false });
+        ? criarBotao(t("mesario.desativar"), async () => {
+          const sim = await confirmar({
+            titulo: t("mesario.desativar"), acao: t("mesario.desativar"), perigo: true,
+            texto: t("mesario.confirmar_desativar_conta", { usuario: c.usuario }),
+          });
+          if (sim !== null) alterarConta(c.usuario, { ativa: false });
         }, "perigo")
         : criarBotao(t("mesario.reativar"), () => alterarConta(c.usuario, { ativa: true })));
     }
@@ -942,8 +997,12 @@ function linhaCartao(c) {
     titulo,
     criarBotao(t("mesario.exibir"), () => comandarCartao("POST", `/${c.id}/exibir`), "principal"),
     criarBotao(t("mesario.editar_cartao"), () => editarCartao(c)),
-    criarBotao(t("mesario.apagar"), () => {
-      if (confirm(t("mesario.confirmar_apagar_cartao", { titulo: c.titulo }))) comandarCartao("DELETE", `/${c.id}`);
+    criarBotao(t("mesario.apagar"), async () => {
+      const sim = await confirmar({
+        titulo: t("mesario.apagar"), acao: t("mesario.apagar"), perigo: true,
+        texto: t("mesario.confirmar_apagar_cartao", { titulo: c.titulo }),
+      });
+      if (sim !== null) comandarCartao("DELETE", `/${c.id}`);
     }, "perigo"),
   );
   return linha;
@@ -1055,10 +1114,15 @@ const ETAPAS = [
   { titulo: "mesario.etapa.votacao", minutos: 10 },
 ];
 
-function iniciarEtapa(titulo, minutos) {
+async function iniciarEtapa(titulo, minutos) {
   // trocar uma contagem em andamento por engano custa caro no meio da sessão
-  if (cronometro.visivel && cronometro.rodando
-      && !confirm(t("mesario.confirmar_trocar_cronometro", { titulo }))) return;
+  if (cronometro.visivel && cronometro.rodando) {
+    const sim = await confirmar({
+      titulo: t("mesario.trocar_contagem"), acao: t("mesario.trocar_contagem"), perigo: true,
+      texto: t("mesario.confirmar_trocar_cronometro", { titulo }),
+    });
+    if (sim === null) return;
+  }
   $("crono-titulo").value = titulo;
   $("crono-minutos").value = minutos;
   comandarCronometro("POST", "", { titulo, minutos });
@@ -1118,7 +1182,11 @@ $("arquivo-fila").onchange = async (e) => {
   if (dados?.formato !== "veredicto-fila" || !Array.isArray(dados.votos) || !dados.urna_id) {
     return resumirImportacao([t("mesario.nao_e_fila", { arquivo: arquivo.name })], true);
   }
-  if (!confirm(t("mesario.confirmar_importar", { n: dados.votos.length, urna: dados.urna_id }))) return;
+  const sim = await confirmar({
+    titulo: t("mesario.importar_votos"), acao: t("mesario.importar_votos"),
+    texto: t("mesario.confirmar_importar", { n: dados.votos.length, urna: dados.urna_id }),
+  });
+  if (sim === null) return;
 
   try {
     const r = await api("POST", "/api/admin/importar", { urna_id: dados.urna_id, votos: dados.votos });
