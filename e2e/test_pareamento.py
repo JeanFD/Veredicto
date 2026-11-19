@@ -56,3 +56,15 @@ def test_admin_apaga_urna_desativada(painel: Page, admin):  # noqa: F811
     confirmar(painel, "Apagar urna")
     expect(painel.locator("#urnas .urna", has_text=uid)).to_have_count(0)
     assert all(u["id"] != uid for u in admin.http.get("/api/admin/urnas").json())
+
+def test_pedido_de_cadastro_aparece_na_aba(painel: Page, admin):  # noqa: F811
+    """#134: o pedido só se via dentro da aba Urnas; em Sessões ninguém sabia dele."""
+    aba = painel.get_by_role("tab", name="Urnas")
+    expect(aba.locator(".contador")).to_have_count(0)
+
+    pedido = painel.request.post("/api/urnas/pedido").json()
+    expect(aba.locator(".contador")).to_have_text("1", timeout=15000)
+
+    # recusado, a marca some sozinha
+    admin.http.delete(f"/api/admin/pedidos/{pedido['codigo']}").raise_for_status()
+    expect(aba.locator(".contador")).to_have_count(0, timeout=15000)
