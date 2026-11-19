@@ -55,6 +55,16 @@ MENSAGENS = {
     "opcoes_repetidas": {"pt": "Opções repetidas", "en": "Duplicate options"},
     "perguntas_repetidas": {"pt": "Perguntas repetidas", "en": "Duplicate questions"},
     "tema_existente": {"pt": "Já existe uma sessão com este tema", "en": "A session with this topic already exists"},
+    "opcoes_com_votos": {
+        "pt": "A pergunta \"{tema}\" já foi aberta: as opções não mudam mais, só o texto do tema",
+        "en": "Question \"{tema}\" has already been opened: its options can no longer change, only the topic text",
+    },
+    "perguntas_com_votos": {
+        "pt": "O questionário já começou: dá para mudar os textos, mas não incluir, tirar ou reordenar perguntas",
+        "en": "The questionnaire has already started: texts can change, but questions cannot be added, removed or reordered",
+    },
+    "pergunta_de_outra_sessao": {"pt": "Pergunta não pertence a esta sessão", "en": "Question does not belong to this session"},
+    "pergunta_em_cena": {"pt": "Ative outra sessão antes de tirar esta pergunta", "en": "Activate another session before removing this question"},
     "desarquive_antes": {"pt": "Desarquive a sessão antes de ativá-la", "en": "Unarchive the session before activating it"},
     "revele_anterior": {
         "pt": "Revele a pergunta anterior antes de liberar esta",
