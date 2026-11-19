@@ -77,3 +77,31 @@ def test_apuracao_corre_antes_de_coroar(browser, browser_context_args, base_url,
     larguras = cartoes.evaluate_all("cs => cs.map(c => c.getBoundingClientRect().width)")
     assert larguras[1] > larguras[0] * 1.3, larguras
     contexto.close()
+
+def test_telao_avisa_quando_a_conexao_cai(page: Page, sessao_aberta):
+    """#121: antes o telão congelava no último número sem dizer nada à sala."""
+    tomadas = []
+
+    def interceptar(ws):
+        tomadas.append(ws)
+        ws.connect_to_server()
+
+    page.route_web_socket("**/ws/telao", interceptar)
+    page.goto("/telao/")
+    expect(page.locator("#total")).to_have_text("0")
+    expect(page.locator("#sem-rede")).to_be_hidden()
+
+    tomadas[0].close()
+    expect(page.locator("#sem-rede")).to_be_visible()
+    # o telão religa sozinho e a marca some
+    expect(page.locator("#sem-rede")).to_be_hidden(timeout=15000)
+
+def test_som_do_telao_fica_armado_com_um_clique(page: Page):
+    """#121: contexto criado na hora do apito nasce suspenso e o apito some calado."""
+    page.goto("/telao/")
+    page.evaluate("som.suspend()")
+    expect(page.locator("#ligar-som")).to_be_visible()
+
+    page.get_by_role("button", name="ligar o som").click()
+    expect(page.locator("#ligar-som")).to_be_hidden()
+    assert page.evaluate("som.state") == "running"
