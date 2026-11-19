@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 import httpx
 from playwright.sync_api import Page, expect
 
+from e2e.conftest import OPCOES
+
 def votar_pela_api(base_url, token, sid, opcao):
     httpx.post(f"{base_url}/api/votos", headers={"X-Urna-Token": token}, json={
         "id": str(uuid.uuid4()), "sessao_id": sid, "opcao": opcao,
@@ -105,3 +107,68 @@ def test_som_do_telao_fica_armado_com_um_clique(page: Page):
     page.get_by_role("button", name="ligar o som").click()
     expect(page.locator("#ligar-som")).to_be_hidden()
     assert page.evaluate("som.state") == "running"
+
+PARAGRAFO = ("A plataforma não é neutra: o algoritmo escolhe ativamente o que viraliza, "
+             "e a escolha tem consequências que o direito já sabe nomear.")
+
+def cartao_no_telao(admin, texto: str) -> None:
+    cartao = admin.post("/api/admin/cartoes", json={
+        "pasta": f"E2E {uuid.uuid4().hex[:6]}", "titulo": "E2E pano de fundo",
+        "texto": texto, "fonte": "",
+    })
+    admin.post(f"/api/admin/cartoes/{cartao['id']}/exibir")
+
+def medir_cartao(page: Page) -> dict:
+    return page.evaluate("""() => {
+      const texto = document.getElementById('cartao-texto').getBoundingClientRect();
+      const qr = document.getElementById('celular').getBoundingClientRect();
+      const cartao = document.getElementById('cartao');
+      return { textoDireita: texto.right, qrEsquerda: qr.left,
+               sobra: cartao.scrollHeight - cartao.clientHeight };
+    }""")
+
+def test_cartao_cabe_inteiro_e_desvia_do_qr(page: Page, admin):
+    """#126: em 1366x768 o QR cobria o texto e o resto do cartão era cortado calado."""
+    chave = admin.http.get("/api/admin/telao").json()["chave"]
+    sid = admin.post("/api/admin/sessoes", json={
+        "tema": f"E2E cartão {uuid.uuid4().hex[:8]}", "opcoes": OPCOES, "celular": True})["id"]
+    admin.post(f"/api/admin/sessoes/{sid}/ativar")
+    admin.avancar(sid)
+    cartao_no_telao(admin, "\n\n".join([PARAGRAFO] * 7))
+
+    page.set_viewport_size({"width": 1366, "height": 768})
+    page.goto(f"/telao/#chave={chave}")
+    expect(page.locator("#cartao")).to_be_visible()
+    expect(page.locator("#celular")).to_be_visible()
+
+    medidas = medir_cartao(page)
+    assert medidas["textoDireita"] <= medidas["qrEsquerda"], medidas
+    assert medidas["sobra"] <= 0, medidas
+    expect(page.locator("#cartao.cortado")).to_have_count(0)
+
+def test_cartao_longo_demais_avisa_que_continua(page: Page, admin):
+    """#126: abaixo do piso o corte acontece, e aí a sala precisa saber."""
+    page.set_viewport_size({"width": 1366, "height": 768})
+    page.goto("/telao/")
+    cartao_no_telao(admin, "\n\n".join([PARAGRAFO] * 25))
+    expect(page.locator("#cartao.cortado")).to_have_count(1)
+
+def test_faixa_de_teste_nao_cobre_o_cabecalho(page: Page, admin):
+    """#126: a faixa é fixa no topo e escondia a marca, a situação e o pedido de som."""
+    sid = admin.post("/api/admin/sessoes", json={
+        "tema": f"E2E ensaio {uuid.uuid4().hex[:8]}", "opcoes": OPCOES, "teste": True})["id"]
+    admin.post(f"/api/admin/sessoes/{sid}/ativar")
+    page.goto("/telao/")
+    expect(page.locator("#faixa-teste")).to_be_visible()
+    medidas = page.evaluate("""() => ({
+      topo: document.querySelector('.topo').getBoundingClientRect().top,
+      faixa: document.getElementById('faixa-teste').getBoundingClientRect().bottom,
+    })""")
+    assert medidas["topo"] >= medidas["faixa"], medidas
+
+def test_botao_de_tela_cheia(page: Page):
+    """#126: no projetor era F11 na mão, numa janela aberta por window.open."""
+    page.goto("/telao/")
+    page.get_by_role("button", name="tela cheia").click()
+    expect(page.get_by_role("button", name="sair da tela cheia")).to_be_visible()
+    assert page.evaluate("Boolean(document.fullscreenElement)")
