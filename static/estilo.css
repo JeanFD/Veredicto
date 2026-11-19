@@ -24,7 +24,8 @@
 }
 
 * { box-sizing: border-box; }
-html { background: var(--fundo); color: var(--texto); }
+html { background: var(--fundo); color: var(--texto);
+       scroll-padding-top: calc(var(--altura-faixa, 0px) + 4rem); }
 body { margin: 0; font: 15px/1.5 var(--fonte); -webkit-font-smoothing: antialiased; }
 h1, h2, h3 { line-height: 1.25; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
 h1 { font-size: 1.6rem; }
@@ -52,10 +53,15 @@ small, .suave { color: var(--texto-2); }
                       padding: 0.3rem 0.65rem; font-size: 0.8rem; }
 .topo .acoes button:hover { background: rgba(255, 255, 255, 0.12); }
 @media (max-width: 560px) {
-  .topo .faixa { gap: 0.5rem; padding: 0 0.75rem; }
+  .topo .faixa { gap: 0.4rem; padding: 0 0.75rem; }
   .marca span { display: none; }
-  .topo nav a { padding: 0.35rem 0.45rem; font-size: 0.85rem; }
+  /* "Auditoria" ficava fora da tela, num nav que rola sem nada indicar que rola */
+  .topo nav a { padding: 0.35rem 0.4rem; font-size: 0.8rem; }
+  .topo .acoes { gap: 0.35rem; }
   .abas button { padding: 0.7rem 0.6rem; font-size: 0.85rem; }
+  /* o nome da conta empurrava "Auditoria" para fora da tela; quem está logado sabe
+     quem é, e o nome continua na aba Contas */
+  .conta-atual { display: none; }
 }
 
 /* ---------- página ---------- */
@@ -151,8 +157,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tabela { overflow-x: auto; }
 
 /* ---------- abas ---------- */
+/* grudam logo abaixo da faixa de estado: rolando a lista, trocar de aba continua a um
+   toque. A altura da faixa muda com o conteúdo, então o painel a publica em --altura-faixa. */
 .abas { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--borda); margin-bottom: 1.25rem;
-        overflow-x: auto; scrollbar-width: none; }
+        overflow-x: auto; scrollbar-width: none;
+        position: sticky; top: var(--altura-faixa, 0px); z-index: 1; background: var(--fundo); }
 .abas button { border: none; background: none; border-radius: 0; padding: 0.75rem 1rem;
                color: var(--texto-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .abas button:hover { color: var(--texto); background: none; }
