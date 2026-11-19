@@ -290,7 +290,8 @@ function mostrarEstado(m, aoVivo) {
   $("contagem").hidden = false;
 }
 
-// 3·2·1 em 1,5s: a revelação não atrasa mais que isso
+// 3·2·1 com um segundo por número, no ritmo de quem conta em voz alta: em meio
+// segundo a sala não acompanhava e a contagem parecia um piscar
 function regressiva(depois) {
   if (semMovimento || !aparencia.revelacao.regressiva) return depois();
   const tela = $("regressiva");
@@ -306,7 +307,7 @@ function regressiva(depois) {
     Sons.regressiva(n);
     numero.textContent = n--;
     tela.appendChild(numero);
-    setTimeout(tique, 500);
+    setTimeout(tique, 1000);
   };
   tique();
 }
