@@ -10,6 +10,7 @@ import unicodedata
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.security import HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
 
@@ -28,11 +29,11 @@ from app.observabilidade import formato_prometheus, log, metricas
 from app.i18n import idioma_atual, idioma_do_cabecalho, msg
 from app.seguranca import exigir_admin, exigir_mesario, exigir_monitor, hash_token, exigir_urna, conta_com_senha
 from app.contas import (
-    PAPEIS, SENHA_MINIMA, abrir_login, admins_ativos, confere, conta_do_token, criar_conta,
-    encerrar_login, encerrar_logins, trocar_senha,
+    PAPEIS, SENHA_MINIMA, abrir_login, admins_ativos, confere, conta_do_token, conta_por_senha,
+    criar_conta, encerrar_login, encerrar_logins, trocar_senha,
 )
 from app.seguranca import (
-    JANELA_CODIGO, chave_telao, codigo_celular, codigo_valido, exigir_telao, janela_atual,
+    JANELA_CODIGO, basic, chave_telao, codigo_celular, codigo_valido, exigir_telao, janela_atual,
 )
 
 @asynccontextmanager
@@ -1200,7 +1201,16 @@ def descrever_evento(tipo: str, campos: dict) -> str | None:
         return f"Peso do voto por celular alterado para {campos.get('peso')}"
     return None
 
-def eventos_publicos(sid: int) -> list[dict]:
+def quem_olha(request: Request, cred: HTTPBasicCredentials | None) -> bool:
+    """True quando o pedido traz um login válido. Quem fez cada coisa interessa à mesa,
+    não à rua: o nome do operador só sai para quem entrou com conta. Senha errada aqui
+    não conta para o bloqueio — a página é pública e qualquer um bate nela."""
+    cabecalho = request.headers.get("Authorization", "")
+    if cabecalho.startswith("Bearer "):
+        return bool(conta_do_token(cabecalho.removeprefix("Bearer ")))
+    return bool(cred and conta_por_senha(cred.username, cred.password))
+
+def eventos_publicos(sid: int, com_autor: bool) -> list[dict]:
     publicos = []
     for e in db.execute("SELECT tipo, detalhe, em FROM eventos ORDER BY id"):
         campos = dict(p.split("=", 1) for p in e["detalhe"].split() if "=" in p)
@@ -1208,13 +1218,21 @@ def eventos_publicos(sid: int) -> list[dict]:
             continue
         texto = descrever_evento(e["tipo"], campos)
         if texto:
-            publicos.append({"em": e["em"], "evento": texto, "por": campos.get("por", "")})
+            evento = {"em": e["em"], "evento": texto}
+            if com_autor:
+                evento["por"] = campos.get("por", "")
+            publicos.append(evento)
     return publicos
 
 @app.get("/api/auditoria/sessoes")
 async def auditoria_sessoes():
-    linhas = db.execute("SELECT * FROM sessoes WHERE estado = 'REVELADA' AND teste = 0 ORDER BY id")
-    return [{"id": l["id"], "tema": l["tema"], **pergunta_publica(l)} for l in linhas]
+    # da mais recente para a mais antiga: a lista cresce a cada júri
+    linhas = db.execute("SELECT * FROM sessoes WHERE estado = 'REVELADA' AND teste = 0 ORDER BY id DESC")
+    return [
+        {"id": l["id"], "tema": l["tema"], "caso": l["caso"] or "", "grupo_id": l["grupo_id"],
+         "encerrada_em": l["encerrada_em"], **pergunta_publica(l)}
+        for l in linhas
+    ]
 
 def pergunta_publica(s) -> dict:
     # só a posição: o id da próxima pergunta não interessa ao público
@@ -1222,7 +1240,8 @@ def pergunta_publica(s) -> dict:
     return {"pergunta": p["pergunta"], "total_perguntas": p["total_perguntas"]}
 
 @app.get("/api/auditoria/sessoes/{sid}")
-async def auditoria_sessao(sid: int):
+async def auditoria_sessao(sid: int, request: Request,
+                           cred: HTTPBasicCredentials | None = Depends(basic)):
     sessao = db.execute("SELECT * FROM sessoes WHERE id = ?", (sid,)).fetchone()
     # mesma resposta para inexistente e não revelada: não confirma nada antes da hora
     if not sessao or sessao["estado"] != "REVELADA" or sessao["teste"]:
@@ -1241,11 +1260,12 @@ async def auditoria_sessao(sid: int):
     return {
         "id": sessao["id"],
         "tema": sessao["tema"],
+        "caso": sessao["caso"] or "",
         **pergunta_publica(sessao),
         "total": total_votos(sid),
         "resultado": contar_por_opcao(sid),
         "por_urna": por_urna,
-        "eventos": eventos_publicos(sid),
+        "eventos": eventos_publicos(sid, quem_olha(request, cred)),
     }
 
 # ---------- Voto por celular ----------
