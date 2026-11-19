@@ -150,7 +150,7 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.id_rotulo": "Identificador",
     "mesario.nome_rotulo": "Nome",
     "mesario.recuperar_titulo": "Recuperar votos de urna isolada",
-    "mesario.recuperar_ajuda": "Envie o arquivo exportado pela urna que ficou sem rede até o fim da votação.",
+    "mesario.recuperar_ajuda": "Envie o arquivo exportado pela urna que ficou sem rede até o fim da votação. Para gerar o arquivo na urna, toque cinco vezes seguidas no identificador dela, no rodapé da tela: o botão de exportar aparece.",
     "mesario.monitor_ajuda": "Votos por minuto, latência e urnas online.",
     "mesario.auditoria": "Auditoria pública",
     "mesario.auditoria_ajuda": "Resultado e linha do tempo das sessões reveladas, abertos a qualquer pessoa.",
@@ -401,7 +401,10 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.digite_o_tema": "Para confirmar, digite o tema da sessão",
     "mesario.digite_para_confirmar": "Para confirmar, digite: {texto}",
     "mesario.trocar_contagem": "Trocar a contagem",
-    "mesario.importar_votos": "Importar votos"
+    "mesario.importar_votos": "Importar votos",
+    "mesario.baixar_votos": "Baixar votos (CSV)",
+    "mesario.votos_baixados": "Arquivo {arquivo} baixado.",
+    "mesario.aba_urnas_pedidos": "Urnas ({n} pedindo cadastro)"
   },
   "en": {
     "comum.carregando": "Loading…",
@@ -545,7 +548,7 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.id_rotulo": "Identifier",
     "mesario.nome_rotulo": "Name",
     "mesario.recuperar_titulo": "Recover votes from an offline ballot box",
-    "mesario.recuperar_ajuda": "Upload the file exported by the ballot box that stayed offline until the end of the vote.",
+    "mesario.recuperar_ajuda": "Upload the file exported by the ballot box that stayed offline until the end of the vote. To create the file on the ballot box, tap its identifier in the footer five times in a row: the export button appears.",
     "mesario.monitor_ajuda": "Votes per minute, latency and ballot boxes online.",
     "mesario.auditoria": "Public audit",
     "mesario.auditoria_ajuda": "Result and timeline of revealed sessions, open to anyone.",
@@ -796,7 +799,10 @@ const TEXTOS = /* textos:inicio */ {
     "mesario.digite_o_tema": "To confirm, type the session topic",
     "mesario.digite_para_confirmar": "To confirm, type: {texto}",
     "mesario.trocar_contagem": "Replace the countdown",
-    "mesario.importar_votos": "Import votes"
+    "mesario.importar_votos": "Import votes",
+    "mesario.baixar_votos": "Download votes (CSV)",
+    "mesario.votos_baixados": "File {arquivo} downloaded.",
+    "mesario.aba_urnas_pedidos": "Ballot boxes ({n} requesting setup)"
   }
 } /* textos:fim */;
 
