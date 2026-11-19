@@ -124,6 +124,7 @@ function confirmar(sessao, op) {
 }
 
 async function votar(op) {
+  Sons.preparar(); // ainda dentro do toque no "Confirmar": depois do envio já não vale
   // o id do voto é guardado antes do envio: um reenvio após queda de rede não duplica
   if (!minhaCedula().voto_id) guardarCedula({ voto_id: crypto.randomUUID() });
   tela(t("comum.enviando"));
@@ -140,6 +141,7 @@ async function votar(op) {
     $("tema").innerHTML = '<span class="carimbo">✓</span>';
     $("tema").append(t("comum.voto_registrado"));
     document.body.className = "sucesso";
+    if (r.ok) Sons.voto();
     return aguardarProxima();
   }
   if (r.motivo === "sessao_fechada") return tela(t("celular.encerrada"), "recusa");
@@ -191,3 +193,5 @@ function semConexao(tentarDeNovo) {
 }
 
 iniciar();
+
+Sons.prepararNoToque();
