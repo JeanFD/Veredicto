@@ -57,3 +57,30 @@ def test_editar_e_apagar_cartao(painel: Page):  # noqa: F811
     painel.locator(".sessao", has_text=titulo).get_by_role("button", name="Apagar").click()
     confirmar(painel, "Apagar")
     expect(painel.locator(".sessao", has_text=titulo)).to_have_count(0)
+
+def test_cartao_so_com_titulo_fica_grande_no_meio(painel: Page):  # noqa: F811
+    """Sem texto, o cartão é só o título, na letra do tema da sessão: telas de abertura."""
+    titulo = f"E2E soberania digital {uuid.uuid4().hex[:6]}"
+    painel.get_by_role("tab", name="Cartões").click()
+    painel.get_by_label("Pasta do caso").fill(f"E2E roteiro {uuid.uuid4().hex[:6]}")
+    painel.get_by_label("Título").fill(titulo)
+    painel.get_by_role("button", name="Salvar cartão").click()
+    linha = painel.locator(".sessao", has_text=titulo)
+    expect(linha).to_be_visible()
+
+    telao = painel.context.new_page()
+    telao.goto("/telao/")
+    linha.get_by_role("button", name="Exibir").click()
+    try:
+        expect(telao.locator("#cartao-titulo")).to_have_text(titulo)
+        # na letra cheia: nem encolhido pelo ajuste de tamanho, nem marcado como cortado
+        expect(telao.locator("#cartao")).to_have_class("so-titulo")
+        assert telao.locator("#cartao").evaluate("c => c.style.getPropertyValue('--escala')") == "1"
+        expect(telao.locator("#cartao-texto")).to_be_hidden()
+        tamanho = telao.locator("#cartao-titulo").evaluate("e => parseFloat(getComputedStyle(e).fontSize)")
+        assert tamanho >= 32, tamanho
+    finally:
+        # o servidor dos E2E é um só: o cartão não pode ficar no telão dos testes seguintes
+        painel.get_by_role("button", name="Tirar cartão do telão").click()
+    expect(telao.locator("#cartao")).to_be_hidden()
+    telao.close()

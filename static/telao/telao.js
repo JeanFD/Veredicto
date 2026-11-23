@@ -146,6 +146,8 @@ function mostrarCartao(cartao) {
   if (!cartao) return;
   $("cartao-titulo").textContent = cartao.titulo;
   $("cartao-texto").replaceChildren(...blocosDoTexto(cartao.texto));
+  // sem texto, o cartão é só o título: grande e no meio, no tamanho do tema da sessão
+  $("cartao").classList.toggle("so-titulo", !cartao.texto.trim());
   $("cartao-fonte").hidden = !cartao.fonte;
   $("cartao-fonte").textContent = cartao.fonte ? t("telao.fonte", { fonte: dominio(cartao.fonte) }) : "";
   ajustarCartao();
@@ -156,17 +158,21 @@ function mostrarCartao(cartao) {
 // abaixo do piso o corte acontece, e aí o "…" diz que o texto continua.
 const PISO_ESCALA = 0.6;
 
+// scrollHeight arredonda para cima e clientHeight para baixo: 1 px de diferença é só
+// arredondamento, e encolhia um cartão que cabia (o título sozinho, por exemplo)
+const naoCabe = (cartao) => cartao.scrollHeight > cartao.clientHeight + 1;
+
 function ajustarCartao() {
   const cartao = $("cartao");
   if (cartao.hidden) return;
   let escala = 1;
   cartao.classList.remove("cortado");
   cartao.style.setProperty("--escala", escala);
-  while (escala > PISO_ESCALA && cartao.scrollHeight > cartao.clientHeight) {
+  while (escala > PISO_ESCALA && naoCabe(cartao)) {
     escala -= 0.05;
     cartao.style.setProperty("--escala", escala.toFixed(2));
   }
-  cartao.classList.toggle("cortado", cartao.scrollHeight > cartao.clientHeight);
+  cartao.classList.toggle("cortado", naoCabe(cartao));
 }
 
 addEventListener("resize", ajustarCartao);
