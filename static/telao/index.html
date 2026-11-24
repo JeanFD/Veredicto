@@ -140,6 +140,14 @@
     body.com-qr #cartao { padding-right: calc(var(--qr) + var(--margem)); }
     #cartao h2 { margin: 0 0 0.6em; text-align: center; letter-spacing: -0.02em;
                  font-size: calc(clamp(1.6rem, 3.2vw, 2.9rem) * var(--escala, 1)); }
+    /* cartão só com título: a mesma letra do tema da sessão, no meio do palco */
+    #cartao.so-titulo { text-align: center; }
+    /* o padding guarda as descendentes (g, ç, p): com a entrelinha justa elas passavam
+       da caixa, e o ajuste do cartão lia isso como texto que não cabe e encolhia tudo */
+    #cartao.so-titulo h2 { margin: 0 auto; padding: 0.06em 0 0.14em; max-width: 24ch; font-weight: 800; line-height: 1.04;
+                           letter-spacing: -0.035em; text-wrap: balance;
+                           font-size: calc(clamp(2rem, 4.6vw, 4.4rem) * var(--escala, 1)); }
+    #cartao.so-titulo #cartao-texto { display: none; }
     #cartao-texto { font-size: calc(clamp(1rem, 1.75vw, 1.75rem) * var(--escala, 1)); line-height: 1.5; }
     #cartao-texto p { margin: 0 0 1em; }
     #cartao-texto ul { margin: 0 0 1em; padding-left: 1.5em; }
@@ -263,6 +271,6 @@
   <script src="/i18n.js?v=2"></script>
   <script src="/sons.js?v=3"></script>
   <script src="/cores.js?v=2"></script>
-  <script src="telao.js?v=8"></script>
+  <script src="telao.js?v=9"></script>
 </body>
 </html>

@@ -110,14 +110,16 @@ class NovoCartao(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     pasta: str = Field(min_length=1, max_length=60)
     titulo: str = Field(min_length=1, max_length=120)
-    texto: str = Field(min_length=1, max_length=noticia.LIMITE_TEXTO)
+    # texto em branco: o cartão é só o título, grande no meio do telão (abertura,
+    # tema do debate, intervalo)
+    texto: str = Field("", max_length=noticia.LIMITE_TEXTO)
     fonte: str = Field("", max_length=300)
 
 class CartaoAlterado(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     pasta: str | None = Field(None, min_length=1, max_length=60)
     titulo: str | None = Field(None, min_length=1, max_length=120)
-    texto: str | None = Field(None, min_length=1, max_length=noticia.LIMITE_TEXTO)
+    texto: str | None = Field(None, max_length=noticia.LIMITE_TEXTO)
     fonte: str | None = Field(None, max_length=300)
 
 class LinkNoticia(BaseModel):

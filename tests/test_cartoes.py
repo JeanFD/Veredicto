@@ -79,10 +79,23 @@ def test_cartoes_exigem_mesario(cliente):
 
 @pytest.mark.parametrize("dados", [
     {"pasta": "", "titulo": "T", "texto": "x"}, {"pasta": "P", "titulo": "", "texto": "x"},
-    {"pasta": "P", "titulo": "T", "texto": ""}, {"pasta": "P", "titulo": "T", "texto": "x" * 4001},
+    {"pasta": "P", "titulo": "T", "texto": "x" * 4001},
 ])
 def test_cartao_invalido(cliente, dados):
     assert cliente.post("/api/admin/cartoes", json=dados, auth=ADMIN).status_code == 422
+
+def test_cartao_so_com_titulo(cliente):
+    """Texto em branco vale: o telão mostra só o título, grande (abertura, tema do debate)."""
+    r = cliente.post("/api/admin/cartoes", auth=ADMIN,
+                     json={"pasta": "Roteiro da sessão", "titulo": "Soberania digital"})
+    assert r.status_code == 201, r.text
+    cid = r.json()["id"]
+    salvo = next(c for c in cliente.get("/api/admin/cartoes", auth=ADMIN).json() if c["id"] == cid)
+    assert salvo["texto"] == ""
+    r = cliente.patch(f"/api/admin/cartoes/{cid}", auth=ADMIN, json={"texto": "Agora com texto."})
+    assert r.status_code == 200, r.text
+    r = cliente.patch(f"/api/admin/cartoes/{cid}", auth=ADMIN, json={"texto": "   "})
+    assert r.status_code == 200 and r.json()["texto"] == ""
 
 # ---------- trazer de um link ----------
 def test_importar_tira_manchete_e_texto(cliente, monkeypatch):
